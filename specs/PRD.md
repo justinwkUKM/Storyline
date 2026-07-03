@@ -281,6 +281,7 @@ The user saves generated or edited presentation data to their account, returns t
 - Authenticated users must see a saved deck library before starting a new presentation.
 - The library must show saved deck title, created timestamp, and updated timestamp.
 - The library must support refresh, open, delete, and create-new actions.
+- The library must support a direct present action that launches the saved deck in presentation mode without opening the editor first.
 - Empty library state must guide the user to create a new deck.
 - Deleting a deck must remove it only from the current authenticated user's library.
 - Opening a deck must load its saved `PresentationData`, `ThemeName`, and optional `CustomizationSettings` into the existing editor/presenter flow.

@@ -93,11 +93,13 @@ Required areas:
 - Refresh action.
 - New presentation action.
 - Open and delete actions per deck.
+- Direct present action per deck for launching the saved presentation without opening the editor.
 
 Design guidance:
 
 - Treat the library as an operational dashboard, not a landing page.
 - Show deck title and last updated timestamp prominently.
+- Expose both edit and present paths in each deck card so the user can choose between refinement and immediate playback.
 - Keep delete controls visually secondary and confirm before destructive actions.
 - Empty state should point directly to creating a new deck.
 - Loading states should be centered inside the library content area.

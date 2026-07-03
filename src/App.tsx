@@ -217,6 +217,21 @@ export default function App() {
     }
   };
 
+  const presentDeck = async (id: string) => {
+    setDecksError(null);
+    try {
+      const data = await apiRequest<{ deck: SavedDeck }>(`/api/decks/${id}`);
+      setCurrentDeckId(data.deck.id);
+      setDraftPresentation(null);
+      setPresentation(data.deck.presentationData);
+      setTheme(data.deck.theme);
+      setCustomSettings(data.deck.customSettings);
+      setShowLibrary(false);
+    } catch (err) {
+      setDecksError(err instanceof Error ? err.message : 'Failed to open deck');
+    }
+  };
+
   const deleteDeck = async (id: string) => {
     const shouldDelete = window.confirm('Delete this saved deck? This cannot be undone.');
     if (!shouldDelete) return;
@@ -360,6 +375,7 @@ export default function App() {
               error={decksError}
               onNew={startNewPresentation}
               onOpen={openDeck}
+              onPresent={presentDeck}
               onDelete={deleteDeck}
               onRefresh={refreshDecks}
             />
