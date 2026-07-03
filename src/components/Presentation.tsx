@@ -1042,32 +1042,32 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
       </div>
 
       {/* UnifiedFrosted Presenter Control Bar (Horizontal layout placed underneath slide box - NO OVERLAP) */}
-      <div className="w-full max-w-5xl mt-6 flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3.5 bg-black/85 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-xl z-50 transition-all">
+      <div className="w-full max-w-5xl mt-6 flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3.5 bg-lime-950/95 border border-lime-800/40 backdrop-blur-md rounded-3xl shadow-xl z-50 transition-all">
         {/* Left segment: Slideshow Controls & Info */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-white/5 rounded-full p-1 border border-white/5">
+          <div className="flex items-center gap-1 bg-white/10 rounded-full p-1 border border-white/10">
             <button
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
               title="Previous Slide"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="text-xs font-mono font-bold text-white/90 px-3">
+            <span className="text-xs font-mono font-black text-lime-200 px-3">
               {currentIndex + 1} / {data.slides.length}
             </span>
             <button
               onClick={handleNext}
               disabled={currentIndex === data.slides.length - 1}
-              className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
               title="Next Slide"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="hidden lg:block text-[11px] font-bold text-white/50 uppercase tracking-widest truncate max-w-[200px]">
+          <div className="hidden lg:block text-[11px] font-black text-lime-300/60 uppercase tracking-widest truncate max-w-[200px]">
             {data.title}
           </div>
         </div>
@@ -1077,7 +1077,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
           {onEdit && (
             <button
               onClick={onEdit}
-              className="px-4 py-2 rounded-full text-xs font-bold bg-lime-500 hover:bg-lime-400 active:scale-95 text-lime-950 flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-lime-300/40"
+              className="px-4 py-2 rounded-full text-xs font-black bg-lime-400 hover:bg-lime-300 active:scale-95 text-lime-950 flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-lime-300/40"
               title="Edit Slide Content & Visuals"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -1094,7 +1094,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
             <div className="flex items-center gap-2">
               <button
                 onClick={exportToPDF}
-                className="px-4 py-2 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 title="Download High-Res Presentation PDF"
               >
                 <Download className="w-3.5 h-3.5 text-lime-400" />
@@ -1103,7 +1103,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
               
               <button
                 onClick={exportToPPTX}
-                className="px-4 py-2 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 title="Download Editable PowerPoint (PPTX)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
@@ -1116,7 +1116,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
 
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-lime-300/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
             title="Toggle Fullscreen Mode"
           >
             <Maximize className="w-4.5 h-4.5" />

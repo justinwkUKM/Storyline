@@ -19,7 +19,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { DeckLibrary } from './components/DeckLibrary';
 import { LandingPage } from './components/LandingPage';
 import { AnimatePresence, motion } from 'motion/react';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, Zap } from 'lucide-react';
 
 async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
@@ -141,7 +141,7 @@ export default function App() {
     }
 
     try {
-      const data = await apiRequest<PresentationData>('/api/generate', {
+      const data = await apiRequest<PresentationData & { creditsRemaining?: number }>('/api/generate', {
         method: 'POST',
         body: formData,
       });
@@ -149,6 +149,9 @@ export default function App() {
       if (data && data.slides && data.slides.length > 0) {
         setDraftPresentation(data);
         setShowLibrary(false);
+        if (typeof data.creditsRemaining === 'number' && user) {
+          setUser({ ...user, credits: data.creditsRemaining });
+        }
       } else {
         throw new Error('Received invalid presentation structure from server');
       }
@@ -257,7 +260,21 @@ export default function App() {
             </div>
             <span className="text-xl font-black text-lime-950">Storyline</span>
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Premium Credit Badge */}
+            <div 
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-lime-100/60 border border-lime-200/60 rounded-full text-xs font-black text-lime-950 shadow-sm relative group cursor-pointer"
+              title={`Credits automatically renew on ${new Date(new Date(user.creditsResetAt).setMonth(new Date(user.creditsResetAt).getMonth() + 1)).toLocaleDateString()}`}
+            >
+              <Zap className="w-3.5 h-3.5 text-lime-700 animate-pulse" />
+              <span>{user.credits} / 100 Credits</span>
+              
+              {/* Tooltip */}
+              <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-lime-950 text-lime-100 text-[10px] p-2.5 rounded-xl shadow-lg font-bold w-48 text-center z-50">
+                Resets to 100 on {new Date(new Date(user.creditsResetAt).setMonth(new Date(user.creditsResetAt).getMonth() + 1)).toLocaleDateString()}
+              </div>
+            </div>
+
             <span className="text-sm text-lime-900/70 hidden sm:block">{user.email}</span>
             <button
               onClick={handleLogout}
@@ -357,7 +374,7 @@ export default function App() {
               </div>
             )}
 
-            <Uploader onGenerate={handleGenerate} isLoading={isLoading} />
+            <Uploader onGenerate={handleGenerate} isLoading={isLoading} user={user} />
 
             <AnimatePresence>
               {isLoading && (

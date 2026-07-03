@@ -165,14 +165,6 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
           </motion.div>
 
-          <motion.div
-            animate={reduceMotion ? undefined : { y: [0, -14, 0], rotate: [2, -2, 2] }}
-            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute right-[34rem] top-28 hidden xl:flex rounded-2xl bg-white border border-lime-200 shadow-xl shadow-lime-950/10 px-4 py-3 items-center gap-3"
-          >
-            <Save className="w-5 h-5 text-lime-700" />
-            <span className="text-sm font-black text-lime-950">Saved to library</span>
-          </motion.div>
 
           <motion.div
             animate={reduceMotion ? undefined : { y: [0, 12, 0], rotate: [-3, 2, -3] }}

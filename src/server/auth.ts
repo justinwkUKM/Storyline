@@ -11,6 +11,8 @@ export interface AuthUser {
   id: string;
   email: string;
   createdAt: Date;
+  credits: number;
+  creditsResetAt: Date;
 }
 
 declare global {
@@ -102,11 +104,41 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return;
     }
 
+    // Lazy Monthly Credits Reset Check
+    let userCredits = session.user.credits;
+    let userCreditsResetAt = session.user.creditsResetAt;
+    const lastReset = new Date(userCreditsResetAt);
+    const nextReset = new Date(lastReset);
+    nextReset.setMonth(nextReset.getMonth() + 1);
+
+    if (now >= nextReset) {
+      let newReset = nextReset;
+      while (now >= newReset) {
+        newReset = new Date(newReset);
+        newReset.setMonth(newReset.getMonth() + 1);
+      }
+      const cycleStart = new Date(newReset);
+      cycleStart.setMonth(cycleStart.getMonth() - 1);
+
+      const updatedUser = await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          credits: 100,
+          creditsResetAt: cycleStart,
+        },
+      });
+
+      userCredits = updatedUser.credits;
+      userCreditsResetAt = updatedUser.creditsResetAt;
+    }
+
     req.sessionId = session.id;
     req.user = {
       id: session.user.id,
       email: session.user.email,
       createdAt: session.user.createdAt,
+      credits: userCredits,
+      creditsResetAt: userCreditsResetAt,
     };
     next();
   } catch (err) {

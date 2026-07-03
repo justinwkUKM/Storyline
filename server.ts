@@ -40,6 +40,15 @@ async function startServer() {
   // Generate presentation endpoint
   app.post('/api/generate', requireAuth, upload.single('pdf'), async (req, res) => {
     try {
+      // Credit check
+      if (req.user!.credits < 1) {
+        const nextReset = new Date(req.user!.creditsResetAt);
+        nextReset.setMonth(nextReset.getMonth() + 1);
+        return res.status(403).json({
+          error: `You have run out of credits for this month. Your 100 credits will automatically renew on ${nextReset.toLocaleDateString()}.`
+        });
+      }
+
       if (!req.file) {
         return res.status(400).json({ error: 'No PDF file uploaded. Please select a valid PDF.' });
       }
@@ -294,10 +303,23 @@ ${textToAnalyze}
         };
       });
 
+      // Deduct 1 credit from user on successful generation
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user!.id },
+        data: {
+          credits: {
+            decrement: 1
+          }
+        }
+      });
+
       presentationData.rawParsedText = textToAnalyze;
       presentationData.orientation = orientation;
 
-      res.json(presentationData);
+      res.json({
+        ...presentationData,
+        creditsRemaining: updatedUser.credits
+      });
     } catch (error: any) {
       console.error('Error generating presentation:', error);
       res.status(500).json({ error: 'An unexpected internal error occurred: ' + (error.message || 'Unknown error') });

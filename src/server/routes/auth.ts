@@ -13,11 +13,13 @@ import { ApiError, asyncHandler } from '../http';
 
 export const authRouter = Router();
 
-function serializeUser(user: { id: string; email: string; createdAt: Date }) {
+function serializeUser(user: { id: string; email: string; createdAt: Date; credits: number; creditsResetAt: Date }) {
   return {
     id: user.id,
     email: user.email,
     createdAt: user.createdAt.toISOString(),
+    credits: user.credits,
+    creditsResetAt: user.creditsResetAt.toISOString(),
   };
 }
 

@@ -55,6 +55,8 @@ export interface AuthUser {
   id: string;
   email: string;
   createdAt: string;
+  credits: number;
+  creditsResetAt: string;
 }
 
 export interface DeckSummary {
