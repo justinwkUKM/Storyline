@@ -50,7 +50,6 @@ interface SlideEditorProps {
   initialCustomSettings?: CustomizationSettings;
   savedDeckId?: string | null;
   saveStatus?: string;
-  autoSaveOnMount?: boolean;
   onSave?: (data: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings, saveAsNew?: boolean) => Promise<void>;
   onFinalise: (finalData: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings) => void;
   onCancel: () => void;
@@ -755,7 +754,6 @@ export function SlideEditor({
   initialCustomSettings,
   savedDeckId,
   saveStatus,
-  autoSaveOnMount = false,
   onSave,
   onFinalise,
   onCancel
@@ -782,9 +780,7 @@ export function SlideEditor({
   const [graphicDrawerOpen, setGraphicDrawerOpen] = useState(false);
   const [graphicSearch, setGraphicSearch] = useState('');
   const [graphicCategory, setGraphicCategory] = useState<GraphicCategory>('all');
-  const hasMountedRef = useRef(false);
   const autoSaveTimerRef = useRef<number | null>(null);
-  const [autosaveRevision, setAutosaveRevision] = useState(0);
 
   const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
 
@@ -793,23 +789,40 @@ export function SlideEditor({
     setActiveSlideIndex(safeIndex);
   };
 
-  const queueAutoSave = () => {
-    setAutosaveRevision((revision) => revision + 1);
+  const clearAutoSaveTimer = () => {
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  };
+
+  const scheduleAutoSave = (
+    nextData: PresentationData,
+    nextTheme: ThemeName,
+    nextCustomSettings?: CustomizationSettings
+  ) => {
+    if (!onSave || !nextData.title.trim() || nextData.slides.length === 0) return;
+    clearAutoSaveTimer();
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      void onSave(nextData, nextTheme, nextTheme === 'custom' ? nextCustomSettings : undefined, false);
+    }, 1200);
   };
 
   const commitDataChange = (updater: (current: PresentationData) => PresentationData) => {
-    setData((current) => updater(current));
-    queueAutoSave();
+    const nextData = updater(data);
+    setData(nextData);
+    scheduleAutoSave(nextData, theme, customSettings);
   };
 
   const commitThemeChange = (value: ThemeName) => {
     setTheme(value);
-    queueAutoSave();
+    scheduleAutoSave(data, value, customSettings);
   };
 
   const commitCustomSettingsChange = (updater: (current: CustomizationSettings) => CustomizationSettings) => {
-    setCustomSettings((current) => updater(current));
-    queueAutoSave();
+    const nextSettings = updater(customSettings);
+    setCustomSettings(nextSettings);
+    scheduleAutoSave(data, theme, nextSettings);
   };
 
   const duplicateSlide = (index: number) => {
@@ -1762,38 +1775,7 @@ export function SlideEditor({
     await onSave(data, theme, theme === 'custom' ? customSettings : undefined, saveAsNew);
   };
 
-  useEffect(() => {
-    if (!onSave) return;
-
-    const canPersist = data.title.trim().length > 0 && data.slides.length > 0;
-    if (!canPersist) return;
-
-    const persist = () => {
-      void onSave(data, theme, theme === 'custom' ? customSettings : undefined, false);
-    };
-
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      if (autoSaveOnMount) {
-        persist();
-      }
-      return;
-    }
-
-    if (autoSaveTimerRef.current) {
-      window.clearTimeout(autoSaveTimerRef.current);
-    }
-
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      persist();
-    }, 1400);
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        window.clearTimeout(autoSaveTimerRef.current);
-      }
-    };
-  }, [onSave, autoSaveOnMount, autosaveRevision]);
+  useEffect(() => () => clearAutoSaveTimer(), []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 via-white to-emerald-50 text-slate-900">

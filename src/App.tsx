@@ -80,12 +80,6 @@ export default function App() {
     }
   };
 
-  const refreshCurrentUser = async () => {
-    const data = await apiRequest<{ user: AuthUser }>('/api/auth/me');
-    setUser(data.user);
-    return data.user;
-  };
-
   useEffect(() => {
     apiRequest<{ user: AuthUser }>('/api/auth/me')
       .then((data) => setUser(data.user))
@@ -173,7 +167,7 @@ export default function App() {
         if (typeof data.creditsRemaining === 'number' && user) {
           setUser({ ...user, credits: data.creditsRemaining });
         }
-        void refreshCurrentUser().catch(() => undefined);
+        void saveDeck(data, selectedTheme, settings).catch(() => undefined);
       } else {
         throw new Error('Received invalid presentation structure from server');
       }
@@ -216,7 +210,11 @@ export default function App() {
         setCustomSettings(result.deck.customSettings);
         setDraftPresentation(data);
         setSaveStatus('Saved');
-        await refreshDecks();
+        setDecks((currentDecks) => {
+          const nextDecks = currentDecks.filter((deck) => deck.id !== result.deck.id);
+          nextDecks.unshift(result.deck);
+          return nextDecks;
+        });
         saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus(''), 1600);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Save failed';
@@ -405,7 +403,6 @@ export default function App() {
               initialCustomSettings={customSettings}
               savedDeckId={currentDeckId}
               saveStatus={saveStatus}
-              autoSaveOnMount={currentDeckId === null}
               onSave={saveDeck}
               onFinalise={(finalData, finalTheme, finalSettings) => {
                 setTheme(finalTheme);
