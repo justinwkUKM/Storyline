@@ -1,0 +1,6 @@
+{
+  "name": "SlideCraft AI",
+  "description": "Transform PDFs into beautiful, animated presentations using Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
