@@ -282,6 +282,10 @@ export default function App() {
                 setDraftPresentation(null);
                 setShowLibrary(true);
               }}
+              onEdit={() => {
+                setDraftPresentation(presentation);
+                setPresentation(null);
+              }}
             />
           </motion.div>
         ) : draftPresentation ? (

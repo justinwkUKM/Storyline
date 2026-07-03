@@ -120,6 +120,7 @@ Design guidance:
 - Keep save controls close to finalize because both are deck-level actions.
 - Show short save status feedback without blocking editing.
 - Keep source text available because users need to verify AI interpretation.
+- Bullet editing should use a compact inline rich text toolbar rather than opening a modal or separate formatting panel.
 
 ### 3.3 Presentation Mode
 
@@ -364,6 +365,18 @@ Form controls should be direct and compact.
 - Group related fields in bordered sections.
 - Use short labels.
 - Keep helper text short and task-specific.
+
+### 6.2.1 Rich Text Bullet Editor
+
+Bullet editing should support lightweight formatting without turning the slide editor into a full document editor.
+
+- Provide toolbar buttons for bold, italic, underline, text color, clear formatting, and HTML source mode.
+- Use familiar Lucide icons for toolbar actions.
+- Keep the toolbar attached to each bullet editor.
+- Support preset text colors rather than arbitrary large color controls.
+- Source mode should clearly indicate that the user is editing HTML.
+- The editor should preserve cursor position where practical and avoid rewriting the editable DOM unnecessarily.
+- Helper text should explain supported HTML tags only when the editor is focused.
 
 ### 6.3 Slide Editor Panels
 
@@ -623,6 +636,8 @@ Design note:
 - Speaker notes can hold detail that does not fit on the slide.
 - Avoid duplicating the deck title on every slide except as small metadata.
 - Generated links and videos must be editable because AI-suggested references may be imperfect.
+- Rich text formatting should emphasize key words or figures inside bullets, not replace clear slide structure.
+- Avoid heavy nested HTML in bullets; supported use is short inline emphasis and color.
 
 ### 9.3 UI Copy Rules
 
@@ -644,6 +659,8 @@ Rules:
 - Use hidden offscreen export nodes.
 - Include separate quiz pages where needed.
 - Preserve theme background, text, accent color, bullets, and graphics.
+- Preserve supported rich text bullet HTML.
+- Convert unsupported CSS color functions to RGB/RGBA before canvas capture when needed.
 
 ### 10.2 PPTX Export
 
@@ -654,6 +671,7 @@ Rules:
 - Use native PowerPoint text and shape elements.
 - Preserve title, bullets, key graphic labels, values, and quiz slides.
 - Use simplified visual blocks instead of attempting to export HTML animations.
+- Strip rich text bullet HTML to readable plain text.
 - Use deck title for metadata and filename.
 
 ## 10.3 Persistence Design
@@ -680,6 +698,7 @@ Rules:
 - Icon-only controls should include titles or accessible labels.
 - Auth and library controls should use native forms and buttons.
 - Authentication errors should be exposed as text, not color alone.
+- Rich text toolbar buttons should include titles or accessible labels.
 
 ## 12. Auth and Data Guidelines
 

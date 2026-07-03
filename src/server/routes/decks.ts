@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../auth';
 import { prisma } from '../db';
 import { ApiError, asyncHandler } from '../http';
+import { sanitizeRichTextHtml } from '../../lib/richText';
 
 export const decksRouter = Router();
 
@@ -31,6 +32,12 @@ function normalizeDeckPayload(body: any) {
 
   const sanitizedPresentationData = {
     ...presentationData,
+    slides: presentationData.slides.map((slide: any) => ({
+      ...slide,
+      content: Array.isArray(slide.content)
+        ? slide.content.map((point: any) => sanitizeRichTextHtml(String(point)))
+        : [],
+    })),
     rawParsedText: undefined,
   };
   delete sanitizedPresentationData.rawParsedText;

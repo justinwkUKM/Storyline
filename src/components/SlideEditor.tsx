@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { HtmlBulletEditor } from './HtmlBulletEditor';
 
 interface SlideEditorProps {
   initialData: PresentationData;
@@ -566,22 +567,22 @@ export function SlideEditor({
                             </button>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {slide.content.map((point, pIdx) => (
-                              <div key={pIdx} className="flex items-center gap-2 group">
-                                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                <input
-                                  type="text"
-                                  value={point}
-                                  onChange={(e) => handleUpdateBullet(sIdx, pIdx, e.target.value)}
-                                  placeholder="Provide descriptive details"
-                                  className="flex-1 text-sm text-gray-700 bg-white border border-gray-200 hover:border-gray-300 focus:border-blue-500 rounded-xl px-4 py-2 outline-none transition-all"
-                                />
+                              <div key={pIdx} className="flex items-start gap-2 group">
+                                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-4.5" />
+                                <div className="flex-1 min-w-0">
+                                  <HtmlBulletEditor
+                                    value={point}
+                                    onChange={(newValue) => handleUpdateBullet(sIdx, pIdx, newValue)}
+                                    placeholder="Provide descriptive details (supports HTML formatting)"
+                                  />
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveBullet(sIdx, pIdx)}
                                   disabled={slide.content.length <= 1}
-                                  className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-0"
+                                  className="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-0 mt-1"
                                   title="Delete point"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />

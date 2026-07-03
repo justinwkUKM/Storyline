@@ -18,6 +18,7 @@ Existing workflows usually force users to choose between speed and quality. Auto
 - Generate slide content, speaker notes, diagrams, quizzes, links, and optional embedded video references.
 - Let users control slide count and presentation orientation before generation.
 - Provide user control before presentation through an editable blueprint workspace.
+- Allow slide bullets to include lightweight rich text formatting.
 - Support multiple visual themes and custom brand styling.
 - Present the deck as a polished animated HTML experience.
 - Export the deck to high-resolution PDF and editable PowerPoint.
@@ -53,6 +54,10 @@ An authenticated user uploads a PDF, selects a visual theme, chooses a graphic s
 ### 6.2 Refine the Generated Deck
 
 The user reviews extracted source text, edits the deck title, changes slide titles and bullets, adjusts speaker notes, adds or removes slides, reorders slides, and changes visual diagram settings.
+
+### 6.2.1 Rich Text Bullet Editing
+
+The user can format individual slide bullets using bold, italic, underline, preset text colors, clear-formatting, and raw HTML source editing. Formatted bullets render in the live presentation and PDF export. PPTX export uses readable plain text derived from the formatted HTML.
 
 ### 6.3 Customize Visual Style
 
@@ -190,6 +195,11 @@ The user saves generated or edited presentation data to their account, returns t
 - The user must not be allowed to remove the final remaining slide.
 - The user must be able to edit slide title, bullets, speaker notes, video URL, links, quiz data, and graphic data.
 - The user must be able to add or remove bullet points.
+- The user must be able to format bullet text with bold, italic, underline, preset text colors, and clear-formatting controls.
+- The user must be able to switch a bullet editor between WYSIWYG rich text mode and raw HTML source mode.
+- Rich text bullet values must remain stored as strings in `SlideContent.content`.
+- Presentation rendering and PDF export must preserve supported bullet HTML formatting.
+- PPTX export must strip bullet HTML to readable plain text.
 - The user must be able to add or remove quiz options while keeping at least two options.
 - The user must be able to select the correct quiz answer.
 - The user must be able to add or remove supporting links.
@@ -233,8 +243,10 @@ The user saves generated or edited presentation data to their account, returns t
 - The app must export the presentation to PDF.
 - PDF export must render hidden high-resolution slide DOM nodes.
 - PDF export must include quiz pages for slides that contain quizzes.
+- PDF export must convert unsupported modern CSS color functions to compatible RGB/RGBA values before canvas capture where required.
 - The app must export the presentation to editable PPTX.
 - PPTX export must include core slide text and simplified visual blocks.
+- PPTX export must strip rich text bullet HTML to readable plain text.
 - PPTX export must include quiz slides for slides that contain quizzes.
 - Export filenames must be derived from the deck title.
 - The UI must show export progress while files are being generated.
@@ -257,6 +269,7 @@ The user saves generated or edited presentation data to their account, returns t
 - Deleting a deck must remove it only from the current authenticated user's library.
 - Opening a deck must load its saved `PresentationData`, `ThemeName`, and optional `CustomizationSettings` into the existing editor/presenter flow.
 - Save operations must store deck JSON only.
+- Save operations must preserve rich text bullet HTML inside `presentationData`.
 - Save operations must remove `rawParsedText` before persistence.
 - Uploaded PDF buffers must not be stored.
 - Extracted source text must remain available in the current editor session after generation, but must not be persisted by default.
@@ -280,7 +293,7 @@ interface PresentationData {
 interface SlideContent {
   id: string;
   title: string;
-  content: string[];
+  content: string[]; // bullet strings may contain supported rich text HTML
   speakerNotes: string;
   quiz?: InteractiveQuiz;
   links?: InteractiveLink[];
@@ -408,6 +421,7 @@ interface SavedDeck extends DeckSummary {
 - AI SDK: `@google/genai`.
 - PDF export: `html2canvas` and `jspdf`.
 - PPTX export: `pptxgenjs`.
+- Rich text bullet editing: `contentEditable` HTML editor with toolbar controls and raw HTML fallback.
 - Type checking: `tsc --noEmit`.
 
 ## 11. API Requirements
@@ -630,6 +644,7 @@ Success response:
 - Unauthenticated users cannot generate or access deck APIs.
 - A user receives clear errors for missing, corrupt, encrypted, scanned, or unreadable PDFs.
 - A user can edit the generated deck before presenting.
+- A user can format slide bullets and see formatting in presentation and PDF outputs.
 - A user can save, reopen, update, copy, and delete decks in their own account.
 - Saved decks do not include uploaded PDF files or `rawParsedText`.
 - A user can add, remove, and reorder slides.
