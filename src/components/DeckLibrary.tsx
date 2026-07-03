@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, FileText, Loader2, PlayCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Coins, Copy, FileText, Loader2, PlayCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { AuthUser, DeckSummary } from '../types';
 
 interface DeckLibraryProps {
@@ -9,12 +9,13 @@ interface DeckLibraryProps {
   error?: string | null;
   onNew: () => void;
   onOpen: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onPresent: (id: string) => void;
   onDelete: (id: string) => void;
   onRefresh: () => void;
 }
 
-export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onPresent, onDelete, onRefresh }: DeckLibraryProps) {
+export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDuplicate, onPresent, onDelete, onRefresh }: DeckLibraryProps) {
   return (
     <div className="w-full max-w-6xl mx-auto px-6 py-12 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
@@ -99,6 +100,13 @@ export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onPr
                     className="px-4 py-1.5 rounded-full bg-lime-50 text-lime-800 hover:bg-lime-950 hover:text-lime-50 text-xs font-black transition-colors cursor-pointer"
                   >
                     Open Storyline
+                  </button>
+                  <button
+                    onClick={() => onDuplicate(deck.id)}
+                    className="p-2 rounded-xl text-lime-700 hover:text-lime-950 hover:bg-lime-50 transition-colors cursor-pointer"
+                    title="Duplicate deck"
+                  >
+                    <Copy className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onPresent(deck.id)}

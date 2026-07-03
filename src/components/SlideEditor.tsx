@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PresentationData, ThemeName, CustomizationSettings, SlideContent, SlideGraphic, InteractiveQuiz, InteractiveLink } from '../types';
 import {
   Plus, 
@@ -51,6 +51,7 @@ interface SlideEditorProps {
   initialCustomSettings?: CustomizationSettings;
   savedDeckId?: string | null;
   saveStatus?: string;
+  autoSaveOnMount?: boolean;
   onSave?: (data: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings, saveAsNew?: boolean) => Promise<void>;
   onFinalise: (finalData: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings) => void;
   onCancel: () => void;
@@ -755,6 +756,7 @@ export function SlideEditor({
   initialCustomSettings,
   savedDeckId,
   saveStatus,
+  autoSaveOnMount = false,
   onSave,
   onFinalise,
   onCancel
@@ -781,6 +783,8 @@ export function SlideEditor({
   const [graphicDrawerOpen, setGraphicDrawerOpen] = useState(false);
   const [graphicSearch, setGraphicSearch] = useState('');
   const [graphicCategory, setGraphicCategory] = useState<GraphicCategory>('all');
+  const hasMountedRef = useRef(false);
+  const autoSaveTimerRef = useRef<number | null>(null);
 
   const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
 
@@ -1738,6 +1742,39 @@ export function SlideEditor({
     }
     await onSave(data, theme, theme === 'custom' ? customSettings : undefined, saveAsNew);
   };
+
+  useEffect(() => {
+    if (!onSave) return;
+
+    const canPersist = data.title.trim().length > 0 && data.slides.length > 0;
+    if (!canPersist) return;
+
+    const persist = () => {
+      void onSave(data, theme, theme === 'custom' ? customSettings : undefined, false);
+    };
+
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      if (autoSaveOnMount) {
+        persist();
+      }
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      persist();
+    }, 800);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [data, theme, customSettings, onSave, autoSaveOnMount]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 via-white to-emerald-50 text-slate-900">

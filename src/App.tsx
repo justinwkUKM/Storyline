@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AuthUser,
   CustomizationSettings,
@@ -59,6 +59,9 @@ export default function App() {
   const [decksLoading, setDecksLoading] = useState(false);
   const [decksError, setDecksError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
+  const currentDeckIdRef = useRef<string | null>(null);
+  const saveQueueRef = useRef(Promise.resolve());
+  const saveStatusTimerRef = useRef<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +98,18 @@ export default function App() {
       refreshDecks();
     }
   }, [user]);
+
+  useEffect(() => {
+    currentDeckIdRef.current = currentDeckId;
+  }, [currentDeckId]);
+
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleAuthSubmit = async (mode: 'login' | 'register', email: string, password: string) => {
     setAuthError(null);
@@ -176,29 +191,71 @@ export default function App() {
     settings?: CustomizationSettings,
     saveAsNew = false
   ) => {
-    setSaveStatus('Saving...');
+    const performSave = async () => {
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current);
+      }
+      setSaveStatus('Saving...');
+
+      try {
+        const deckId = currentDeckIdRef.current;
+        const endpoint = deckId && !saveAsNew ? `/api/decks/${deckId}` : '/api/decks';
+        const method = deckId && !saveAsNew ? 'PUT' : 'POST';
+        const result = await apiRequest<{ deck: SavedDeck }>(endpoint, {
+          method,
+          body: JSON.stringify({
+            title: data.title,
+            presentationData: data,
+            theme: selectedTheme,
+            customSettings: settings,
+          }),
+        });
+        currentDeckIdRef.current = result.deck.id;
+        setCurrentDeckId(result.deck.id);
+        setTheme(result.deck.theme);
+        setCustomSettings(result.deck.customSettings);
+        setDraftPresentation(data);
+        setSaveStatus('Saved');
+        await refreshDecks();
+        saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus(''), 1600);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Save failed';
+        setSaveStatus(message);
+        saveStatusTimerRef.current = window.setTimeout(() => setSaveStatus(''), 3000);
+        throw err;
+      }
+    };
+
+    const queuedSave = saveQueueRef.current.then(performSave, performSave);
+    saveQueueRef.current = queuedSave.then(
+      () => undefined,
+      () => undefined
+    );
+    return queuedSave;
+  };
+
+  const duplicateDeck = async (id: string) => {
     try {
-      const endpoint = currentDeckId && !saveAsNew ? `/api/decks/${currentDeckId}` : '/api/decks';
-      const method = currentDeckId && !saveAsNew ? 'PUT' : 'POST';
-      const result = await apiRequest<{ deck: SavedDeck }>(endpoint, {
-        method,
-        body: JSON.stringify({
-          title: data.title,
-          presentationData: data,
-          theme: selectedTheme,
-          customSettings: settings,
-        }),
-      });
-      setCurrentDeckId(result.deck.id);
-      setTheme(result.deck.theme);
-      setCustomSettings(result.deck.customSettings);
-      setDraftPresentation(data);
-      setSaveStatus('Saved');
-      await refreshDecks();
-      setTimeout(() => setSaveStatus(''), 1600);
+      const data = await apiRequest<{ deck: SavedDeck }>(`/api/decks/${id}`);
+      const duplicatedPresentation: PresentationData = {
+        ...data.deck.presentationData,
+        title: data.deck.presentationData.title ? `${data.deck.presentationData.title} Copy` : 'Copy of Storyline',
+        slides: data.deck.presentationData.slides.map((slide) => ({
+          ...slide,
+          id: `${slide.id}-copy-${Date.now()}`
+        }))
+      };
+
+      setCurrentDeckId(null);
+      currentDeckIdRef.current = null;
+      setDraftPresentation(duplicatedPresentation);
+      setPresentation(null);
+      setTheme(data.deck.theme);
+      setCustomSettings(data.deck.customSettings);
+      setShowLibrary(false);
+      setError(null);
     } catch (err) {
-      setSaveStatus(err instanceof Error ? err.message : 'Save failed');
-      setTimeout(() => setSaveStatus(''), 3000);
+      setDecksError(err instanceof Error ? err.message : 'Failed to duplicate deck');
     }
   };
 
@@ -348,6 +405,7 @@ export default function App() {
               initialCustomSettings={customSettings}
               savedDeckId={currentDeckId}
               saveStatus={saveStatus}
+              autoSaveOnMount={currentDeckId === null}
               onSave={saveDeck}
               onFinalise={(finalData, finalTheme, finalSettings) => {
                 setTheme(finalTheme);
@@ -375,6 +433,7 @@ export default function App() {
               error={decksError}
               onNew={startNewPresentation}
               onOpen={openDeck}
+              onDuplicate={duplicateDeck}
               onPresent={presentDeck}
               onDelete={deleteDeck}
               onRefresh={refreshDecks}
