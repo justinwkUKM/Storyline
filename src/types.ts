@@ -35,6 +35,7 @@ export interface SlideContent {
 export interface PresentationData {
   title: string;
   slides: SlideContent[];
+  rawParsedText?: string;
 }
 
 export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'custom';

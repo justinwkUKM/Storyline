@@ -1,12 +1,29 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File, Loader2, Settings } from 'lucide-react';
+import { 
+  UploadCloud, 
+  File, 
+  Loader2, 
+  Settings, 
+  LayoutGrid, 
+  TrendingUp, 
+  Award, 
+  Zap, 
+  BookOpen, 
+  Sparkles 
+} from 'lucide-react';
 import { ThemeName, CustomizationSettings } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface UploaderProps {
-  onGenerate: (file: File, theme: ThemeName, customSettings?: CustomizationSettings) => void;
+  onGenerate: (
+    file: File, 
+    theme: ThemeName, 
+    customSettings?: CustomizationSettings, 
+    graphicStyle?: string, 
+    tone?: string
+  ) => void;
   isLoading: boolean;
 }
 
@@ -27,10 +44,54 @@ const DEFAULT_CUSTOM_SETTINGS: CustomizationSettings = {
   alignment: 'left',
 };
 
+const GRAPHIC_STYLES = [
+  { 
+    id: 'modern_infographic', 
+    name: 'Modern Infographic', 
+    description: 'Timelines, progress gauges, and radial slices. Perfect for high-impact visual comparisons.',
+    icon: TrendingUp
+  },
+  { 
+    id: 'bento_minimal', 
+    name: 'Bento Grid Layout', 
+    description: 'Clean structured modules, bold metric callouts, and key-value boxes. Beautiful & spacious.',
+    icon: LayoutGrid
+  },
+  { 
+    id: 'executive_mono', 
+    name: 'Executive & Technical Tiers', 
+    description: 'Structured multi-layered blocks, process flows, and formal comparison meters.',
+    icon: Award
+  }
+];
+
+const TONES = [
+  { 
+    id: 'executive', 
+    name: 'Executive Summary', 
+    description: 'High-level, strategic, and punchy. Tailored for corporate briefings or quick overviews.',
+    icon: Zap
+  },
+  { 
+    id: 'academic', 
+    name: 'Academic Deep-Dive', 
+    description: 'Comprehensive, detailed text blocks, theoretical explanations, and complex quizzes.',
+    icon: BookOpen
+  },
+  { 
+    id: 'creative', 
+    name: 'Creative Storyteller', 
+    description: 'Narrative-driven pacing, custom comparison metaphors, and engaging quiz experiences.',
+    icon: Sparkles
+  }
+];
+
 export function Uploader({ onGenerate, isLoading }: UploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [theme, setTheme] = useState<ThemeName>('modern');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
+  const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
+  const [tone, setTone] = useState<string>('executive');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -48,7 +109,7 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
 
   const handleSubmit = () => {
     if (file && !isLoading) {
-      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined);
+      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone);
     }
   };
 
@@ -234,6 +295,95 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      </div>
+
+      {/* 3. Graphic Style and Layout Expectations Selection */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 mt-4">
+        {/* Graphic Style Selection Card */}
+        <div className="space-y-4 p-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-5 h-5 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900">3. Graphic Customization</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Select the preferred aesthetic and structural layout pattern for the slides' interactive diagrams.
+          </p>
+          <div className="flex flex-col gap-3">
+            {GRAPHIC_STYLES.map((style) => {
+              const Icon = style.icon;
+              const isSelected = graphicStyle === style.id;
+              return (
+                <button
+                  key={style.id}
+                  onClick={() => setGraphicStyle(style.id)}
+                  className={cn(
+                    "flex items-start gap-4 p-4 rounded-xl text-left border transition-all duration-200",
+                    isSelected 
+                      ? "border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-500/30" 
+                      : "border-gray-100 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-200"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2.5 rounded-lg border flex-shrink-0",
+                    isSelected ? "bg-blue-600 border-blue-500 text-white" : "bg-white border-gray-200 text-gray-500"
+                  )}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                      {style.name}
+                      {isSelected && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">Selected</span>}
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-1 leading-normal">{style.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Content Tone Selection Card */}
+        <div className="space-y-4 p-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-xl font-bold text-gray-900">4. Layout & Content Tone</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Choose how detailed or summary-focused you expect the slide text and interactions to be.
+          </p>
+          <div className="flex flex-col gap-3">
+            {TONES.map((t) => {
+              const Icon = t.icon;
+              const isSelected = tone === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTone(t.id)}
+                  className={cn(
+                    "flex items-start gap-4 p-4 rounded-xl text-left border transition-all duration-200",
+                    isSelected 
+                      ? "border-indigo-600 bg-indigo-50/50 shadow-sm ring-1 ring-indigo-500/30" 
+                      : "border-gray-100 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-200"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2.5 rounded-lg border flex-shrink-0",
+                    isSelected ? "bg-indigo-600 border-indigo-500 text-white" : "bg-white border-gray-200 text-gray-500"
+                  )}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                      {t.name}
+                      {isSelected && <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-medium">Selected</span>}
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-1 leading-normal">{t.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

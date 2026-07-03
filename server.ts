@@ -75,10 +75,36 @@ async function startServer() {
         },
       });
 
+      // Retrieve presentation style options
+      const graphicStyle = req.body.graphicStyle || 'modern_infographic';
+      const tone = req.body.tone || 'executive';
+
+      let styleGuidance = '';
+      if (graphicStyle === 'modern_infographic') {
+        styleGuidance = 'The visual elements MUST follow a "Modern Infographic" style. Choose graphic types like "process" (for timelines), "comparison" (for meters/bars), and "pie" (for proportional breakdowns). Keep visual item labels bold and stats crisp.';
+      } else if (graphicStyle === 'bento_minimal') {
+        styleGuidance = 'The visual elements MUST follow a "Modern Bento Grid" style. Choose graphic types like "metrics" (to create beautiful side-by-side bento metrics boards), "comparison", or modular data cards with clear numerical stats.';
+      } else if (graphicStyle === 'executive_mono') {
+        styleGuidance = 'The visual elements MUST follow a "High-Impact Technical / Corporate Executive" style. Choose graphic types like "hierarchy" (for structured layers/tiers) or "metrics" and "process". Use serious, data-driven labels and structured content mapping.';
+      }
+
+      let toneGuidance = '';
+      if (tone === 'executive') {
+        toneGuidance = 'The text content MUST be "Executive & High-Impact". Bullet points must be short, punchy, strategic, and direct. Avoid long wordy sentences. Highlight main decisions, goals, and core outcomes.';
+      } else if (tone === 'academic') {
+        toneGuidance = 'The text content MUST be "Academic & Detailed". Bullet points should be rich with educational information, definitions, and conceptual context. Formulate thought-provoking multiple-choice quizzes.';
+      } else if (tone === 'creative') {
+        toneGuidance = 'The text content MUST be "Creative & Narrative". Tell a compelling story across the slides, using engaging metaphors, custom process stages, and fun quiz challenges.';
+      }
+
       // Call Gemini to structure the presentation
       const prompt = `Please create a professional presentation slide deck based on the following text extracted from a PDF. 
 First, identify and extract the most critical points and concepts. Use these to create a focused and professional summary that will serve as the primary content for the slides.
 Make sure there's an introductory slide, several content slides, and a conclusion slide.
+
+Layout and Content Tone Expectations:
+- Style Guideline: ${styleGuidance}
+- Tone Guideline: ${toneGuidance}
 
 For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
 
@@ -240,6 +266,8 @@ ${textToAnalyze}
           videoUrl: slide.videoUrl ? String(slide.videoUrl) : undefined
         };
       });
+
+      presentationData.rawParsedText = textToAnalyze;
 
       res.json(presentationData);
     } catch (error: any) {
