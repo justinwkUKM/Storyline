@@ -144,6 +144,8 @@ Required areas:
 - Optional left source-text panel.
 - Main slide editor column.
 - Right theme/style sidebar.
+- Visual graphic gallery with thumbnail previews and descriptions.
+- Live graphic preview showing the actual slide graphic before finalisation.
 
 Design guidance:
 
@@ -155,6 +157,7 @@ Design guidance:
 - Show short save status feedback without blocking editing.
 - Keep source text available because users need to verify AI interpretation.
 - Bullet editing should use a compact inline rich text toolbar rather than opening a modal or separate formatting panel.
+- Graphic selection should be visual first, with thumbnails and labels instead of a plain select whenever possible.
 
 ### 3.5 Presentation Mode
 

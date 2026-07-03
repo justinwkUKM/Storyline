@@ -33,6 +33,7 @@ import {
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { HtmlBulletEditor } from './HtmlBulletEditor';
+import { InteractiveGraphic } from './InteractiveGraphic';
 
 interface SlideEditorProps {
   initialData: PresentationData;
@@ -60,13 +61,131 @@ const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = 
   { id: 'custom', name: 'Custom Theme Builder', desc: 'Tailor colors, spacing, and layouts', colors: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white' }
 ];
 
-const GRAPHIC_TYPES: { id: 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie'; name: string; desc: string }[] = [
-  { id: 'process', name: 'Timeline / Process Steps', desc: 'Sequential horizontal or vertical progress' },
-  { id: 'comparison', name: 'Meters / Comparisons', desc: 'Side-by-side statistical visual bars' },
-  { id: 'metrics', name: 'Bento Stats Grid', desc: 'Beautiful modular metric callouts' },
-  { id: 'hierarchy', name: 'Structural Tiers', desc: 'Pyramids, stacks, or structural maps' },
-  { id: 'pie', name: 'Proportional Slices', desc: 'Circular ratio percentage metrics' }
+type GraphicType = 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie';
+
+const GRAPHIC_OPTIONS: Array<{
+  id: GraphicType | 'none';
+  name: string;
+  desc: string;
+  preview: SlideGraphic | null;
+}> = [
+  {
+    id: 'none',
+    name: 'Text Only',
+    desc: 'Keep this slide focused on bullets and speaker notes.',
+    preview: null
+  },
+  {
+    id: 'metrics',
+    name: 'Bento Stats Grid',
+    desc: 'Key metrics in modular cards with a dashboard feel.',
+    preview: {
+      type: 'metrics',
+      title: 'Performance Snapshot',
+      style: 'dashboard',
+      elements: [
+        { label: 'Reach', value: '92%', percentage: 92, secondaryText: 'Audience coverage', icon: 'TrendingUp' },
+        { label: 'Adoption', value: '78%', percentage: 78, secondaryText: 'Feature uptake', icon: 'Zap' },
+        { label: 'Velocity', value: '3.2x', percentage: 68, secondaryText: 'Faster delivery', icon: 'Award' }
+      ]
+    }
+  },
+  {
+    id: 'process',
+    name: 'Timeline / Process Steps',
+    desc: 'Sequential stages that explain a workflow or journey.',
+    preview: {
+      type: 'process',
+      title: 'Delivery Flow',
+      style: 'timeline',
+      elements: [
+        { label: 'Discover', value: '01', secondaryText: 'Read the source PDF', icon: 'BookOpen' },
+        { label: 'Structure', value: '02', secondaryText: 'Build the deck outline', icon: 'LayoutGrid' },
+        { label: 'Refine', value: '03', secondaryText: 'Edit the storyline', icon: 'Sliders' },
+        { label: 'Present', value: '04', secondaryText: 'Play the final deck', icon: 'Presentation' }
+      ]
+    }
+  },
+  {
+    id: 'comparison',
+    name: 'Meters / Comparisons',
+    desc: 'Side-by-side visual comparisons or tradeoffs.',
+    preview: {
+      type: 'comparison',
+      title: 'Option Tradeoff',
+      style: 'vs-card',
+      elements: [
+        { label: 'Current state', value: '42%', percentage: 42, secondaryText: 'Manual workflow' },
+        { label: 'Storyline', value: '88%', percentage: 88, secondaryText: 'Automated deck generation' }
+      ]
+    }
+  },
+  {
+    id: 'hierarchy',
+    name: 'Structural Tiers',
+    desc: 'Stacked or layered information architecture.',
+    preview: {
+      type: 'hierarchy',
+      title: 'Operating Model',
+      style: 'pyramid',
+      elements: [
+        { label: 'Strategy', value: 'North Star', secondaryText: 'Top-level direction' },
+        { label: 'Workflow', value: 'Decks + Slides', secondaryText: 'Main operating layer' },
+        { label: 'Detail', value: 'Bullet Points', secondaryText: 'Supporting evidence' }
+      ]
+    }
+  },
+  {
+    id: 'pie',
+    name: 'Proportional Slices',
+    desc: 'Circular ratios for mix, share, or allocation.',
+    preview: {
+      type: 'pie',
+      title: 'Allocation Mix',
+      style: 'radial',
+      elements: [
+        { label: 'Research', value: '40%', percentage: 40, secondaryText: 'Source analysis' },
+        { label: 'Writing', value: '35%', percentage: 35, secondaryText: 'AI draft shaping' },
+        { label: 'Present', value: '25%', percentage: 25, secondaryText: 'Delivery polish' }
+      ]
+    }
+  }
 ];
+
+const GRAPHIC_TYPES = GRAPHIC_OPTIONS.filter((opt): opt is Extract<typeof opt, { id: GraphicType }> => opt.id !== 'none');
+
+function cloneGraphic(graphic: SlideGraphic): SlideGraphic {
+  return {
+    ...graphic,
+    elements: graphic.elements.map((el) => ({ ...el }))
+  };
+}
+
+function getGraphicPreset(type: GraphicType) {
+  return GRAPHIC_OPTIONS.find((option) => option.id === type) || GRAPHIC_OPTIONS[0];
+}
+
+function createGraphicForType(type: GraphicType, existing?: SlideGraphic): SlideGraphic {
+  const preset = getGraphicPreset(type);
+  if (!preset.preview) {
+    return {
+      type,
+      title: existing?.title || 'Visual Graphic',
+      elements: existing?.elements?.length
+        ? existing.elements.map((el) => ({ ...el }))
+        : [{ label: 'Key Point', value: '100%', secondaryText: 'Add supporting context', percentage: 100, icon: 'LayoutGrid' }]
+    };
+  }
+
+  if (existing?.type === type) {
+    return cloneGraphic(existing);
+  }
+
+  return cloneGraphic({
+    ...preset.preview,
+    title: existing?.title || preset.preview.title
+  });
+}
 
 export function SlideEditor({
   initialData,
@@ -220,6 +339,69 @@ export function SlideEditor({
     const newElement = { label: 'New Element', value: '50%', secondaryText: 'Supporting metric', percentage: 50, icon: 'Cpu' };
     const updatedElements = [...slide.graphic.elements, newElement];
     handleUpdateGraphicField(slideIdx, 'elements', updatedElements);
+  };
+
+  const renderGraphicThumbnail = (type: GraphicType | 'none') => {
+    if (type === 'none') {
+      return (
+        <div className="h-20 rounded-2xl border border-dashed border-lime-200 bg-white/70 p-3 flex flex-col justify-between">
+          <div className="space-y-1">
+            <div className="h-2 rounded-full bg-lime-100 w-3/4" />
+            <div className="h-2 rounded-full bg-lime-100 w-1/2" />
+          </div>
+          <div className="h-2 rounded-full bg-lime-100 w-2/3" />
+        </div>
+      );
+    }
+
+    if (type === 'process') {
+      return (
+        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-end gap-2">
+          {[18, 28, 38, 24].map((height, idx) => (
+            <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+              <div className="w-full rounded-full bg-lime-100 overflow-hidden" style={{ height: `${height}px` }}>
+                <div className="h-full w-full bg-lime-500/90" />
+              </div>
+              <div className="w-1.5 h-1.5 rounded-full bg-lime-400" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (type === 'comparison') {
+      return (
+        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-3">
+          <div className="flex-1 space-y-2">
+            <div className="h-2 rounded-full bg-lime-100 w-2/3" />
+            <div className="h-5 rounded-full bg-lime-500/80 w-4/5" />
+          </div>
+          <div className="w-8 h-8 rounded-full border-2 border-lime-500 text-lime-700 flex items-center justify-center text-[10px] font-black">
+            VS
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="h-2 rounded-full bg-lime-100 w-1/2 ml-auto" />
+            <div className="h-5 rounded-full bg-lime-300 w-full" />
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'hierarchy') {
+      return (
+        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-end gap-1">
+          <div className="h-3 rounded-xl bg-lime-100 w-full" />
+          <div className="h-3 rounded-xl bg-lime-300 w-4/5 mx-auto" />
+          <div className="h-3 rounded-xl bg-lime-500 w-2/3 mx-auto" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center justify-center">
+        <div className="w-14 h-14 rounded-full border-4 border-lime-100 border-t-lime-500" />
+      </div>
+    );
   };
 
   const handleRemoveGraphicElement = (slideIdx: number, elIdx: number) => {
@@ -595,132 +777,195 @@ export function SlideEditor({
                         <div className="space-y-4 border border-lime-200 bg-white rounded-3xl p-6 shadow-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <LayoutGrid className="w-4 h-4 text-indigo-600" />
+                              <LayoutGrid className="w-4 h-4 text-lime-700" />
                               <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Visual Diagram Block</span>
                             </div>
-
-                            <select
-                              value={slide.graphic?.type || 'none'}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === 'none') {
-                                  updateSlideField(sIdx, 'graphic', undefined);
-                                } else {
-                                  const defaultGraphic: SlideGraphic = {
-                                    type: val as any,
-                                    title: slide.graphic?.title || 'Visual Graphic',
-                                    elements: slide.graphic?.elements || [
-                                      { label: 'Key Metric A', value: '85%', secondaryText: 'Core assessment value', percentage: 85 }
-                                    ]
-                                  };
-                                  updateSlideField(sIdx, 'graphic', defaultGraphic);
-                                }
-                              }}
-                              className="text-xs font-black text-lime-950 border border-lime-200/80 bg-white rounded-xl px-3 py-2 outline-none cursor-pointer focus:border-lime-500"
-                            >
-                              <option value="none">No Graphic (Text Only)</option>
-                              <option value="metrics">Bento Metrics Grid</option>
-                              <option value="process">Timeline / Process Steps</option>
-                              <option value="comparison">Gauge Comparisons</option>
-                              <option value="hierarchy">Structural Tiers</option>
-                              <option value="pie">Radial Pie Slices</option>
-                            </select>
+                            {slide.graphic && (
+                              <button
+                                type="button"
+                                onClick={() => updateSlideField(sIdx, 'graphic', undefined)}
+                                className="text-xs font-black text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Remove Graphic
+                              </button>
+                            )}
                           </div>
 
-                          {slide.graphic && (
-                            <div className="space-y-4 pt-3 border-t border-lime-100">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider mb-1">Graphic Title</label>
-                                  <input
-                                    type="text"
-                                    value={slide.graphic.title || ''}
-                                    onChange={(e) => handleUpdateGraphicField(sIdx, 'title', e.target.value)}
-                                    placeholder="Optional Title (e.g. Statistical Milestones)"
-                                    className="w-full text-xs text-lime-950 bg-lime-50/20 border border-lime-200/80 rounded-xl px-3.5 py-2.5 outline-none focus:border-lime-500"
-                                  />
+                          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4 pt-3 border-t border-lime-100">
+                            <div className="space-y-4">
+                              <div className="rounded-3xl border border-lime-200 bg-lime-50/30 p-4">
+                                <div className="flex items-center justify-between gap-2 mb-3">
+                                  <div>
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-lime-800/70">Live Preview</p>
+                                    <p className="text-xs text-lime-900/50 font-semibold">This is the actual graphic used in presentation mode.</p>
+                                  </div>
+                                  <span className="text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1 bg-white border border-lime-200 text-lime-800">
+                                    {slide.graphic ? 'Actual graphic' : 'Template preview'}
+                                  </span>
                                 </div>
-                                <div className="flex items-end justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddGraphicElement(sIdx)}
-                                    className="text-xs font-black text-indigo-700 hover:text-indigo-850 flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <ListPlus className="w-3.5 h-3.5" />
-                                    Add Graphic Node
-                                  </button>
+                                <div className="min-h-[260px] rounded-2xl bg-white border border-lime-200 p-3 overflow-hidden">
+                                  {slide.graphic ? (
+                                    <InteractiveGraphic
+                                      graphic={slide.graphic}
+                                      accentClass="bg-lime-500"
+                                      isVerticalMode={false}
+                                    />
+                                  ) : (
+                                    <div className="h-full min-h-[240px] flex flex-col items-center justify-center text-center px-8 text-lime-900/55">
+                                      <LayoutGrid className="w-10 h-10 mb-4 text-lime-300" />
+                                      <p className="text-sm font-black text-lime-900/80">Choose a visual diagram style to preview the graphic here.</p>
+                                      <p className="text-xs mt-2 font-semibold leading-relaxed">
+                                        The gallery below shows each template with a thumbnail, label, and summary.
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
-                              <div className="space-y-3 pt-2">
-                                <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Graphic Elements / Nodes</label>
-                                {slide.graphic.elements.map((el, elIdx) => (
-                                  <div key={elIdx} className="p-4 bg-lime-50/10 border border-lime-200/50 rounded-2xl space-y-3 relative group">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveGraphicElement(sIdx, elIdx)}
-                                      disabled={slide.graphic!.elements.length <= 1}
-                                      className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 rounded-xl bg-transparent hover:bg-red-50 disabled:opacity-0 transition-all cursor-pointer"
-                                      title="Delete Graphic Node"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-6">
-                                      <div>
-                                        <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Label</label>
-                                        <input
-                                          type="text"
-                                          value={el.label}
-                                          onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'label', e.target.value)}
-                                          placeholder="Item/Stage Name"
-                                          className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Statistic / Value</label>
-                                        <input
-                                          type="text"
-                                          value={el.value || ''}
-                                          onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'value', e.target.value)}
-                                          placeholder="E.g. Stage 1, $4.5M, 90%"
-                                          className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                        />
-                                      </div>
+                              {slide.graphic && (
+                                <div className="space-y-4 pt-1">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider mb-1">Graphic Title</label>
+                                      <input
+                                        type="text"
+                                        value={slide.graphic.title || ''}
+                                        onChange={(e) => handleUpdateGraphicField(sIdx, 'title', e.target.value)}
+                                        placeholder="Optional Title (e.g. Statistical Milestones)"
+                                        className="w-full text-xs text-lime-950 bg-lime-50/20 border border-lime-200/80 rounded-xl px-3.5 py-2.5 outline-none focus:border-lime-500"
+                                      />
                                     </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pr-6">
-                                      <div className="sm:col-span-2">
-                                        <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Secondary Text Description</label>
-                                        <input
-                                          type="text"
-                                          value={el.secondaryText || ''}
-                                          onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'secondaryText', e.target.value)}
-                                          placeholder="Description or context details"
-                                          className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Percentage (0-100)</label>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          max="100"
-                                          value={el.percentage !== undefined ? el.percentage : ''}
-                                          onChange={(e) => {
-                                            const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                                            handleUpdateGraphicElement(sIdx, elIdx, 'percentage', val);
-                                          }}
-                                          placeholder="E.g. 75"
-                                          className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                        />
-                                      </div>
+                                    <div className="flex items-end justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddGraphicElement(sIdx)}
+                                        className="text-xs font-black text-lime-700 hover:text-lime-900 flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <ListPlus className="w-3.5 h-3.5" />
+                                        Add Graphic Node
+                                      </button>
                                     </div>
                                   </div>
-                                ))}
+
+                                  <div className="space-y-3 pt-2">
+                                    <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Graphic Elements / Nodes</label>
+                                    {slide.graphic.elements.map((el, elIdx) => (
+                                      <div key={elIdx} className="p-4 bg-lime-50/10 border border-lime-200/50 rounded-2xl space-y-3 relative group">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveGraphicElement(sIdx, elIdx)}
+                                          disabled={slide.graphic!.elements.length <= 1}
+                                          className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 rounded-xl bg-transparent hover:bg-red-50 disabled:opacity-0 transition-all cursor-pointer"
+                                          title="Delete Graphic Node"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-6">
+                                          <div>
+                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Label</label>
+                                            <input
+                                              type="text"
+                                              value={el.label}
+                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'label', e.target.value)}
+                                              placeholder="Item/Stage Name"
+                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Statistic / Value</label>
+                                            <input
+                                              type="text"
+                                              value={el.value || ''}
+                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'value', e.target.value)}
+                                              placeholder="E.g. Stage 1, $4.5M, 90%"
+                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pr-6">
+                                          <div className="sm:col-span-2">
+                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Secondary Text Description</label>
+                                            <input
+                                              type="text"
+                                              value={el.secondaryText || ''}
+                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'secondaryText', e.target.value)}
+                                              placeholder="Description or context details"
+                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Percentage (0-100)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              value={el.percentage !== undefined ? el.percentage : ''}
+                                              onChange={(e) => {
+                                                const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                                handleUpdateGraphicElement(sIdx, elIdx, 'percentage', val);
+                                              }}
+                                              placeholder="E.g. 75"
+                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-wider text-lime-800/70">Graphic Gallery</p>
+                                  <p className="text-xs text-lime-900/50 font-semibold">Pick a template with a thumbnail and short description.</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {GRAPHIC_OPTIONS.map((option) => {
+                                  const isSelected = option.id === (slide.graphic?.type || 'none');
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => {
+                                        if (option.id === 'none') {
+                                          updateSlideField(sIdx, 'graphic', undefined);
+                                          return;
+                                        }
+                                        updateSlideField(sIdx, 'graphic', createGraphicForType(option.id, slide.graphic || undefined));
+                                      }}
+                                      className={cn(
+                                        "text-left rounded-3xl border p-3 transition-all cursor-pointer shadow-sm hover:shadow-md",
+                                        isSelected
+                                          ? "border-lime-700 ring-2 ring-lime-500/15 bg-lime-50/60"
+                                          : "border-lime-200 bg-white hover:border-lime-300"
+                                      )}
+                                    >
+                                      {renderGraphicThumbnail(option.id)}
+                                      <div className="mt-3">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <h4 className="text-sm font-black text-lime-950 leading-tight">{option.name}</h4>
+                                          {isSelected && (
+                                            <span className="text-[9px] font-black uppercase tracking-wider rounded-full px-1.5 py-0.5 bg-lime-100 text-lime-900">
+                                              Selected
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="mt-1 text-[10px] leading-relaxed font-semibold text-lime-900/55">{option.desc}</p>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-                          )}
+                          </div>
                         </div>
 
                         {/* Slide Audience Interactive Quiz */}

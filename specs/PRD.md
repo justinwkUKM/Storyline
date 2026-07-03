@@ -218,6 +218,8 @@ The user saves generated or edited presentation data to their account, returns t
 - The user must be able to select the correct quiz answer.
 - The user must be able to add or remove supporting links.
 - The user must be able to add, remove, or change slide graphics.
+- The user must be able to preview the live graphic in the editor before finalising the deck.
+- The user must be able to select graphics from a visual gallery with thumbnail previews and short descriptions.
 - The user must be able to edit graphic title, type, labels, values, descriptions, percentages, and icon names.
 - The user must be able to select final theme and custom theme settings before presenting.
 - The user must be able to save a newly generated deck from the editor.
