@@ -14,7 +14,8 @@ import {
   Presentation as SlideIcon,
   Download,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  Edit3
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
@@ -27,6 +28,7 @@ interface PresentationProps {
   theme: ThemeName;
   customSettings?: CustomizationSettings;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
 const themeStyles: Record<ThemeName, { bg: string; text: string; accent: string; title: string }> = {
@@ -37,7 +39,140 @@ const themeStyles: Record<ThemeName, { bg: string; text: string; accent: string;
   custom: { bg: '', text: '', accent: '', title: '' } // Handled via style props
 };
 
-export function Presentation({ data, theme, customSettings, onClose }: PresentationProps) {
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '');
+}
+
+function oklabToRgb(l_val: number, a_val: number, b_val: number): [number, number, number] {
+  const l_ = l_val + 0.3963377774 * a_val + 0.2158037573 * b_val;
+  const m_ = l_val - 0.1055613458 * a_val - 0.0638541728 * b_val;
+  const s_ = l_val - 0.0894841775 * a_val - 1.2914855480 * b_val;
+
+  const l_cube = l_ * l_ * l_;
+  const m_cube = m_ * m_ * m_;
+  const s_cube = s_ * s_ * s_;
+
+  const r_linear = +4.0767416621 * l_cube - 3.3077115913 * m_cube + 0.2309699292 * s_cube;
+  const g_linear = -1.2684380046 * l_cube + 2.6097574011 * m_cube - 0.3413193965 * s_cube;
+  const b_linear = -0.0041960863 * l_cube - 0.7034186147 * m_cube + 1.7076147010 * s_cube;
+
+  const r = r_linear <= 0.0031308 ? 12.92 * r_linear : 1.055 * Math.pow(r_linear, 1 / 2.4) - 0.055;
+  const g = g_linear <= 0.0031308 ? 12.92 * g_linear : 1.055 * Math.pow(g_linear, 1 / 2.4) - 0.055;
+  const b_val_ret = b_linear <= 0.0031308 ? 12.92 * b_linear : 1.055 * Math.pow(b_linear, 1 / 2.4) - 0.055;
+
+  return [
+    Math.max(0, Math.min(255, Math.round(r * 255))),
+    Math.max(0, Math.min(255, Math.round(g * 255))),
+    Math.max(0, Math.min(255, Math.round(b_val_ret * 255)))
+  ];
+}
+
+function oklchToRgb(l_val: number, c_val: number, h_val: number): [number, number, number] {
+  const h_rad = (h_val * Math.PI) / 180;
+  const a = c_val * Math.cos(h_rad);
+  const b = c_val * Math.sin(h_rad);
+  return oklabToRgb(l_val, a, b);
+}
+
+function replaceOklchAndOklab(cssText: string): string {
+  if (!cssText) return cssText;
+  let result = cssText;
+
+  // Replace oklch
+  result = result.replace(/oklch\(\s*([^)]+)\)/g, (match, content) => {
+    try {
+      const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
+      if (parts.length < 3) return 'rgb(120, 120, 120)';
+
+      const l_str = parts[0];
+      const c_str = parts[1];
+      const h_str = parts[2];
+      
+      let alpha_str = '1';
+      const slashIndex = parts.indexOf('/');
+      if (slashIndex !== -1 && parts[slashIndex + 1]) {
+        alpha_str = parts[slashIndex + 1];
+      } else if (parts.length >= 4 && parts[3] !== '/') {
+        alpha_str = parts[3];
+      }
+
+      const parseVal = (str: string, scale = 1): number => {
+        const cleaned = str.replace(/%/g, '');
+        const val = parseFloat(cleaned);
+        if (str.includes('%')) {
+          return (val / 100) * scale;
+        }
+        return val;
+      };
+
+      const l_val = parseVal(l_str, 1);
+      const c_val = parseVal(c_str, 0.4);
+      const h_val = parseVal(h_str, 360);
+
+      const [r, g, b] = oklchToRgb(l_val, c_val, h_val);
+      const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
+
+      if (alpha_val === 1) {
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
+      }
+    } catch (e) {
+      console.error("Failed to convert oklch:", match, e);
+      return 'rgb(120, 120, 120)';
+    }
+  });
+
+  // Replace oklab
+  result = result.replace(/oklab\(\s*([^)]+)\)/g, (match, content) => {
+    try {
+      const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
+      if (parts.length < 3) return 'rgb(120, 120, 120)';
+
+      const l_str = parts[0];
+      const a_str = parts[1];
+      const b_str = parts[2];
+
+      let alpha_str = '1';
+      const slashIndex = parts.indexOf('/');
+      if (slashIndex !== -1 && parts[slashIndex + 1]) {
+        alpha_str = parts[slashIndex + 1];
+      } else if (parts.length >= 4 && parts[3] !== '/') {
+        alpha_str = parts[3];
+      }
+
+      const parseVal = (str: string, scale = 1): number => {
+        const cleaned = str.replace(/%/g, '');
+        const val = parseFloat(cleaned);
+        if (str.includes('%')) {
+          return (val / 100) * scale;
+        }
+        return val;
+      };
+
+      const l_val = parseVal(l_str, 1);
+      const a_val = parseVal(a_str, 0.4);
+      const b_val = parseVal(b_str, 0.4);
+
+      const [r, g, b] = oklabToRgb(l_val, a_val, b_val);
+      const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
+
+      if (alpha_val === 1) {
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
+      }
+    } catch (e) {
+      console.error("Failed to convert oklab:", match, e);
+      return 'rgb(120, 120, 120)';
+    }
+  });
+
+  return result;
+}
+
+export function Presentation({ data, theme, customSettings, onClose, onEdit }: PresentationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [direction, setDirection] = useState(0);
@@ -171,7 +306,18 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
   const exportToPDF = async () => {
     setIsDownloading(true);
     setDownloadProgress('Preparing high-res PDF...');
+    const styleElements = Array.from(document.querySelectorAll('style')) as HTMLStyleElement[];
+    const originalStyleContents = new Map<HTMLStyleElement, string>();
+
     try {
+      // Temporarily sanitize active document style tags to avoid oklch / oklab issues with html2canvas
+      for (const styleEl of styleElements) {
+        if (styleEl.innerHTML) {
+          originalStyleContents.set(styleEl, styleEl.innerHTML);
+          styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
+        }
+      }
+
       const pdfWidth = isVertical ? 720 : 1280;
       const pdfHeight = isVertical ? 960 : 720;
       const pdfOrientation = isVertical ? 'portrait' : 'landscape';
@@ -196,6 +342,25 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
             scale: 1.5, // 1.5x scale offers gorgeous density without inflating PDF sizes
             useCORS: true,
             logging: false,
+            onclone: (clonedDoc) => {
+              // Replace inline style attributes containing oklch/oklab in clonedDoc
+              const allElements = clonedDoc.getElementsByTagName('*');
+              for (let j = 0; j < allElements.length; j++) {
+                const el = allElements[j] as HTMLElement;
+                const styleAttr = el.getAttribute?.('style');
+                if (styleAttr) {
+                  el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                }
+              }
+              // Also ensure style tags in clonedDoc are sanitized
+              const styles = clonedDoc.getElementsByTagName('style');
+              for (let j = 0; j < styles.length; j++) {
+                const s = styles[j];
+                if (s.innerHTML) {
+                  s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                }
+              }
+            }
           });
           const imgData = canvas.toDataURL('image/png');
           
@@ -218,6 +383,25 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
               scale: 1.5,
               useCORS: true,
               logging: false,
+              onclone: (clonedDoc) => {
+                // Replace inline style attributes containing oklch/oklab in clonedDoc
+                const allElements = clonedDoc.getElementsByTagName('*');
+                for (let j = 0; j < allElements.length; j++) {
+                  const el = allElements[j] as HTMLElement;
+                  const styleAttr = el.getAttribute?.('style');
+                  if (styleAttr) {
+                    el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                  }
+                }
+                // Also ensure style tags in clonedDoc are sanitized
+                const styles = clonedDoc.getElementsByTagName('style');
+                for (let j = 0; j < styles.length; j++) {
+                  const s = styles[j];
+                  if (s.innerHTML) {
+                    s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                  }
+                }
+              }
             });
             const imgData = canvas.toDataURL('image/png');
             
@@ -233,6 +417,14 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
     } catch (err) {
       console.error('Failed to export PDF:', err);
     } finally {
+      // Restore original styles
+      for (const [styleEl, originalContent] of Array.from(originalStyleContents.entries())) {
+        try {
+          styleEl.innerHTML = originalContent;
+        } catch (e) {
+          console.error("Failed to restore style:", e);
+        }
+      }
       setIsDownloading(false);
       setDownloadProgress('');
     }
@@ -315,7 +507,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
 
           // Bullets text
           const bulletObjects = slide.content.map(bullet => ({
-            text: bullet,
+            text: stripHtml(bullet),
             options: { bullet: true, fontSize: isVertical ? 14 : 16, color: textColorHex }
           }));
 
@@ -682,7 +874,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                                   style={textStyleObj}
                                 >
                                   <span className={cn("inline-block rounded-full mt-2 mr-3 flex-shrink-0", isVertical ? "w-1.5 h-1.5" : "w-2 h-2", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-3' : 'ml-0 mr-3', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                                  <span className={cn(customSettings?.alignment === 'center' && 'text-center')}>{point}</span>
+                                  <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: point }} />
                                 </motion.li>
                               ))}
                             </ul>
@@ -723,7 +915,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                               style={textStyleObj}
                             >
                               <span className={cn("inline-block w-2.5 h-2.5 rounded-full mt-3 mr-4 flex-shrink-0", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-4' : 'ml-0 mr-4', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                              <span className={cn(customSettings?.alignment === 'center' && 'text-center')}>{point}</span>
+                              <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: point }} />
                             </motion.li>
                           ))}
                         </ul>
@@ -881,6 +1073,17 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
 
         {/* Center/Right segment: Dual Exporters & Secondary Controls */}
         <div className="flex items-center gap-3">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 active:scale-95 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-blue-500/15"
+              title="Edit Slide Content & Visuals"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              Edit Slides
+            </button>
+          )}
+
           {isDownloading ? (
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-white/90 animate-pulse font-medium">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
@@ -984,7 +1187,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                             style={textStyleObj}
                           >
                             <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
-                            <span>{point}</span>
+                            <span dangerouslySetInnerHTML={{ __html: point }} />
                           </li>
                         ))}
                       </ul>
@@ -1008,7 +1211,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                         style={textStyleObj}
                       >
                         <span className={cn("inline-block w-4 h-4 rounded-full mt-3.5 mr-6 flex-shrink-0", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
-                        <span>{point}</span>
+                        <span dangerouslySetInnerHTML={{ __html: point }} />
                       </li>
                     ))}
                   </ul>
