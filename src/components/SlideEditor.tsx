@@ -72,6 +72,39 @@ const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = 
 ];
 
 type GraphicType = 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie';
+type GraphicThumbnailVariant =
+  | 'stats-hero'
+  | 'stats-grid'
+  | 'stats-scoreboard'
+  | 'stats-trend'
+  | 'stats-tiles'
+  | 'stats-benchmark'
+  | 'comparison-dual'
+  | 'comparison-before-after'
+  | 'comparison-pro-con'
+  | 'comparison-bars'
+  | 'comparison-tradeoff'
+  | 'comparison-matrix'
+  | 'comparison-quadrant'
+  | 'comparison-heatmap'
+  | 'process-timeline'
+  | 'process-roadmap'
+  | 'process-zigzag'
+  | 'process-vertical'
+  | 'process-pipeline'
+  | 'process-swimlane'
+  | 'hierarchy-org'
+  | 'hierarchy-branch'
+  | 'hierarchy-pyramid'
+  | 'hierarchy-stack'
+  | 'hierarchy-nested'
+  | 'hierarchy-dependency'
+  | 'pie-funnel'
+  | 'pie-network'
+  | 'pie-rings'
+  | 'pie-donut'
+  | 'pie-allocation'
+  | 'pie-radial-bars'
 
 interface GraphicPreset {
   id: GraphicType | 'none';
@@ -638,6 +671,39 @@ const GRAPHIC_PRESET_CATEGORY: Record<string, GraphicCategory> = {
   'Donut Allocation': 'pie'
 };
 
+const GRAPHIC_PRESET_THUMBNAIL_VARIANT: Record<string, GraphicThumbnailVariant> = {
+  'KPI Dashboard': 'stats-hero',
+  'Compact Stat Grid': 'stats-grid',
+  'Executive Scoreboard': 'stats-scoreboard',
+  'Trend Snapshot': 'stats-trend',
+  'Metric Tiles': 'stats-tiles',
+  'Benchmark Panel': 'stats-benchmark',
+  'Side-by-Side Comparison': 'comparison-dual',
+  'Before/After Split': 'comparison-before-after',
+  'Pro/Con Balance': 'comparison-pro-con',
+  'Benchmark Bars': 'comparison-bars',
+  'Tradeoff Cards': 'comparison-tradeoff',
+  'Feature Matrix': 'comparison-matrix',
+  'Timeline Flow': 'process-timeline',
+  'Milestone Roadmap': 'process-roadmap',
+  'Zigzag Sequence': 'process-zigzag',
+  'Vertical Process Steps': 'process-vertical',
+  'Pipeline Stages': 'process-pipeline',
+  'Swimlane Flow': 'process-swimlane',
+  'Org Chart': 'hierarchy-org',
+  'Branching Tree': 'hierarchy-branch',
+  'Layered Pyramid': 'hierarchy-pyramid',
+  'Stack Architecture': 'hierarchy-stack',
+  'Nested Layers': 'hierarchy-nested',
+  'Dependency Tree': 'hierarchy-dependency',
+  'Funnel Conversion': 'pie-funnel',
+  'Circular Network': 'pie-network',
+  'Quadrant Matrix': 'comparison-quadrant',
+  'Heatmap Matrix': 'comparison-heatmap',
+  'Radial Rings': 'pie-rings',
+  'Donut Allocation': 'pie-allocation'
+};
+
 function cloneGraphic(graphic: SlideGraphic): SlideGraphic {
   return {
     ...graphic,
@@ -902,191 +968,664 @@ export function SlideEditor({
     }
 
     const { type, style = '', elements = [] } = preset.preview;
+    const primary = elements[0];
+    const secondary = elements[1];
+    const tertiary = elements[2];
+    const quaternary = elements[3];
+    const variant = GRAPHIC_PRESET_THUMBNAIL_VARIANT[preset.name] || 'stats-hero';
 
-    if (type === 'process') {
-      const isVertical = style.includes('vertical') || style.includes('zigzag');
-      const isSwimlane = style.includes('swimlane');
-      const isPipeline = style.includes('pipeline');
+    const frame = (children: React.ReactNode, className = '') => (
+      <div className={cn("h-28 rounded-[22px] border border-lime-200 bg-white/90 p-3 shadow-sm overflow-hidden", className)}>
+        {children}
+      </div>
+    );
 
-      if (isSwimlane) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 flex flex-col gap-1.5 justify-between">
-            {['Research', 'Draft', 'Review'].map((label, idx) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className="w-8 text-[9px] font-black uppercase text-lime-700/70">{label}</div>
-                <div className="flex-1 h-3 rounded-full bg-lime-100 overflow-hidden">
-                  <div className={cn("h-full rounded-full", idx === 1 ? "bg-lime-500 w-3/4" : idx === 2 ? "bg-lime-400 w-1/2" : "bg-lime-300 w-full")} />
+    const smallMetric = (title: string, value: string, accent = 'bg-lime-500') => (
+      <div className="rounded-2xl border border-lime-100 bg-white p-2.5 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{title}</span>
+          <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", accent)} />
+        </div>
+        <div className="mt-1 text-sm font-black leading-none text-lime-950 truncate">{value}</div>
+      </div>
+    );
+
+    const tinyBar = (height: number, className = 'bg-lime-500') => (
+      <div className="flex-1 flex items-end">
+        <div className={cn("w-full rounded-full", className)} style={{ height }} />
+      </div>
+    );
+
+    switch (variant) {
+      case 'stats-hero':
+        return frame(
+          <div className="flex h-full gap-2.5">
+            <div className="flex-[1.15] rounded-[18px] bg-lime-50 p-3 flex flex-col justify-between">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/70">Hero</div>
+                  <div className="mt-1 text-[26px] font-black leading-none text-lime-950">{primary?.value || '92%'}</div>
+                </div>
+                <div className="h-10 w-10 rounded-2xl bg-white border border-lime-200 flex items-center justify-center text-lime-700 text-[10px] font-black">
+                  {primary?.label?.slice(0, 2).toUpperCase() || 'KP'}
+                </div>
+              </div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">{primary?.label || 'Performance Snapshot'}</div>
+              <div className="mt-2 h-1.5 rounded-full bg-lime-200 overflow-hidden">
+                <div className="h-full w-[78%] rounded-full bg-lime-500" />
+              </div>
+            </div>
+            <div className="flex-[0.85] grid grid-rows-2 gap-2">
+              {elements.slice(1, 3).map((el, idx) => smallMetric(el.label, el.value || el.percentage?.toString() || '--', idx === 0 ? 'bg-lime-400' : 'bg-lime-300'))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'stats-grid':
+        return frame(
+          <div className="grid h-full grid-cols-2 gap-2">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div key={idx} className={cn("rounded-[16px] p-2.5 border shadow-sm", idx === 0 ? "bg-lime-50 border-lime-100" : "bg-white border-lime-100")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</span>
+                  <span className={cn("h-2 w-2 rounded-full", idx % 2 === 0 ? "bg-lime-500" : "bg-emerald-400")} />
+                </div>
+                <div className="mt-2 text-lg font-black leading-none text-lime-950">{el.value || el.percentage?.toString() || '--'}</div>
+                <div className="mt-2 h-1.5 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-full rounded-full", idx === 1 ? "w-[38%] bg-lime-400" : idx === 2 ? "w-[72%] bg-emerald-400" : idx === 3 ? "w-[90%] bg-lime-500" : "w-[84%] bg-lime-500")} />
                 </div>
               </div>
             ))}
-          </div>
+          </div>,
+          'p-2.5'
         );
-      }
 
-      if (isPipeline) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-1.5">
-            {[55, 42, 28, 18].map((height, idx) => (
-              <div
-                key={idx}
-                className="flex-1 rounded-xl bg-lime-100 flex items-end justify-center overflow-hidden"
-                style={{ height: `${height}px`, clipPath: 'polygon(12% 0, 88% 0, 100% 100%, 0 100%)' }}
-              >
-                <div className="w-full h-full bg-lime-500/85" />
+      case 'stats-scoreboard':
+        return frame(
+          <div className="grid h-full grid-cols-[1.12fr_0.88fr] gap-2.5">
+            <div className="rounded-[18px] bg-lime-50 p-3 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">Score</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-lime-800 border border-lime-100">Topline</span>
+              </div>
+              <div>
+                <div className="text-[26px] font-black leading-none text-lime-950">{primary?.value || '+24%'}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">{primary?.label || 'Executive Scoreboard'}</div>
+              </div>
+              <div className="flex items-end gap-1 pt-2">
+                {[14, 22, 18, 26, 20].map((h, idx) => (
+                  <div key={idx} className="flex-1 rounded-t-lg bg-lime-200" style={{ height: `${h}px` }}>
+                    <div className={cn("w-full rounded-t-lg", idx === 3 ? "bg-lime-500" : "bg-lime-400")} style={{ height: `${Math.max(6, h - 4)}px` }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {elements.slice(1, 4).map((el, idx) => (
+                <div key={idx} className="rounded-[16px] border border-lime-100 bg-white p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</span>
+                    <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded-full", idx === 0 ? "bg-lime-100 text-lime-800" : idx === 1 ? "bg-emerald-100 text-emerald-800" : "bg-lime-50 text-lime-800")}>
+                      {el.percentage ?? el.value ?? '--'}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-lime-100 overflow-hidden">
+                    <div className={cn("h-full rounded-full", idx === 0 ? "w-[82%] bg-lime-500" : idx === 1 ? "w-[66%] bg-emerald-500" : "w-[48%] bg-lime-300")} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'stats-trend':
+        return frame(
+          <div className="flex h-full flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">Trend</div>
+                <div className="mt-1 text-sm font-black text-lime-950 truncate">{primary?.label || 'Trend Snapshot'}</div>
+              </div>
+              <div className="rounded-full bg-lime-50 px-2 py-1 text-[9px] font-black text-lime-800">{primary?.value || '+18%'}</div>
+            </div>
+            <div className="mt-2 flex-1 rounded-[18px] bg-white border border-lime-100 p-2.5 relative overflow-hidden">
+              <div className="absolute inset-x-3 bottom-3 flex items-end gap-1">
+                {[10, 16, 12, 22, 18, 26].map((h, idx) => (
+                  <div key={idx} className="flex-1 rounded-t-lg bg-lime-100">
+                    <div className={cn("rounded-t-lg", idx >= 3 ? "bg-lime-500" : "bg-lime-300")} style={{ height: `${h}px` }} />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-x-3 top-1/2 h-px bg-lime-100" />
+              <div className="absolute right-3 top-3 h-8 w-8 rounded-full bg-lime-50 border border-lime-100 flex items-center justify-center text-lime-700 text-[10px] font-black">↗</div>
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'stats-tiles':
+        return frame(
+          <div className="grid h-full grid-cols-2 gap-2">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div key={idx} className={cn("rounded-[16px] p-3 border shadow-sm", idx % 2 === 0 ? "bg-white border-lime-100" : "bg-lime-50 border-lime-100")}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="h-8 w-8 rounded-2xl bg-lime-100 border border-lime-200 flex items-center justify-center text-[9px] font-black text-lime-800">
+                    {String(idx + 1).padStart(2, '0')}
+                  </div>
+                  <div className={cn("h-2.5 w-2.5 rounded-full", idx === 0 ? "bg-lime-500" : idx === 1 ? "bg-emerald-500" : idx === 2 ? "bg-lime-400" : "bg-lime-300")} />
+                </div>
+                <div className="mt-2 text-lg font-black leading-none text-lime-950">{el.value || el.percentage?.toString() || '--'}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">{el.label}</div>
               </div>
             ))}
-          </div>
+          </div>,
+          'p-2.5'
         );
-      }
 
-      if (isVertical) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-between gap-1.5">
+      case 'stats-benchmark':
+        return frame(
+          <div className="grid h-full grid-cols-[1fr_0.88fr] gap-2.5">
+            <div className="rounded-[18px] bg-lime-50 p-3 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">Actual</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-lime-800 border border-lime-100">vs Target</span>
+              </div>
+              <div>
+                <div className="text-[26px] font-black leading-none text-lime-950">{primary?.value || '82'}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">{primary?.label || 'Benchmark Panel'}</div>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-lime-200 overflow-hidden relative">
+                <div className="absolute left-[82%] top-[-2px] bottom-[-2px] w-px bg-lime-950/40" />
+                <div className="h-full w-[82%] rounded-full bg-lime-500" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              {elements.slice(1, 3).map((el, idx) => (
+                <div key={idx} className="rounded-[16px] border border-lime-100 bg-white p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</span>
+                    <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded-full", idx === 0 ? "bg-lime-100 text-lime-800" : "bg-lime-50 text-lime-800")}>{el.value || el.percentage || '--'}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-lime-100 overflow-hidden">
+                    <div className={cn("h-full rounded-full", idx === 0 ? "w-[92%] bg-lime-400" : "w-[78%] bg-lime-300")} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-dual':
+        return frame(
+          <div className="relative flex h-full items-center gap-2.5">
+            <div className="flex-1 rounded-[18px] bg-white border border-lime-100 p-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">Before</div>
+              <div className="mt-3 text-sm font-black text-lime-950 truncate">{primary?.label || 'Current state'}</div>
+              <div className="mt-2 h-5 rounded-full bg-lime-100 overflow-hidden">
+                <div className="h-full w-[42%] rounded-full bg-lime-400" />
+              </div>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 h-10 w-10 rounded-full border-2 border-lime-500 bg-white flex items-center justify-center text-[10px] font-black text-lime-700 shadow-sm">
+              VS
+            </div>
+            <div className="flex-1 rounded-[18px] bg-lime-50 border border-lime-100 p-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">After</div>
+              <div className="mt-3 text-sm font-black text-lime-950 truncate">{secondary?.label || 'Storyline'}</div>
+              <div className="mt-2 h-5 rounded-full bg-lime-200 overflow-hidden">
+                <div className="h-full w-[88%] rounded-full bg-lime-500" />
+              </div>
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-before-after':
+        return frame(
+          <div className="flex h-full items-center gap-2">
+            <div className="flex-1 rounded-[18px] bg-lime-50 border border-lime-100 p-3 flex flex-col justify-between">
+              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">Before</div>
+              <div className="text-lg font-black text-lime-950">{primary?.value || 'Low clarity'}</div>
+              <div className="text-[10px] text-lime-800/70 truncate">{primary?.secondaryText || 'Dense notes'}</div>
+            </div>
+            <div className="w-8 flex flex-col items-center justify-center">
+              <div className="h-px w-full bg-lime-200" />
+              <div className="my-1 h-8 w-8 rounded-full bg-white border border-lime-200 flex items-center justify-center text-lime-700 text-[10px] font-black">→</div>
+              <div className="h-px w-full bg-lime-200" />
+            </div>
+            <div className="flex-1 rounded-[18px] bg-white border border-lime-100 p-3 flex flex-col justify-between">
+              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-lime-700/65">After</div>
+              <div className="text-lg font-black text-lime-950">{secondary?.value || 'Ready'}</div>
+              <div className="text-[10px] text-lime-800/70 truncate">{secondary?.secondaryText || 'Polished output'}</div>
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-pro-con':
+        return frame(
+          <div className="flex h-full flex-col justify-between gap-2">
+            <div className="grid flex-1 grid-cols-2 gap-2">
+              <div className="rounded-[18px] bg-lime-50 border border-lime-100 p-3">
+                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-700/70">Cons</div>
+                <div className="mt-2 text-sm font-black text-lime-950 truncate">{secondary?.label || 'Cons'}</div>
+                <div className="mt-2 h-1.5 rounded-full bg-rose-100 overflow-hidden">
+                  <div className="h-full w-[28%] rounded-full bg-rose-400" />
+                </div>
+              </div>
+              <div className="rounded-[18px] bg-white border border-lime-100 p-3">
+                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-700/70">Pros</div>
+                <div className="mt-2 text-sm font-black text-lime-950 truncate">{primary?.label || 'Pros'}</div>
+                <div className="mt-2 h-1.5 rounded-full bg-lime-100 overflow-hidden">
+                  <div className="h-full w-[74%] rounded-full bg-lime-500" />
+                </div>
+              </div>
+            </div>
+            <div className="h-2 rounded-full bg-lime-100 overflow-hidden">
+              <div className="h-full w-[62%] rounded-full bg-lime-500" />
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-bars':
+        return frame(
+          <div className="flex h-full flex-col justify-between gap-2.5">
+            {[primary, secondary, tertiary].filter(Boolean).map((el, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-14 shrink-0 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el?.label || `Bar ${idx + 1}`}</div>
+                <div className="h-3 flex-1 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-full rounded-full", idx === 0 ? "w-[92%] bg-lime-500" : idx === 1 ? "w-[68%] bg-lime-400" : "w-[84%] bg-lime-300")} />
+                </div>
+                <div className="w-8 text-right text-[9px] font-black text-lime-950">{el?.percentage ?? el?.value ?? ''}</div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-tradeoff':
+        return frame(
+          <div className="grid h-full grid-cols-3 gap-2">
+            {[primary, secondary, tertiary].map((el, idx) => (
+              <div key={idx} className={cn("rounded-[18px] border p-2.5 shadow-sm", idx === 1 ? "bg-lime-50 border-lime-200 scale-[1.02]" : "bg-white border-lime-100")}>
+                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el?.label || `Option ${idx + 1}`}</div>
+                <div className="mt-2 text-sm font-black text-lime-950 truncate">{el?.value || (idx === 1 ? 'Balanced' : 'Tradeoff')}</div>
+                <div className="mt-2 h-1.5 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-full rounded-full", idx === 1 ? "w-[78%] bg-lime-500" : idx === 0 ? "w-[54%] bg-lime-300" : "w-[46%] bg-emerald-400")} />
+                </div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-matrix':
+        return frame(
+          <div className="grid h-full grid-cols-2 gap-2">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div key={idx} className={cn("rounded-[16px] border p-2.5", idx % 2 === 0 ? "bg-lime-50 border-lime-100" : "bg-white border-lime-100")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</span>
+                  <span className="text-[9px] font-black text-lime-900">{el.value || el.percentage || ''}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-4 gap-1">
+                  {Array.from({ length: 4 }).map((_, cellIdx) => (
+                    <div key={cellIdx} className={cn("h-2.5 rounded-sm", cellIdx <= idx ? "bg-lime-500" : "bg-lime-100")} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-quadrant':
+        return frame(
+          <div className="relative h-full rounded-[18px] bg-white border border-lime-100 p-2.5">
+            <div className="absolute inset-y-3 left-1/2 w-px bg-lime-200" />
+            <div className="absolute inset-x-3 top-1/2 h-px bg-lime-200" />
+            <div className="absolute left-4 top-4 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">High Impact</div>
+            <div className="absolute right-4 top-4 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">High Effort</div>
+            <div className="absolute left-4 bottom-4 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">Low Effort</div>
+            <div className="absolute right-4 bottom-4 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">Low Impact</div>
+            <div className="absolute left-[64%] top-[36%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-500 shadow-sm" />
+          </div>,
+          'p-2.5'
+        );
+
+      case 'comparison-heatmap':
+        return frame(
+          <div className="grid h-full grid-cols-2 gap-1.5">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "rounded-[16px] border p-2 flex flex-col justify-between",
+                  idx === 0 ? "bg-lime-100 border-lime-200" : idx === 1 ? "bg-lime-50 border-lime-100" : idx === 2 ? "bg-emerald-50 border-emerald-100" : "bg-white border-lime-100"
+                )}
+              >
+                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-900/70 truncate">{el.label}</div>
+                <div className="text-lg font-black leading-none text-lime-950">{el.value || el.percentage || '--'}</div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'process-timeline':
+        return frame(
+          <div className="relative flex h-full items-start justify-between gap-2 pt-4">
+            <div className="absolute left-4 right-4 top-7 h-px bg-lime-200" />
+            {elements.slice(0, 4).map((el, idx) => (
+              <div key={idx} className="relative z-10 flex-1 text-center">
+                <div className="mx-auto h-6 w-6 rounded-full border-2 border-lime-500 bg-white flex items-center justify-center text-[9px] font-black text-lime-700">
+                  {String(idx + 1)}
+                </div>
+                <div className="mt-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'process-roadmap':
+        return frame(
+          <div className="relative h-full">
+            <div className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-lime-200" />
+            <div className="flex h-full items-end gap-2">
+              {elements.slice(0, 4).map((el, idx) => (
+                <div key={idx} className={cn("flex-1", idx % 2 === 0 ? "mb-2" : "mt-2")}>
+                  <div className="rounded-[16px] border border-lime-100 bg-white p-2.5 shadow-sm">
+                    <div className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">{el.value || `Q${idx + 1}`}</div>
+                    <div className="mt-1 text-[10px] font-black text-lime-950 truncate">{el.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'process-zigzag':
+        return frame(
+          <div className="relative h-full">
+            <div className="absolute left-4 right-4 top-1/2 h-px -translate-y-1/2 bg-lime-200" />
+            <div className="flex h-full items-center gap-2">
+              {elements.slice(0, 4).map((el, idx) => (
+                <div key={idx} className={cn("flex-1", idx % 2 === 0 ? "self-start" : "self-end")}>
+                  <div className="rounded-[16px] border border-lime-100 bg-lime-50 p-2.5 text-center shadow-sm">
+                    <div className="mx-auto h-5 w-5 rounded-full bg-white border border-lime-200 flex items-center justify-center text-[9px] font-black text-lime-700">{idx + 1}</div>
+                    <div className="mt-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65 truncate">{el.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'process-vertical':
+        return frame(
+          <div className="flex h-full flex-col justify-between gap-1.5">
             {elements.slice(0, 4).map((el, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-lime-500 shrink-0" />
-                <div className="h-2 rounded-full bg-lime-100 flex-1" />
-                <div className="w-6 h-2 rounded-full bg-lime-300 shrink-0" />
+                <div className="h-7 w-7 rounded-full bg-lime-50 border border-lime-200 flex items-center justify-center text-[9px] font-black text-lime-800">{idx + 1}</div>
+                <div className="flex-1 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-2 rounded-full", idx === 0 ? "w-[80%] bg-lime-500" : idx === 1 ? "w-[68%] bg-lime-400" : idx === 2 ? "w-[56%] bg-emerald-400" : "w-[46%] bg-lime-300")} />
+                </div>
               </div>
             ))}
-          </div>
+          </div>,
+          'p-2.5'
         );
-      }
 
-      return (
-        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-end gap-2">
-          {[18, 28, 38, 24].map((height, idx) => (
-            <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full rounded-full bg-lime-100 overflow-hidden" style={{ height: `${height}px` }}>
-                <div className="h-full w-full bg-lime-500/90" />
-              </div>
-              <div className="w-1.5 h-1.5 rounded-full bg-lime-400" />
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (type === 'comparison') {
-      const isMatrix = style.includes('matrix') || style.includes('quadrant') || style.includes('heatmap');
-      const isBeforeAfter = style.includes('before') || style.includes('after');
-
-      if (isMatrix) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 grid grid-cols-2 gap-1.5">
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className={cn("rounded-xl flex items-center justify-center text-[9px] font-black", idx % 2 === 0 ? "bg-lime-100 text-lime-900" : "bg-lime-200 text-lime-900")}>
-                {idx + 1}
-              </div>
-            ))}
-          </div>
-        );
-      }
-
-      if (isBeforeAfter) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-2">
-            <div className="flex-1 rounded-xl bg-lime-100 h-full flex items-center justify-center text-[9px] font-black text-lime-800">Before</div>
-            <div className="w-7 h-7 rounded-full border-2 border-lime-500 text-lime-700 flex items-center justify-center text-[9px] font-black">→</div>
-            <div className="flex-1 rounded-xl bg-lime-400/30 h-full flex items-center justify-center text-[9px] font-black text-lime-900">After</div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-3">
-          <div className="flex-1 space-y-2">
-            <div className="h-2 rounded-full bg-lime-100 w-2/3" />
-            <div className="h-5 rounded-full bg-lime-500/80 w-4/5" />
-          </div>
-          <div className="w-8 h-8 rounded-full border-2 border-lime-500 text-lime-700 flex items-center justify-center text-[10px] font-black">
-            VS
-          </div>
-          <div className="flex-1 space-y-2">
-            <div className="h-2 rounded-full bg-lime-100 w-1/2 ml-auto" />
-            <div className="h-5 rounded-full bg-lime-300 w-full" />
-          </div>
-        </div>
-      );
-    }
-
-    if (type === 'hierarchy') {
-      const isTree = style.includes('tree') || style.includes('branch') || style.includes('org');
-      const isPyramid = style.includes('pyramid') || style.includes('triangular') || style.includes('funnel');
-
-      if (isTree) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 flex flex-col justify-between gap-1">
-            <div className="mx-auto w-12 h-4 rounded-xl bg-lime-500/80" />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1 h-3 rounded-full bg-lime-100" />
-              <div className="flex-1 h-3 rounded-full bg-lime-100" />
-              <div className="flex-1 h-3 rounded-full bg-lime-100" />
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1 h-3 rounded-full bg-lime-200" />
-              <div className="flex-1 h-3 rounded-full bg-lime-200" />
-              <div className="flex-1 h-3 rounded-full bg-lime-200" />
-            </div>
-          </div>
-        );
-      }
-
-      if (isPyramid) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-end gap-1">
-            <div className="h-3 rounded-xl bg-lime-100 w-full" />
-            <div className="h-3 rounded-xl bg-lime-300 w-4/5 mx-auto" />
-            <div className="h-3 rounded-xl bg-lime-500 w-2/3 mx-auto" />
-          </div>
-        );
-      }
-
-      return (
-        <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-end gap-1">
-          <div className="h-3 rounded-xl bg-lime-100 w-full" />
-          <div className="h-3 rounded-xl bg-lime-300 w-4/5 mx-auto" />
-          <div className="h-3 rounded-xl bg-lime-500 w-2/3 mx-auto" />
-        </div>
-      );
-    }
-
-    if (type === 'pie') {
-      const isFunnel = style.includes('funnel');
-      const isRadial = style.includes('radial') || style.includes('ring') || style.includes('circle');
-
-      if (isFunnel) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-between">
-            {[100, 76, 52, 28].map((width, idx) => (
+      case 'process-pipeline':
+        return frame(
+          <div className="flex h-full items-end gap-1.5">
+            {[100, 82, 62, 42].map((w, idx) => (
               <div
                 key={idx}
-                className={cn("mx-auto h-3 rounded-full", idx === 0 ? "bg-lime-100" : idx === 1 ? "bg-lime-200" : idx === 2 ? "bg-lime-400/60" : "bg-lime-500")}
-                style={{ width: `${width}%` }}
+                className="relative flex-1 overflow-hidden rounded-[16px] bg-lime-50 border border-lime-100 flex items-end justify-center"
+                style={{ clipPath: `polygon(${10 + idx * 2}% 0, ${90 - idx * 2}% 0, 100% 100%, 0 100%)`, minHeight: `${28 + idx * 6}px` }}
+              >
+                <div className={cn("absolute inset-0", idx === 0 ? "bg-lime-200/70" : idx === 1 ? "bg-lime-300/70" : idx === 2 ? "bg-lime-400/70" : "bg-lime-500/85")} />
+                <div className="relative z-10 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-lime-950">{idx + 1}</div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'process-swimlane':
+        return frame(
+          <div className="flex h-full flex-col gap-1.5">
+            {elements.slice(0, 3).map((el, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-14 shrink-0 rounded-xl bg-lime-50 border border-lime-200 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+                  Lane {idx + 1}
+                </div>
+                <div className="flex-1 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-3 rounded-full", idx === 0 ? "w-[78%] bg-lime-500" : idx === 1 ? "w-[56%] bg-lime-400" : "w-[68%] bg-emerald-400")} />
+                </div>
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-org':
+        return frame(
+          <div className="flex h-full flex-col gap-2">
+            <div className="mx-auto w-20 rounded-[16px] bg-lime-50 border border-lime-200 px-2 py-2 text-center text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+              {primary?.label || 'Leadership'}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {elements.slice(1, 4).map((el, idx) => (
+                <div key={idx} className="rounded-[14px] bg-white border border-lime-100 px-2 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 text-center truncate">
+                  {el.label}
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-branch':
+        return frame(
+          <div className="flex h-full items-center gap-2.5">
+            <div className="w-20 rounded-[16px] bg-lime-50 border border-lime-200 px-2 py-2 text-center text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+              {primary?.label || 'Root'}
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {elements.slice(1, 4).map((el, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="h-px w-4 bg-lime-200" />
+                  <div className="flex-1 rounded-[14px] bg-white border border-lime-100 px-2 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+                    {el.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-pyramid':
+        return frame(
+          <div className="flex h-full flex-col justify-end gap-1.5 px-2">
+            {[100, 82, 64, 46].map((width, idx) => {
+              const el = elements[idx];
+              return (
+                <div
+                  key={idx}
+                  className={cn("mx-auto rounded-[14px] border px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-[0.18em] truncate", idx === 0 ? "bg-lime-50 border-lime-200 text-lime-800" : idx === 1 ? "bg-lime-100 border-lime-100 text-lime-800" : idx === 2 ? "bg-lime-200 border-lime-100 text-lime-900" : "bg-lime-300 border-lime-200 text-lime-950")}
+                  style={{ width: `${width}%` }}
+                >
+                  {el?.label || `Layer ${idx + 1}`}
+                </div>
+              );
+            })}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-stack':
+        return frame(
+          <div className="relative h-full pt-1">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div
+                key={idx}
+                className={cn("absolute left-0 right-0 rounded-[16px] border px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] truncate shadow-sm", idx === 0 ? "top-0 bg-white border-lime-100" : idx === 1 ? "top-4 bg-lime-50 border-lime-100" : idx === 2 ? "top-8 bg-lime-100 border-lime-100" : "top-12 bg-lime-200 border-lime-200")}
+                style={{ transform: `translateX(${idx * 4}px)` }}
+              >
+                {el.label}
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-nested':
+        return frame(
+          <div className="relative h-full rounded-[18px] border border-lime-100 bg-lime-50 p-2.5">
+            <div className="absolute inset-4 rounded-[16px] border border-lime-200 bg-white" />
+            <div className="absolute inset-8 rounded-[14px] border border-lime-100 bg-lime-50" />
+            <div className="absolute inset-12 rounded-[12px] border border-lime-200 bg-white" />
+            <div className="absolute left-3 top-3 text-[9px] font-black uppercase tracking-[0.18em] text-lime-700/65">{primary?.label || 'Nested Layers'}</div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'hierarchy-dependency':
+        return frame(
+          <div className="flex h-full items-center gap-2">
+            {elements.slice(0, 4).map((el, idx) => (
+              <React.Fragment key={idx}>
+                <div className="rounded-[14px] bg-white border border-lime-100 px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+                  {el.label}
+                </div>
+                {idx < 3 && <div className="text-lime-300 font-black">→</div>}
+              </React.Fragment>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'pie-funnel':
+        return frame(
+          <div className="flex h-full flex-col justify-between gap-1">
+            {[100, 82, 62, 42].map((width, idx) => (
+              <div
+                key={idx}
+                className={cn("mx-auto rounded-[14px] border text-center text-[9px] font-black uppercase tracking-[0.18em]", idx === 0 ? "bg-lime-50 border-lime-200 text-lime-800" : idx === 1 ? "bg-lime-100 border-lime-100 text-lime-800" : idx === 2 ? "bg-lime-200 border-lime-100 text-lime-900" : "bg-lime-500 border-lime-500 text-white")}
+                style={{ width: `${width}%`, padding: '4px 8px' }}
+              >
+                {elements[idx]?.label || `Stage ${idx + 1}`}
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      case 'pie-network':
+        return frame(
+          <div className="relative flex h-full items-center justify-center">
+            <div className="relative h-16 w-16">
+              <div className="absolute inset-0 rounded-full border-4 border-lime-100" />
+              <div className="absolute inset-3 rounded-full border-4 border-lime-300" />
+              <div className="absolute inset-[18px] rounded-full bg-lime-500" />
+            </div>
+            {[0, 1, 2, 3].map((idx) => (
+              <div
+                key={idx}
+                className={cn("absolute h-3 w-3 rounded-full shadow-sm", idx === 0 ? "left-4 top-6 bg-lime-200" : idx === 1 ? "right-5 top-5 bg-lime-300" : idx === 2 ? "left-6 bottom-5 bg-lime-400" : "right-6 bottom-6 bg-emerald-400")}
               />
             ))}
-          </div>
+          </div>,
+          'p-2.5'
         );
-      }
 
-      if (isRadial) {
-        return (
-          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center justify-center">
-            <div className="relative w-14 h-14">
+      case 'pie-rings':
+        return frame(
+          <div className="flex h-full items-center gap-2.5">
+            <div className="relative h-16 w-16 shrink-0">
               <div className="absolute inset-0 rounded-full border-4 border-lime-100" />
               <div className="absolute inset-2 rounded-full border-4 border-lime-300" />
               <div className="absolute inset-4 rounded-full border-4 border-lime-500 border-t-transparent border-r-transparent" />
             </div>
-          </div>
+            <div className="flex-1 space-y-1.5">
+              {elements.slice(0, 3).map((el, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", idx === 0 ? "bg-lime-500" : idx === 1 ? "bg-lime-300" : "bg-emerald-400")} />
+                  {el.label}
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
         );
-      }
-    }
 
-    return (
-      <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center justify-center">
-        <div className="w-14 h-14 rounded-full border-4 border-lime-100 border-t-lime-500" />
-      </div>
-    );
+      case 'pie-donut':
+        return frame(
+          <div className="flex h-full items-center gap-2.5">
+            <div className="relative h-16 w-16 shrink-0">
+              <div className="absolute inset-0 rounded-full border-8 border-lime-100" />
+              <div className="absolute inset-2 rounded-full border-8 border-lime-300" />
+              <div className="absolute inset-[18px] rounded-full bg-white border border-lime-100" />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {elements.slice(0, 3).map((el, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 rounded-full bg-lime-50 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800">
+                  <span className="truncate">{el.label}</span>
+                  <span>{el.percentage ?? el.value ?? ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'pie-allocation':
+        return frame(
+          <div className="flex h-full items-center gap-2.5">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-4 border-lime-100 bg-conic from-lime-200 via-lime-400 to-emerald-400">
+              <div className="absolute inset-[18px] rounded-full bg-white border border-lime-100" />
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {elements.slice(0, 3).map((el, idx) => (
+                <div key={idx} className="rounded-full bg-white border border-lime-100 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-lime-800 truncate">
+                  {el.label}
+                </div>
+              ))}
+            </div>
+          </div>,
+          'p-2.5'
+        );
+
+      case 'pie-radial-bars':
+        return frame(
+          <div className="flex h-full items-end justify-between gap-1.5">
+            {[18, 28, 36, 26, 32].map((height, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5">
+                <div className={cn("w-full rounded-t-full", idx % 2 === 0 ? "bg-lime-300" : "bg-lime-500")} style={{ height: `${height}px` }} />
+                <div className="h-1.5 w-1.5 rounded-full bg-lime-200" />
+              </div>
+            ))}
+          </div>,
+          'p-2.5'
+        );
+
+      default:
+        return frame(
+          <div className="flex h-full items-center justify-center">
+            <div className="w-14 h-14 rounded-full border-4 border-lime-100 border-t-lime-500" />
+          </div>,
+          'p-2.5'
+        );
+    }
   };
 
   const handleRemoveGraphicElement = (slideIdx: number, elIdx: number) => {
@@ -1859,39 +2398,62 @@ export function SlideEditor({
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {GRAPHIC_PRESET_GROUPS.flatMap((group) => group.presets).filter((preset) => {
-                    const matchesSearch = graphicSearch.trim() === '' || preset.name.toLowerCase().includes(graphicSearch.toLowerCase()) || preset.desc.toLowerCase().includes(graphicSearch.toLowerCase());
-                    const category = GRAPHIC_PRESET_CATEGORY[preset.name];
-                    return matchesSearch && (graphicCategory === 'all' || graphicCategory === category);
-                  }).map((preset) => {
-                    const selected = !!activeSlide?.graphic && activeSlide.graphic.type === preset.preview?.type && (activeSlide.graphic.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[activeSlide.graphic.type]) === (preset.preview?.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[preset.preview?.type || activeSlide.graphic.type]);
-                    return (
-                      <button
-                        key={preset.name}
-                        onClick={() => {
-                          openGraphicPreset(preset);
-                          setGraphicDrawerOpen(false);
-                        }}
-                        className={cn(
-                          "text-left rounded-[18px] border p-3 transition-all shadow-sm hover:shadow-md",
-                          selected ? "border-lime-700 ring-2 ring-lime-500/10 bg-lime-50/60" : "border-lime-200 bg-white hover:border-lime-300"
-                        )}
-                      >
-                        {renderGraphicThumbnail(preset)}
-                        <div className="mt-3 flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-black text-lime-950 truncate">{preset.name}</div>
-                            <div className="mt-1 text-[10px] leading-relaxed text-lime-900/55">{preset.desc}</div>
+                {filteredGraphicGroups.length === 0 ? (
+                  <div className="rounded-[22px] border border-dashed border-lime-200 bg-lime-50/40 px-4 py-10 text-center">
+                    <div className="text-sm font-black text-lime-950">No presets match this filter.</div>
+                    <div className="mt-1 text-xs text-lime-900/60">Try another category or clear the search term.</div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {filteredGraphicGroups.map((group) => (
+                      <section key={group.label} className="space-y-3">
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-lime-700">{group.label}</div>
+                            <div className="text-xs font-black text-lime-950">{group.presets.length} preset{group.presets.length === 1 ? '' : 's'}</div>
                           </div>
-                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800 shrink-0">
-                            {GRAPHIC_PRESET_CATEGORY[preset.name]}
-                          </span>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {group.presets.map((preset) => {
+                            const selected = !!activeSlide?.graphic && activeSlide.graphic.type === preset.preview?.type && (activeSlide.graphic.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[activeSlide.graphic.type]) === (preset.preview?.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[preset.preview?.type || activeSlide.graphic.type]);
+                            return (
+                              <button
+                                key={preset.name}
+                                onClick={() => {
+                                  openGraphicPreset(preset);
+                                  setGraphicDrawerOpen(false);
+                                }}
+                                className={cn(
+                                  "group text-left rounded-[22px] border p-3 transition-all shadow-sm hover:shadow-lg hover:-translate-y-0.5",
+                                  selected ? "border-lime-700 ring-2 ring-lime-500/10 bg-lime-50/60" : "border-lime-200 bg-white hover:border-lime-300"
+                                )}
+                              >
+                                <div className="relative">
+                                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-lime-200 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <div className="relative mb-3 overflow-hidden rounded-[24px] border border-lime-100 bg-lime-50/50 p-2.5">
+                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(217,249,157,0.34),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(132,204,22,0.12),transparent_42%)]" />
+                                    <div className="relative">
+                                      {renderGraphicThumbnail(preset)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-black text-lime-950 truncate">{preset.name}</div>
+                                    <div className="mt-1 text-[10px] leading-relaxed text-lime-900/55 line-clamp-2">{preset.desc}</div>
+                                  </div>
+                                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800 shrink-0">
+                                    {GRAPHIC_PRESET_CATEGORY[preset.name]}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
