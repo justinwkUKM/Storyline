@@ -27,13 +27,19 @@ import {
   Eye,
   PlusCircle,
   X,
-  ListPlus
+  ListPlus,
+  Save
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface SlideEditorProps {
   initialData: PresentationData;
+  initialTheme?: ThemeName;
+  initialCustomSettings?: CustomizationSettings;
+  savedDeckId?: string | null;
+  saveStatus?: string;
+  onSave?: (data: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings, saveAsNew?: boolean) => Promise<void>;
   onFinalise: (finalData: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings) => void;
   onCancel: () => void;
 }
@@ -61,14 +67,23 @@ const GRAPHIC_TYPES: { id: 'process' | 'comparison' | 'metrics' | 'hierarchy' | 
   { id: 'pie', name: 'Proportional Slices', desc: 'Circular ratio percentage metrics' }
 ];
 
-export function SlideEditor({ initialData, onFinalise, onCancel }: SlideEditorProps) {
+export function SlideEditor({
+  initialData,
+  initialTheme = 'modern',
+  initialCustomSettings,
+  savedDeckId,
+  saveStatus,
+  onSave,
+  onFinalise,
+  onCancel
+}: SlideEditorProps) {
   const [data, setData] = useState<PresentationData>({
     ...initialData,
     slides: [...initialData.slides]
   });
 
-  const [theme, setTheme] = useState<ThemeName>('modern');
-  const [customSettings, setCustomSettings] = useState<CustomizationSettings>({
+  const [theme, setTheme] = useState<ThemeName>(initialTheme);
+  const [customSettings, setCustomSettings] = useState<CustomizationSettings>(initialCustomSettings || {
     fontFamily: 'font-sans',
     primaryColor: '#2563eb',
     backgroundColor: '#ffffff',
@@ -308,6 +323,15 @@ export function SlideEditor({ initialData, onFinalise, onCancel }: SlideEditorPr
     onFinalise(data, theme, theme === 'custom' ? customSettings : undefined);
   };
 
+  const handleSaveClick = async (saveAsNew = false) => {
+    if (!onSave) return;
+    if (!data.title || data.title.trim() === '') {
+      alert("Please specify an overall presentation title.");
+      return;
+    }
+    await onSave(data, theme, theme === 'custom' ? customSettings : undefined, saveAsNew);
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50 flex flex-col">
       {/* 1. Sticky Header Bar */}
@@ -343,6 +367,26 @@ export function SlideEditor({ initialData, onFinalise, onCancel }: SlideEditorPr
             Cancel
           </button>
 
+          {onSave && (
+            <>
+              <button
+                onClick={() => handleSaveClick(false)}
+                className="px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl text-xs font-bold text-blue-700 flex items-center gap-2 cursor-pointer transition-all"
+              >
+                <Save className="w-4 h-4" />
+                {savedDeckId ? 'Save' : 'Save Draft'}
+              </button>
+              {savedDeckId && (
+                <button
+                  onClick={() => handleSaveClick(true)}
+                  className="px-4 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-600 cursor-pointer transition-all"
+                >
+                  Save As New
+                </button>
+              )}
+            </>
+          )}
+
           <button
             onClick={handleFinaliseClick}
             className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
@@ -352,6 +396,12 @@ export function SlideEditor({ initialData, onFinalise, onCancel }: SlideEditorPr
           </button>
         </div>
       </header>
+
+      {saveStatus && (
+        <div className="fixed top-[78px] right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-lg">
+          {saveStatus}
+        </div>
+      )}
 
       {/* 2. Workspace Content Panels */}
       <div className="flex-1 flex overflow-hidden min-h-0 w-full">
