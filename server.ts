@@ -7,6 +7,7 @@ import { PDFParse } from 'pdf-parse';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { authMiddleware, requireAuth } from './src/server/auth';
+import { prisma } from './src/server/db';
 import { sendError } from './src/server/http';
 import { authRouter } from './src/server/routes/auth';
 import { decksRouter } from './src/server/routes/decks';

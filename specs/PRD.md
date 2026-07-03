@@ -59,6 +59,8 @@ An authenticated user uploads a PDF, selects a visual theme, chooses a graphic s
 
 An unauthenticated visitor opens Storyline, sees a Limefrost marketing page with the product name, value proposition, feature summary, and a primary call to action. The visitor can continue to the login/register screen without seeing the authenticated app until a valid session exists.
 
+The landing page should feel animated and product-led, with the hero scene revealing the app workflow instead of presenting a static marketing block.
+
 ### 6.2 Refine the Generated Deck
 
 The user reviews extracted source text, edits the deck title, changes slide titles and bullets, adjusts speaker notes, adds or removes slides, reorders slides, and changes visual diagram settings.

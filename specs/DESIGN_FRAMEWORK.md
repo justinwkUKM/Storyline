@@ -48,6 +48,8 @@ Required areas:
 - Secondary feature anchor.
 - Product-like visual scene showing generated deck structure.
 - Feature summary section visible immediately after the hero.
+- Animated hero treatment with staggered text reveal, a moving product scene, and floating supporting callouts.
+- A compact mobile preview of the hero product scene so the first screen still feels branded on smaller devices.
 
 Design guidance:
 
@@ -55,6 +57,7 @@ Design guidance:
 - Keep the hero product-led rather than abstract.
 - Avoid generic SaaS gradients, abstract SVG art, and stock imagery.
 - Use a full-bleed product scene behind or around the headline instead of a split text-and-card hero.
+- Keep motion restrained and purposeful. Use drift and staged reveal rather than constant looping effects.
 - Keep the Storyline name prominent in the first viewport.
 - Leave a visible hint of the feature section below the hero on common desktop and mobile viewports.
 
