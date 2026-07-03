@@ -24,7 +24,9 @@ export default function App() {
     selectedTheme: ThemeName, 
     settings?: CustomizationSettings, 
     graphicStyle: string = 'modern_infographic', 
-    tone: string = 'executive'
+    tone: string = 'executive',
+    slideCount: string = 'auto',
+    orientation: string = 'horizontal'
   ) => {
     setIsLoading(true);
     setError(null);
@@ -35,6 +37,8 @@ export default function App() {
     formData.append('pdf', file);
     formData.append('graphicStyle', graphicStyle);
     formData.append('tone', tone);
+    formData.append('slideCount', slideCount);
+    formData.append('orientation', orientation);
     if (settings) {
       formData.append('customSettings', JSON.stringify(settings));
     }

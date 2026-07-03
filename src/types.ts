@@ -12,6 +12,7 @@ export interface InteractiveLink {
 export interface SlideGraphic {
   type: 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie';
   title?: string;
+  style?: string;
   elements: {
     label: string;
     value?: string;
@@ -36,6 +37,7 @@ export interface PresentationData {
   title: string;
   slides: SlideContent[];
   rawParsedText?: string;
+  orientation?: 'horizontal' | 'vertical';
 }
 
 export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'custom';

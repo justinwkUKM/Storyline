@@ -78,6 +78,8 @@ async function startServer() {
       // Retrieve presentation style options
       const graphicStyle = req.body.graphicStyle || 'modern_infographic';
       const tone = req.body.tone || 'executive';
+      const slideCount = req.body.slideCount || 'auto';
+      const orientation = req.body.orientation || 'horizontal';
 
       let styleGuidance = '';
       if (graphicStyle === 'modern_infographic') {
@@ -97,6 +99,14 @@ async function startServer() {
         toneGuidance = 'The text content MUST be "Creative & Narrative". Tell a compelling story across the slides, using engaging metaphors, custom process stages, and fun quiz challenges.';
       }
 
+      let slideCountGuidance = 'Generate an appropriate number of slides to summarize the key points (usually between 5 to 10 slides).';
+      if (slideCount !== 'auto') {
+        const count = parseInt(slideCount, 10);
+        if (!isNaN(count) && count > 0) {
+          slideCountGuidance = `You MUST generate EXACTLY ${count} slides in the "slides" array. No more and no less. Plan the pacing and content grouping carefully so that the presentation spans exactly ${count} slides.`;
+        }
+      }
+
       // Call Gemini to structure the presentation
       const prompt = `Please create a professional presentation slide deck based on the following text extracted from a PDF. 
 First, identify and extract the most critical points and concepts. Use these to create a focused and professional summary that will serve as the primary content for the slides.
@@ -105,8 +115,9 @@ Make sure there's an introductory slide, several content slides, and a conclusio
 Layout and Content Tone Expectations:
 - Style Guideline: ${styleGuidance}
 - Tone Guideline: ${toneGuidance}
+- Slide Count Requirement: ${slideCountGuidance}
 
-For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
+For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
 
 Additionally, add interactive elements to the slides where appropriate to make the presentation engaging:
 1. Include relevant external links for further reading or reference (can be real or placeholder links based on context).
@@ -151,7 +162,11 @@ ${textToAnalyze}
                         properties: {
                           type: { 
                             type: Type.STRING, 
-                            description: 'The visual template layout: process, comparison, metrics, hierarchy, or pie.' 
+                            description: 'The visual template category: process, comparison, metrics, hierarchy, or pie.' 
+                          },
+                          style: {
+                            type: Type.STRING,
+                            description: 'The specific visual variation template name chosen from the 50 templates listed in the prompt instructions.'
                           },
                           title: { type: Type.STRING, description: 'Optional graphic title' },
                           elements: {
@@ -268,6 +283,7 @@ ${textToAnalyze}
       });
 
       presentationData.rawParsedText = textToAnalyze;
+      presentationData.orientation = orientation;
 
       res.json(presentationData);
     } catch (error: any) {

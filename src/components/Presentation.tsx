@@ -133,6 +133,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
 
   const currentSlide = data.slides[currentIndex];
   const isTitleSlide = currentIndex === 0;
+  const isVertical = data.orientation === 'vertical';
 
   const isCustom = theme === 'custom' && customSettings;
   const containerStyle = isCustom ? { backgroundColor: customSettings.backgroundColor } : undefined;
@@ -171,10 +172,14 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
     setIsDownloading(true);
     setDownloadProgress('Preparing high-res PDF...');
     try {
+      const pdfWidth = isVertical ? 720 : 1280;
+      const pdfHeight = isVertical ? 960 : 720;
+      const pdfOrientation = isVertical ? 'portrait' : 'landscape';
+
       const pdf = new jsPDF({
-        orientation: 'landscape',
+        orientation: pdfOrientation,
         unit: 'px',
-        format: [1280, 720]
+        format: [pdfWidth, pdfHeight]
       });
 
       let pageCount = 0;
@@ -186,8 +191,8 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           // Add a brief timeout to let everything stabilize
           await new Promise(r => setTimeout(r, 120));
           const canvas = await html2canvas(contentEl, {
-            width: 1280,
-            height: 720,
+            width: pdfWidth,
+            height: pdfHeight,
             scale: 1.5, // 1.5x scale offers gorgeous density without inflating PDF sizes
             useCORS: true,
             logging: false,
@@ -195,9 +200,9 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           const imgData = canvas.toDataURL('image/png');
           
           if (pageCount > 0) {
-            pdf.addPage([1280, 720], 'landscape');
+            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
           }
-          pdf.addImage(imgData, 'PNG', 0, 0, 1280, 720);
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
           pageCount++;
         }
 
@@ -208,16 +213,16 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           if (quizEl) {
             await new Promise(r => setTimeout(r, 120));
             const canvas = await html2canvas(quizEl, {
-              width: 1280,
-              height: 720,
+              width: pdfWidth,
+              height: pdfHeight,
               scale: 1.5,
               useCORS: true,
               logging: false,
             });
             const imgData = canvas.toDataURL('image/png');
             
-            pdf.addPage([1280, 720], 'landscape');
-            pdf.addImage(imgData, 'PNG', 0, 0, 1280, 720);
+            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pageCount++;
           }
         }
@@ -240,7 +245,12 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
     try {
       const pptx = new pptxgen();
       pptx.title = data.title;
-      pptx.layout = 'LAYOUT_16x9';
+      if (isVertical) {
+        pptx.defineLayout({ name: 'PORTRAIT', width: 7.5, height: 10 });
+        pptx.layout = 'PORTRAIT';
+      } else {
+        pptx.layout = 'LAYOUT_16x9';
+      }
 
       const primaryColorHex = isCustom ? customSettings?.primaryColor : theme === 'cosmic' ? '#7c3aed' : '#2563eb';
       const textColorHex = isCustom ? customSettings?.textColor : theme === 'cosmic' ? '#ffffff' : '#1f2937';
@@ -255,10 +265,10 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           // Title Slide Layout
           pptSlide.addText(slide.title, {
             x: '10%',
-            y: '35%',
+            y: isVertical ? '30%' : '35%',
             w: '80%',
             h: '20%',
-            fontSize: 44,
+            fontSize: isVertical ? 36 : 44,
             bold: true,
             color: textColorHex,
             align: 'center',
@@ -268,7 +278,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           if (data.title !== slide.title) {
             pptSlide.addText(data.title, {
               x: '15%',
-              y: '55%',
+              y: isVertical ? '52%' : '55%',
               w: '70%',
               h: '10%',
               fontSize: 18,
@@ -280,7 +290,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
 
           pptSlide.addShape(pptx.ShapeType.rect, {
             x: '45%',
-            y: '30%',
+            y: isVertical ? '25%' : '30%',
             w: '10%',
             h: '1%',
             fill: { color: primaryColorHex }
@@ -289,59 +299,70 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
           // Standard Slide Content
           pptSlide.addText(slide.title, {
             x: '5%',
-            y: '8%',
+            y: isVertical ? '6%' : '8%',
             w: '90%',
             h: '10%',
-            fontSize: 32,
+            fontSize: isVertical ? 24 : 32,
             bold: true,
             color: primaryColorHex,
             fontFace: 'Arial'
           });
 
           const hasGraphic = !!slide.graphic;
-          const leftColWidth = hasGraphic ? '45%' : '90%';
+          const leftColWidth = (hasGraphic && !isVertical) ? '45%' : '90%';
+          const bulletH = (hasGraphic && isVertical) ? '34%' : '60%';
+          const bulletY = isVertical ? '16%' : '22%';
 
           // Bullets text
           const bulletObjects = slide.content.map(bullet => ({
             text: bullet,
-            options: { bullet: true, fontSize: 16, color: textColorHex }
+            options: { bullet: true, fontSize: isVertical ? 14 : 16, color: textColorHex }
           }));
 
           if (bulletObjects.length > 0) {
             pptSlide.addText(bulletObjects as any, {
               x: '5%',
-              y: '22%',
+              y: bulletY,
               w: leftColWidth,
-              h: '60%',
-              fontSize: 16,
+              h: bulletH,
+              fontSize: isVertical ? 14 : 16,
               color: textColorHex,
               align: 'left',
               fontFace: 'Arial',
               valign: 'top',
-              lineSpacing: 24
+              lineSpacing: isVertical ? 18 : 24
             });
           }
 
           // Render Graphics as visual blocks inside PowerPoint
           if (slide.graphic) {
             // Draw visual container box
+            const graphicX = isVertical ? '5%' : '54%';
+            const graphicY = isVertical ? '56%' : '22%';
+            const graphicW = isVertical ? '90%' : '41%';
+            const graphicH = isVertical ? '36%' : '60%';
+
             pptSlide.addShape(pptx.ShapeType.roundRect, {
-              x: '54%',
-              y: '22%',
-              w: '41%',
-              h: '60%',
+              x: graphicX,
+              y: graphicY,
+              w: graphicW,
+              h: graphicH,
               fill: { color: theme === 'cosmic' ? '#131926' : '#f8fafc' },
               line: { color: primaryColorHex, width: 1 }
             });
 
             // Container header
             const graphicTitle = slide.graphic.title || 'Visual Graphic';
+            const gTitleX = isVertical ? '7%' : '56%';
+            const gTitleY = isVertical ? '58%' : '25%';
+            const gTitleW = isVertical ? '86%' : '37%';
+
             pptSlide.addText(graphicTitle, {
-              x: '56%',
-              y: '25%',
-              w: '37%',
+              x: gTitleX,
+              y: gTitleY,
+              w: gTitleW,
               h: '5%',
-              fontSize: 14,
+              fontSize: 12,
               bold: true,
               color: primaryColorHex,
               fontFace: 'Arial'
@@ -350,24 +371,24 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
             // Draw graphic metrics / steps
             const elementsToDraw = slide.graphic.elements.slice(0, 4);
             elementsToDraw.forEach((el, elIdx) => {
-              const elementY = 32 + (elIdx * 12);
+              const elementY = (isVertical ? 64 : 32) + (elIdx * (isVertical ? 6 : 12));
 
               // Step tag
               pptSlide.addShape(pptx.ShapeType.roundRect, {
-                x: '56%',
+                x: isVertical ? '7%' : '56%',
                 y: `${elementY}%`,
                 w: '2.5%',
-                h: '3%',
+                h: isVertical ? '2%' : '3%',
                 fill: { color: primaryColorHex }
               });
 
               // Element text label
               pptSlide.addText(el.label, {
-                x: '60%',
-                y: `${elementY - 1}%`,
-                w: '24%',
-                h: '4%',
-                fontSize: 12,
+                x: isVertical ? '11%' : '60%',
+                y: `${elementY - 0.5}%`,
+                w: isVertical ? '55%' : '24%',
+                h: '3%',
+                fontSize: 10,
                 bold: true,
                 color: textColorHex,
                 fontFace: 'Arial'
@@ -375,11 +396,11 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
 
               if (el.secondaryText) {
                 pptSlide.addText(el.secondaryText, {
-                  x: '60%',
-                  y: `${elementY + 3.2}%`,
-                  w: '24%',
-                  h: '5%',
-                  fontSize: 10,
+                  x: isVertical ? '11%' : '60%',
+                  y: `${elementY + 2.5}%`,
+                  w: isVertical ? '55%' : '24%',
+                  h: '3%',
+                  fontSize: 8,
                   color: textColorHex,
                   fontFace: 'Arial'
                 });
@@ -388,11 +409,11 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
               const valueText = el.value || (el.percentage !== undefined ? `${el.percentage}%` : '');
               if (valueText) {
                 pptSlide.addText(valueText, {
-                  x: '86%',
-                  y: `${elementY - 1}%`,
-                  w: '7%',
-                  h: '4%',
-                  fontSize: 12,
+                  x: isVertical ? '75%' : '86%',
+                  y: `${elementY - 0.5}%`,
+                  w: isVertical ? '15%' : '7%',
+                  h: '3%',
+                  fontSize: 10,
                   bold: true,
                   color: primaryColorHex,
                   align: 'right',
@@ -506,7 +527,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
       </div>
 
       {/* Main Slide Card Layout */}
-      <div className="w-full flex-1 max-w-5xl flex items-center justify-center min-h-0">
+      <div className={cn("w-full flex-1 flex items-center justify-center min-h-0", isVertical ? "max-w-md" : "max-w-5xl")}>
         <AnimatePresence initial={false} custom={direction} mode="wait">
           <motion.div
             key={currentIndex}
@@ -520,7 +541,8 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
               opacity: { duration: 0.15 }
             }}
             className={cn(
-              "w-full aspect-video rounded-3xl p-8 md:p-12 shadow-xl border overflow-hidden flex flex-col relative bg-white", 
+              "w-full rounded-3xl shadow-xl border overflow-hidden flex flex-col relative bg-white", 
+              isVertical ? "aspect-[3/4] p-6" : "aspect-video p-8 md:p-12",
               !isCustom && style.bg, 
               isTitleSlide ? "justify-center items-center text-center" : getAlignmentClass()
             )}
@@ -544,7 +566,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25, duration: 0.5 }}
-                  className={cn("text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4", !isCustom && style.title)}
+                  className={cn("font-extrabold tracking-tight mb-4", isVertical ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl lg:text-6xl", !isCustom && style.title)}
                   style={titleStyleObj}
                 >
                   {currentSlide.title}
@@ -553,7 +575,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                    initial={{ opacity: 0 }}
                    animate={{ opacity: 1 }}
                    transition={{ delay: 0.45 }}
-                   className={cn("text-lg md:text-xl opacity-75 max-w-2xl font-medium", !isCustom && style.text)}
+                   className={cn("opacity-75 max-w-2xl font-medium", isVertical ? "text-sm md:text-base" : "text-lg md:text-xl", !isCustom && style.text)}
                    style={textStyleObj}
                 >
                    {data.title !== currentSlide.title ? data.title : 'Interactive Presentation Deck'}
@@ -645,10 +667,10 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                           />
                         </div>
                       ) : currentSlide.graphic ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center w-full">
+                        <div className={cn("grid gap-4 md:gap-6 items-center w-full", isVertical ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12 lg:gap-8")}>
                           
                           {/* Bullet points on Left column */}
-                          <div className="lg:col-span-5 flex flex-col justify-center">
+                          <div className={cn(isVertical ? "col-span-1" : "lg:col-span-5", "flex flex-col justify-center")}>
                             <ul className={cn(getSpacingClass(), "w-full")}>
                               {currentSlide.content.map((point, idx) => (
                                 <motion.li
@@ -656,10 +678,10 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                                   initial={{ opacity: 0, x: -15 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   transition={{ delay: 0.15 + (idx * 0.08) }}
-                                  className={cn("flex text-base md:text-lg leading-relaxed", !isCustom && style.text, getAlignmentClassForList())}
+                                  className={cn("flex leading-relaxed", isVertical ? "text-xs md:text-sm" : "text-base md:text-lg", !isCustom && style.text, getAlignmentClassForList())}
                                   style={textStyleObj}
                                 >
-                                  <span className={cn("inline-block w-2 h-2 rounded-full mt-2.5 mr-3 flex-shrink-0", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-3' : 'ml-0 mr-3', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
+                                  <span className={cn("inline-block rounded-full mt-2 mr-3 flex-shrink-0", isVertical ? "w-1.5 h-1.5" : "w-2 h-2", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-3' : 'ml-0 mr-3', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
                                   <span className={cn(customSettings?.alignment === 'center' && 'text-center')}>{point}</span>
                                 </motion.li>
                               ))}
@@ -669,21 +691,22 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                             {currentSlide.videoUrl && (
                               <button
                                 onClick={() => setShowVideo(true)}
-                                className="flex items-center gap-2 mt-6 px-4 py-2.5 rounded-xl bg-black/5 hover:bg-black/10 text-xs font-semibold text-left transition-colors cursor-pointer w-fit"
+                                className={cn("flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-[10px] md:text-xs font-semibold text-left transition-colors cursor-pointer w-fit", isVertical ? "mt-3" : "mt-6")}
                               >
-                                <PlayCircle className="w-5 h-5 text-blue-500" />
-                                <span style={textStyleObj}>Watch Embedded Video Content</span>
+                                <PlayCircle className="w-4 h-4 text-blue-500" />
+                                <span style={textStyleObj}>Watch Video</span>
                               </button>
                             )}
                           </div>
 
                           {/* Interactive premium Graphic on Right column */}
-                          <div className="lg:col-span-7 flex flex-col justify-center bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-black/5 dark:border-white/5 shadow-inner min-h-[300px]">
+                          <div className={cn("flex flex-col justify-center bg-black/5 dark:bg-white/5 rounded-2xl p-4 border border-black/5 dark:border-white/5 shadow-inner", isVertical ? "col-span-1 min-h-[180px] p-2" : "lg:col-span-7 min-h-[300px]")}>
                             <InteractiveGraphic
                               graphic={currentSlide.graphic}
                               accentClass={!isCustom ? style.accent : ''}
                               accentStyleObj={accentStyleObj}
                               isDarkTheme={theme === 'cosmic'}
+                              isVerticalMode={isVertical}
                             />
                           </div>
                         </div>
@@ -924,7 +947,7 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
       {/* ---------------- OFFSCREEN HIGH-RES EXPORT CONTAINER (HIDDEN FROM VIEW) ---------------- */}
       <div 
         className="absolute left-[-9999px] top-[-9999px] pointer-events-none overflow-hidden"
-        style={{ width: '1280px', height: '720px' }}
+        style={{ width: isVertical ? '720px' : '1280px', height: isVertical ? '960px' : '720px' }}
       >
         {data.slides.map((slide, sIdx) => (
           <React.Fragment key={sIdx}>
@@ -933,7 +956,8 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
             <div
               id={`pdf-slide-content-${sIdx}`}
               className={cn(
-                "w-[1280px] h-[720px] p-16 flex flex-col justify-between relative bg-white",
+                "p-16 flex flex-col justify-between relative bg-white animate-none",
+                isVertical ? "w-[720px] h-[960px]" : "w-[1280px] h-[720px]",
                 !isCustom && themeStyles[theme].bg,
                 isCustom && customSettings?.fontFamily
               )}
@@ -943,34 +967,35 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
               }}
             >
               <h2 
-                className={cn("text-5xl font-extrabold mb-10", !isCustom && themeStyles[theme].title)}
+                className={cn("font-extrabold mb-6", isVertical ? "text-3xl mb-4" : "text-5xl mb-10", !isCustom && themeStyles[theme].title)}
                 style={titleStyleObj}
               >
                 {slide.title}
               </h2>
-              <div className="flex-1 w-full flex min-h-0 items-center justify-between gap-10">
+              <div className="flex-1 w-full flex min-h-0 items-center justify-between gap-6">
                 {slide.graphic ? (
-                  <div className="grid grid-cols-12 gap-10 w-full items-center">
-                    <div className="col-span-5">
-                      <ul className="space-y-6">
+                  <div className={cn("grid gap-6 w-full items-center", isVertical ? "grid-cols-1 mt-2" : "grid-cols-12 gap-10")}>
+                    <div className={isVertical ? "col-span-1" : "col-span-5"}>
+                      <ul className={isVertical ? "space-y-4" : "space-y-6"}>
                         {slide.content.map((point, idx) => (
                           <li
                             key={idx}
-                            className={cn("flex text-xl leading-relaxed", !isCustom && themeStyles[theme].text)}
+                            className={cn("flex leading-relaxed", isVertical ? "text-base" : "text-xl", !isCustom && themeStyles[theme].text)}
                             style={textStyleObj}
                           >
-                            <span className={cn("inline-block w-3.5 h-3.5 rounded-full mt-2 mr-4 flex-shrink-0", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
+                            <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
                             <span>{point}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
-                    <div className="col-span-7 bg-black/5 dark:bg-white/5 rounded-2xl p-8 border border-black/5 dark:border-white/5 min-h-[380px] flex items-center justify-center">
+                    <div className={cn("bg-black/5 dark:bg-white/5 rounded-2xl p-6 border border-black/5 dark:border-white/5 flex items-center justify-center", isVertical ? "col-span-1 min-h-[300px]" : "col-span-7 min-h-[380px]")}>
                       <InteractiveGraphic
                         graphic={slide.graphic}
                         accentClass={!isCustom ? themeStyles[theme].accent : ''}
                         accentStyleObj={accentStyleObj}
                         isDarkTheme={theme === 'cosmic'}
+                        isVerticalMode={isVertical}
                       />
                     </div>
                   </div>
@@ -1000,7 +1025,8 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
               <div
                 id={`pdf-slide-quiz-${sIdx}`}
                 className={cn(
-                  "w-[1280px] h-[720px] p-16 flex flex-col justify-between relative bg-white",
+                  "p-16 flex flex-col justify-between relative bg-white",
+                  isVertical ? "w-[720px] h-[960px]" : "w-[1280px] h-[720px]",
                   !isCustom && themeStyles[theme].bg,
                   isCustom && customSettings?.fontFamily
                 )}
@@ -1015,16 +1041,16 @@ export function Presentation({ data, theme, customSettings, onClose }: Presentat
                   </span>
                 </div>
                 <h2 
-                  className={cn("text-5xl font-extrabold my-8", !isCustom && themeStyles[theme].title)}
+                  className={cn("font-extrabold my-8", isVertical ? "text-3xl my-4" : "text-5xl my-8", !isCustom && themeStyles[theme].title)}
                   style={titleStyleObj}
                 >
                   {slide.title} — Quiz
                 </h2>
                 <div className="flex-1 w-full max-w-4xl mx-auto flex flex-col justify-center">
-                  <p className={cn("text-2xl font-bold mb-8", !isCustom && themeStyles[theme].text)} style={textStyleObj}>
+                  <p className={cn("font-bold mb-8", isVertical ? "text-xl mb-4" : "text-2xl mb-8", !isCustom && themeStyles[theme].text)} style={textStyleObj}>
                     {slide.quiz.question}
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={cn("grid gap-4", isVertical ? "grid-cols-1" : "grid-cols-2")}>
                     {slide.quiz.options.map((opt, oIdx) => {
                       const isCorrect = oIdx === slide.quiz?.correctAnswerIndex;
                       return (

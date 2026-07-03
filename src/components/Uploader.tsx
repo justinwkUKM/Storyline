@@ -10,7 +10,9 @@ import {
   Award, 
   Zap, 
   BookOpen, 
-  Sparkles 
+  Sparkles,
+  Layers,
+  Monitor
 } from 'lucide-react';
 import { ThemeName, CustomizationSettings } from '../types';
 import { cn } from '../lib/utils';
@@ -22,7 +24,9 @@ interface UploaderProps {
     theme: ThemeName, 
     customSettings?: CustomizationSettings, 
     graphicStyle?: string, 
-    tone?: string
+    tone?: string,
+    slideCount?: string,
+    orientation?: string
   ) => void;
   isLoading: boolean;
 }
@@ -92,6 +96,8 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
   const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
   const [tone, setTone] = useState<string>('executive');
+  const [slideCount, setSlideCount] = useState<string>('auto');
+  const [orientation, setOrientation] = useState<string>('horizontal');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -109,7 +115,7 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
 
   const handleSubmit = () => {
     if (file && !isLoading) {
-      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone);
+      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation);
     }
   };
 
@@ -380,6 +386,83 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
                     </h4>
                     <p className="text-xs text-gray-500 mt-1 leading-normal">{t.description}</p>
                   </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Slide Count & Orientation Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        {/* Slide Count Selection */}
+        <div className="space-y-4 p-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Layers className="w-5 h-5 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">5. Slide Count</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Select how many slides should be crafted. A larger count delivers an exhaustive analysis, while a shorter count is highly compressed.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { id: 'auto', name: 'Auto-Detect', desc: 'Optimal summaries' },
+              { id: '3', name: '3 Slides', desc: 'Ultra-condensed' },
+              { id: '5', name: '5 Slides', desc: 'Express brief' },
+              { id: '8', name: '8 Slides', desc: 'Standard deck' },
+              { id: '10', name: '10 Slides', desc: 'Comprehensive' },
+              { id: '15', name: '15 Slides', desc: 'In-depth analysis' }
+            ].map((option) => {
+              const isSelected = slideCount === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSlideCount(option.id)}
+                  className={cn(
+                    "p-3 rounded-xl border text-center transition-all cursor-pointer",
+                    isSelected 
+                      ? "border-emerald-600 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500/30 font-semibold text-emerald-900" 
+                      : "border-gray-100 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-200 text-gray-700"
+                  )}
+                >
+                  <span className="block text-sm">{option.name}</span>
+                  <span className="block text-[10px] text-gray-400 mt-0.5 font-normal">{option.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Orientation Selection */}
+        <div className="space-y-4 p-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Monitor className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-xl font-bold text-gray-900">6. Slide Orientation</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Select the aspect ratio or canvas flow. Landscape is standard for large display screens, while portrait is optimized for mobile-first reading.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { id: 'horizontal', name: 'Horizontal (Landscape)', desc: 'Standard 16:9 widescreen presentation layout' },
+              { id: 'vertical', name: 'Vertical (Portrait)', desc: 'Mobile-first 3:4 vertical stacked layout' }
+            ].map((option) => {
+              const isSelected = orientation === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setOrientation(option.id)}
+                  className={cn(
+                    "p-4 rounded-xl border text-left transition-all cursor-pointer",
+                    isSelected 
+                      ? "border-indigo-600 bg-indigo-50/50 shadow-sm ring-1 ring-indigo-500/30 font-semibold text-indigo-900" 
+                      : "border-gray-100 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-200 text-gray-700"
+                  )}
+                >
+                  <span className="block text-sm">{option.name}</span>
+                  <span className="block text-xs text-gray-400 mt-1 font-normal leading-normal">{option.desc}</span>
                 </button>
               );
             })}
