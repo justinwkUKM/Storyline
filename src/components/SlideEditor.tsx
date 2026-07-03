@@ -28,7 +28,6 @@ import {
   PlusCircle,
   X,
   ListPlus,
-  Save,
   Search,
   PanelsTopLeft,
   GalleryVerticalEnd,
@@ -785,12 +784,32 @@ export function SlideEditor({
   const [graphicCategory, setGraphicCategory] = useState<GraphicCategory>('all');
   const hasMountedRef = useRef(false);
   const autoSaveTimerRef = useRef<number | null>(null);
+  const [autosaveRevision, setAutosaveRevision] = useState(0);
 
   const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
 
   const setActiveSlide = (index: number) => {
     const safeIndex = Math.max(0, Math.min(index, data.slides.length - 1));
     setActiveSlideIndex(safeIndex);
+  };
+
+  const queueAutoSave = () => {
+    setAutosaveRevision((revision) => revision + 1);
+  };
+
+  const commitDataChange = (updater: (current: PresentationData) => PresentationData) => {
+    setData((current) => updater(current));
+    queueAutoSave();
+  };
+
+  const commitThemeChange = (value: ThemeName) => {
+    setTheme(value);
+    queueAutoSave();
+  };
+
+  const commitCustomSettingsChange = (updater: (current: CustomizationSettings) => CustomizationSettings) => {
+    setCustomSettings((current) => updater(current));
+    queueAutoSave();
   };
 
   const duplicateSlide = (index: number) => {
@@ -807,7 +826,7 @@ export function SlideEditor({
     };
     const updatedSlides = [...data.slides];
     updatedSlides.splice(index + 1, 0, clone);
-    setData({ ...data, slides: updatedSlides });
+    commitDataChange((current) => ({ ...current, slides: updatedSlides }));
     setActiveSlideIndex(index + 1);
   };
 
@@ -827,7 +846,7 @@ export function SlideEditor({
       ...updatedSlides[index],
       [field]: value
     };
-    setData({ ...data, slides: updatedSlides });
+    commitDataChange((current) => ({ ...current, slides: updatedSlides }));
   };
 
   const handleAddSlide = () => {
@@ -845,7 +864,7 @@ export function SlideEditor({
       }
     };
     const updatedSlides = [...data.slides, newSlide];
-    setData({ ...data, slides: updatedSlides });
+    commitDataChange((current) => ({ ...current, slides: updatedSlides }));
     setActiveSlideIndex(updatedSlides.length - 1);
   };
 
@@ -857,7 +876,7 @@ export function SlideEditor({
     }
     if (!window.confirm('Delete this slide?')) return;
     const updatedSlides = data.slides.filter((_, idx) => idx !== index);
-    setData({ ...data, slides: updatedSlides });
+    commitDataChange((current) => ({ ...current, slides: updatedSlides }));
     setActiveSlideIndex((current) => {
       if (current === index) return Math.max(0, index - 1);
       if (current > index) return current - 1;
@@ -876,7 +895,7 @@ export function SlideEditor({
     updatedSlides[index] = updatedSlides[targetIdx];
     updatedSlides[targetIdx] = temp;
 
-    setData({ ...data, slides: updatedSlides });
+    commitDataChange((current) => ({ ...current, slides: updatedSlides }));
     if (activeSlideIndex === index) {
       setActiveSlideIndex(targetIdx);
     } else if (activeSlideIndex === targetIdx) {
@@ -1767,14 +1786,14 @@ export function SlideEditor({
 
     autoSaveTimerRef.current = window.setTimeout(() => {
       persist();
-    }, 800);
+    }, 1400);
 
     return () => {
       if (autoSaveTimerRef.current) {
         window.clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [data, theme, customSettings, onSave, autoSaveOnMount]);
+  }, [onSave, autoSaveOnMount, autosaveRevision]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-lime-50 via-white to-emerald-50 text-slate-900">
@@ -1812,21 +1831,12 @@ export function SlideEditor({
               <FileText className="w-4 h-4" />
               Source
             </button>
-            {onSave && (
-              <button
-                onClick={() => handleSaveClick(false)}
-                className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
-              >
-                <Save className="w-4 h-4 text-lime-700" />
-                {savedDeckId ? 'Save' : 'Save Draft'}
-              </button>
-            )}
             {onSave && savedDeckId && (
               <button
                 onClick={() => handleSaveClick(true)}
                 className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
               >
-                Save As New
+                Save Copy
               </button>
             )}
             <button
@@ -2294,7 +2304,7 @@ export function SlideEditor({
                             return (
                               <button
                                 key={t.id}
-                                onClick={() => setTheme(t.id)}
+                                onClick={() => commitThemeChange(t.id)}
                                 className={cn(
                                   "flex items-start gap-3 rounded-[18px] border p-3 text-left transition-all",
                                   isSelected ? "border-lime-700 bg-lime-50" : "border-lime-200 bg-white hover:bg-lime-50/50"
@@ -2314,25 +2324,25 @@ export function SlideEditor({
                         <div className="space-y-4 rounded-[18px] border border-lime-200 bg-lime-50/40 p-4">
                           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Custom settings</div>
                           <div className="grid grid-cols-1 gap-3">
-                            <select value={customSettings.fontFamily} onChange={(e) => setCustomSettings({ ...customSettings, fontFamily: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                            <select value={customSettings.fontFamily} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, fontFamily: e.target.value }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
                               {FONTS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                             </select>
                             <div className="grid grid-cols-2 gap-2">
-                              <select value={customSettings.alignment} onChange={(e) => setCustomSettings({ ...customSettings, alignment: e.target.value as any })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                              <select value={customSettings.alignment} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, alignment: e.target.value as any }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
                                 <option value="left">Left</option>
                                 <option value="center">Center</option>
                                 <option value="right">Right</option>
                               </select>
-                              <select value={customSettings.spacing} onChange={(e) => setCustomSettings({ ...customSettings, spacing: e.target.value as any })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                              <select value={customSettings.spacing} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, spacing: e.target.value as any }))} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
                                 <option value="compact">Compact</option>
                                 <option value="normal">Normal</option>
                                 <option value="relaxed">Relaxed</option>
                               </select>
                             </div>
                             <div className="grid grid-cols-3 gap-2">
-                              <input type="color" value={customSettings.primaryColor} onChange={(e) => setCustomSettings({ ...customSettings, primaryColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
-                              <input type="color" value={customSettings.backgroundColor} onChange={(e) => setCustomSettings({ ...customSettings, backgroundColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
-                              <input type="color" value={customSettings.textColor} onChange={(e) => setCustomSettings({ ...customSettings, textColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
+                              <input type="color" value={customSettings.primaryColor} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, primaryColor: e.target.value }))} className="h-10 w-full rounded-xl border border-slate-200" />
+                              <input type="color" value={customSettings.backgroundColor} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, backgroundColor: e.target.value }))} className="h-10 w-full rounded-xl border border-slate-200" />
+                              <input type="color" value={customSettings.textColor} onChange={(e) => commitCustomSettingsChange((current) => ({ ...current, textColor: e.target.value }))} className="h-10 w-full rounded-xl border border-slate-200" />
                             </div>
                           </div>
                         </div>
@@ -2362,7 +2372,7 @@ export function SlideEditor({
                   <input
                     type="text"
                     value={data.title}
-                    onChange={(e) => setData({ ...data, title: e.target.value })}
+                    onChange={(e) => commitDataChange((current) => ({ ...current, title: e.target.value }))}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-lg font-black text-slate-900 outline-none focus:border-lime-500"
                     placeholder="E.g. Fiscal Analysis Q2 2026"
                   />
@@ -2381,9 +2391,9 @@ export function SlideEditor({
                   </div>
                 </div>
                 <div className="rounded-[18px] border border-slate-100 bg-lime-50/40 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Save state</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Autosave</div>
                   <div className="mt-2 text-sm font-black text-lime-950">{saveStatus || (savedDeckId ? 'Saved deck' : 'Working draft')}</div>
-                  <p className="mt-1 text-xs text-lime-900/60">Save, save as new, finalise, and presentation export stay unchanged.</p>
+                  <p className="mt-1 text-xs text-lime-900/60">Edits persist after each action.</p>
                 </div>
               </div>
             </aside>
