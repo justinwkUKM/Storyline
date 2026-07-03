@@ -33,6 +33,88 @@ export function InteractiveGraphic({
   // 1. PROCESS / TIMELINE LAYOUT CATEGORY (Timeline, Milestones, Chevron-flow, Zigzag, pipeline, workflow etc.)
   if (type === 'process') {
     const isStepByStep = style.includes('step') || style.includes('vertical') || style.includes('zigzag') || isVerticalMode;
+    const isSwimlane = style.includes('swimlane') || style.includes('lane');
+    const isPipeline = style.includes('pipeline');
+
+    if (isSwimlane) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="space-y-2.5 w-full">
+            {elements.slice(0, 4).map((el, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 * index, duration: 0.35 }}
+                className={cn(
+                  "grid grid-cols-[72px_1fr] items-center gap-3 p-2.5 rounded-xl border",
+                  isDark ? "bg-slate-900/60 border-slate-800/80 text-white" : "bg-white border-gray-100 text-gray-800"
+                )}
+              >
+                <div className={cn("text-[10px] font-black uppercase tracking-wider", isDark ? "text-slate-400" : "text-gray-500")}>
+                  Lane {index + 1}
+                </div>
+                <div className="space-y-1">
+                  <div className="h-2.5 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(35, el.percentage || 60)}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      className={cn("h-full rounded-full", accentClass)}
+                      style={accentStyleObj}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[10px]">
+                    <span className="font-bold truncate">{el.label}</span>
+                    <span className={cn("opacity-70 shrink-0", isDark ? "text-slate-400" : "text-gray-500")}>{el.value || `${el.percentage || 60}%`}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (isPipeline) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="relative flex items-stretch gap-2 w-full">
+            <div className="absolute top-1/2 left-3 right-3 h-0.5 bg-gray-200 dark:bg-slate-800 rounded-full -translate-y-1/2" />
+            {elements.slice(0, 4).map((el, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.07 * index, duration: 0.35 }}
+                className={cn(
+                  "relative z-10 flex-1 p-2.5 rounded-xl border shadow-sm min-w-0",
+                  isDark ? "bg-slate-900/60 border-slate-800/80 text-white" : "bg-white border-gray-100 text-gray-800"
+                )}
+              >
+                <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center mb-2", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
+                  {el.icon ? renderIcon(el.icon, "w-4 h-4") : index + 1}
+                </div>
+                <div className="font-black text-xs truncate">{el.label}</div>
+                <p className={cn("text-[10px] mt-0.5 leading-snug line-clamp-2", isDark ? "text-slate-400" : "text-gray-500")}>
+                  {el.secondaryText}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     if (isStepByStep) {
       // High quality vertical sequence template - ideal for vertical orientation
@@ -312,6 +394,133 @@ export function InteractiveGraphic({
   // 3. METRICS / STATS LAYOUT CATEGORY (Bento-grid, Stat-cards, KPI-Dashboard, Scoreboard, counter-grid etc.)
   if (type === 'metrics') {
     const isKpiDash = style.includes('dashboard') || style.includes('kpi') || style.includes('scoreboard');
+    const isTrendSnapshot = style.includes('trend');
+    const isCompactGrid = style.includes('compact') || style.includes('tile');
+    const isBenchmarkPanel = style.includes('benchmark');
+
+    if (isTrendSnapshot && elements.length > 0) {
+      const heroEl = elements[0];
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="grid grid-cols-[1.25fr_0.75fr] gap-3 items-stretch">
+            <div className={cn("p-4 rounded-2xl border shadow-sm relative overflow-hidden", isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-100")}>
+              <div className="absolute inset-x-3 bottom-3 h-10 flex items-end gap-1 opacity-80">
+                {[22, 30, 18, 38, 26, 46].map((bar, idx) => (
+                  <div key={idx} className="flex-1 rounded-t-lg bg-lime-500/80" style={{ height: `${bar}px`, opacity: 0.55 + idx * 0.07 }} />
+                ))}
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={cn("p-1.5 rounded-lg", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
+                    {renderIcon(heroEl.icon || "TrendingUp", "w-4 h-4")}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">Trend line</span>
+                </div>
+                <h4 className="text-3xl font-black leading-none" style={{ color: accentStyleObj?.backgroundColor }}>
+                  {heroEl.value || "—"}
+                </h4>
+                <div className="font-extrabold text-sm mt-1 truncate">{heroEl.label}</div>
+                <p className={cn("text-[11px] leading-normal opacity-85 mt-1", isDark ? "text-slate-400" : "text-gray-500")}>
+                  {heroEl.secondaryText || 'Directional change across the selected period'}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {elements.slice(1, 4).map((el, index) => (
+                <div key={index} className={cn("p-2.5 rounded-xl border shadow-sm", isDark ? "bg-slate-950/40 border-slate-850" : "bg-gray-50 border-gray-100")}>
+                  <div className="text-[10px] uppercase font-bold tracking-wider opacity-60 truncate">{el.label}</div>
+                  <div className="flex items-end justify-between gap-2 mt-1">
+                    <div className="text-sm font-extrabold truncate">{el.value || "—"}</div>
+                    <div className={cn("text-[10px] font-black px-1.5 py-0.5 rounded", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-800")}>
+                      {el.percentage ?? 0}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (isCompactGrid) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="grid gap-2.5 w-full grid-cols-2">
+            {elements.slice(0, 4).map((el, index) => (
+              <div key={index} className={cn("p-2.5 rounded-xl border shadow-sm", isDark ? "bg-slate-900/60 border-slate-800/85" : "bg-white border-gray-100")}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn("text-[10px] font-bold uppercase truncate", isDark ? "text-slate-400" : "text-gray-500")}>{el.label}</span>
+                  <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-800")}>{el.percentage ?? 0}%</span>
+                </div>
+                <div className={cn("text-lg font-black leading-tight mt-1", isDark ? "text-white" : "text-gray-900")}>{el.value || '—'}</div>
+                {el.secondaryText && <p className={cn("text-[10px] mt-0.5 line-clamp-1", isDark ? "text-slate-400" : "text-gray-500")}>{el.secondaryText}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (isBenchmarkPanel) {
+      const heroEl = elements[0];
+      const supportEls = elements.slice(1, 4);
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className={cn("grid gap-3 w-full", isVerticalMode ? "grid-cols-1" : "grid-cols-3")}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={cn(
+                "p-4 rounded-2xl border shadow-md flex flex-col justify-between relative overflow-hidden",
+                isVerticalMode ? "col-span-1" : "col-span-2",
+                isDark ? "bg-slate-900 border-slate-800" : "bg-white border-gray-100"
+              )}
+            >
+              <div className="absolute right-[-20px] top-[-20px] w-16 h-16 rounded-full opacity-10 bg-current" style={{ color: accentStyleObj?.backgroundColor }} />
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("p-1.5 rounded-lg text-xs", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
+                  {renderIcon(heroEl.icon || "Target", "w-4 h-4")}
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider opacity-70 truncate">{heroEl.label}</span>
+              </div>
+              <div className="my-2">
+                <h4 className="text-3xl font-black leading-none" style={{ color: accentStyleObj?.backgroundColor }}>
+                  {heroEl.value || "—"}
+                </h4>
+                <div className="font-extrabold text-sm mt-1 truncate">{heroEl.secondaryText || 'Benchmark status'}</div>
+              </div>
+            </motion.div>
+            <div className="flex flex-col gap-2.5">
+              {supportEls.map((el, index) => (
+                <div key={index} className={cn("p-2.5 rounded-xl border flex items-center justify-between shadow-sm", isDark ? "bg-slate-950/40 border-slate-850" : "bg-gray-50 border-gray-100")}>
+                  <div className="min-w-0 flex-1 pr-2">
+                    <div className="text-[10px] uppercase font-bold tracking-wider opacity-60 truncate">{el.label}</div>
+                    <div className="text-sm font-extrabold mt-0.5 truncate">{el.value || "—"}</div>
+                  </div>
+                  <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-800")}>{el.percentage ?? 0}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (isKpiDash && elements.length > 0) {
       // KPI Dashboard with single hero metric and smaller supporting stats
@@ -456,6 +665,68 @@ export function InteractiveGraphic({
   // 4. HIERARCHY / STRUCTURE LAYOUT CATEGORY (Pyramid, Org-tree, nested-boxes, layered-stack, architecture-layers etc.)
   if (type === 'hierarchy') {
     const isPyramid = style.includes('pyramid') || style.includes('triangular') || style.includes('funnel');
+    const isTree = style.includes('tree') || style.includes('branch') || style.includes('org');
+    const isStack = style.includes('stack') || style.includes('layer') || style.includes('architecture');
+
+    if (isTree) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="space-y-2.5 w-full">
+            {elements.slice(0, 4).map((el, index) => (
+              <div key={index} className={cn("flex items-center gap-2", index === 0 ? "justify-center" : "")}>
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
+                  {el.icon ? renderIcon(el.icon, "w-4 h-4") : index + 1}
+                </div>
+                <div className={cn("flex-1 p-2.5 rounded-xl border", isDark ? "bg-slate-900/60 border-slate-800/80" : "bg-white border-gray-100")}>
+                  <div className="font-black text-xs truncate">{el.label}</div>
+                  {el.secondaryText && <div className={cn("text-[10px] mt-0.5 line-clamp-1", isDark ? "text-slate-400" : "text-gray-500")}>{el.secondaryText}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (isStack) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-4 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="flex flex-col gap-2.5 w-full">
+            {elements.slice(0, 4).map((el, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06 * index, duration: 0.35 }}
+                className={cn("p-3 rounded-xl border flex items-center justify-between shadow-sm", isDark ? "bg-slate-900 border-slate-800/80" : "bg-white border-gray-100")}
+                style={{ transform: `translateX(${index * 4}px)` }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn("p-1.5 rounded-lg shrink-0", isDark ? "bg-slate-800 text-purple-400" : "bg-gray-50 text-lime-700")}>
+                    {renderIcon(el.icon || "Layers", "w-4 h-4")}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs truncate">{el.label}</div>
+                    {el.secondaryText && <div className={cn("text-[10px] mt-0.5 truncate", isDark ? "text-slate-400" : "text-gray-500")}>{el.secondaryText}</div>}
+                  </div>
+                </div>
+                {el.value && <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0", isDark ? "bg-slate-800 text-purple-400" : "bg-gray-100 text-lime-700")}>{el.value}</span>}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     if (isPyramid && elements.length > 0) {
       // Literal Glowing Pyramid Layout Block
@@ -577,6 +848,70 @@ export function InteractiveGraphic({
   // 5. PIE / DONUT LAYOUT CATEGORY (Donut, Semi-circle, Apple-watch radial rings, legend highlights, segment-cards etc.)
   if (type === 'pie') {
     const isRadialRings = style.includes('radial') || style.includes('ring') || style.includes('concentric');
+    const isFunnel = style.includes('funnel');
+    const isCircularNetwork = style.includes('network') || style.includes('circle');
+
+    if (isFunnel) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-3 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="space-y-2.5 w-full">
+            {elements.slice(0, 4).map((el, idx, arr) => {
+              const width = 100 - (idx * 18);
+              return (
+                <div
+                  key={idx}
+                  className={cn("mx-auto rounded-xl border overflow-hidden", isDark ? "border-slate-800 bg-slate-900/60" : "border-gray-100 bg-white")}
+                  style={{ width: `${width}%` }}
+                >
+                  <div className={cn("h-10 flex items-center justify-between px-3", idx === arr.length - 1 ? "bg-lime-500/80 text-white" : idx === 0 ? "bg-lime-100 text-lime-900" : "bg-lime-200/70 text-lime-900")}>
+                    <span className="font-bold text-xs truncate">{el.label}</span>
+                    <span className="text-[10px] font-black">{el.percentage !== undefined ? `${el.percentage}%` : el.value}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (isCircularNetwork) {
+      return (
+        <div className="flex flex-col h-full justify-center p-3 w-full">
+          {title && (
+            <h3 className={cn("text-xs font-bold mb-3 uppercase tracking-wider opacity-75", isDark ? "text-slate-400" : "text-gray-500")}>
+              {title}
+            </h3>
+          )}
+          <div className="flex items-center gap-4 w-full">
+            <div className="relative w-32 h-32 shrink-0">
+              <div className="absolute inset-0 rounded-full border-4 border-dashed border-gray-200 dark:border-slate-800" />
+              <div className="absolute inset-3 rounded-full border-4 border-lime-300" />
+              <div className="absolute inset-6 rounded-full border-4 border-lime-500" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className={cn("w-12 h-12 rounded-full flex items-center justify-center font-black text-xs", isDark ? "bg-slate-900 text-purple-400" : "bg-white text-lime-800")}>
+                  Core
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              {elements.slice(0, 3).map((el, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-lime-500" />
+                  <span className="font-extrabold truncate flex-1">{el.label}</span>
+                  <span className="opacity-70 font-mono font-bold shrink-0">{el.percentage !== undefined ? `${el.percentage}%` : (el.value || '')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (isRadialRings) {
       // Concentric progress rings layout (inspired by Apple Watch fitness loops)

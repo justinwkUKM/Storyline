@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PresentationData, ThemeName, CustomizationSettings, SlideContent, SlideGraphic, InteractiveQuiz, InteractiveLink } from '../types';
-import { 
+import {
   Plus, 
   Trash2, 
   ArrowUp, 
@@ -28,7 +28,17 @@ import {
   PlusCircle,
   X,
   ListPlus,
-  Save
+  Save,
+  Search,
+  PanelsTopLeft,
+  GalleryVerticalEnd,
+  MessageSquareText,
+  Link as LinkChain,
+  Monitor,
+  FileBadge2,
+  Layers3,
+  SquareDashedMousePointer,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -63,96 +73,570 @@ const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = 
 
 type GraphicType = 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie';
 
-const GRAPHIC_OPTIONS: Array<{
+interface GraphicPreset {
   id: GraphicType | 'none';
   name: string;
   desc: string;
   preview: SlideGraphic | null;
-}> = [
+}
+
+interface GraphicPresetGroup {
+  label: string;
+  presets: GraphicPreset[];
+}
+
+type InspectorTab = 'content' | 'visual' | 'interact' | 'theme';
+type GraphicCategory = 'all' | 'stats' | 'comparison' | 'process' | 'hierarchy' | 'pie';
+
+const GRAPHIC_PRESET_GROUPS: GraphicPresetGroup[] = [
+  {
+    label: 'Stats and KPI cards',
+    presets: [
+      {
+        id: 'metrics',
+        name: 'KPI Dashboard',
+        desc: 'A hero metric with supporting cards for executive summaries.',
+        preview: {
+          type: 'metrics',
+          title: 'Performance Snapshot',
+          style: 'dashboard',
+          elements: [
+            { label: 'Reach', value: '92%', percentage: 92, secondaryText: 'Audience coverage', icon: 'TrendingUp' },
+            { label: 'Adoption', value: '78%', percentage: 78, secondaryText: 'Feature uptake', icon: 'Zap' },
+            { label: 'Velocity', value: '3.2x', percentage: 68, secondaryText: 'Faster delivery', icon: 'Award' }
+          ]
+        }
+      },
+      {
+        id: 'metrics',
+        name: 'Compact Stat Grid',
+        desc: 'Dense four-card stats for quick scanning on small slides.',
+        preview: {
+          type: 'metrics',
+          title: 'Compact Metrics',
+          style: 'compact-grid',
+          elements: [
+            { label: 'Revenue', value: '$4.8M', percentage: 84, secondaryText: 'Quarter total', icon: 'BarChart3' },
+            { label: 'Margin', value: '38%', percentage: 38, secondaryText: 'Gross margin', icon: 'Target' },
+            { label: 'Pipeline', value: '124', percentage: 72, secondaryText: 'Active deals', icon: 'Rocket' },
+            { label: 'CSAT', value: '4.9/5', percentage: 98, secondaryText: 'Customer rating', icon: 'Star' }
+          ]
+        }
+      },
+      {
+        id: 'metrics',
+        name: 'Executive Scoreboard',
+        desc: 'A polished scorecard with a dominant top-line result.',
+        preview: {
+          type: 'metrics',
+          title: 'Executive Scoreboard',
+          style: 'scoreboard',
+          elements: [
+            { label: 'Net Growth', value: '+24%', percentage: 86, secondaryText: 'Strong momentum', icon: 'TrendingUp' },
+            { label: 'Retention', value: '91%', percentage: 91, secondaryText: 'Stable base', icon: 'ShieldCheck' },
+            { label: 'Velocity', value: '6.2d', percentage: 63, secondaryText: 'Cycle time', icon: 'Clock3' }
+          ]
+        }
+      },
+      {
+        id: 'metrics',
+        name: 'Trend Snapshot',
+        desc: 'A directional summary with an obvious rising trend.',
+        preview: {
+          type: 'metrics',
+          title: 'Trend Snapshot',
+          style: 'trend-snapshot',
+          elements: [
+            { label: 'Growth', value: '+18%', percentage: 18, secondaryText: 'Steady uplift across the quarter', icon: 'ArrowUpRight' },
+            { label: 'Demand', value: '144', percentage: 72, secondaryText: 'Qualified leads', icon: 'Activity' },
+            { label: 'Conversion', value: '29%', percentage: 29, secondaryText: 'Pipeline conversion rate', icon: 'MoveUpRight' }
+          ]
+        }
+      },
+      {
+        id: 'metrics',
+        name: 'Metric Tiles',
+        desc: 'Simple tiled stats for broad general presentations.',
+        preview: {
+          type: 'metrics',
+          title: 'Metric Tiles',
+          style: 'tile-grid',
+          elements: [
+            { label: 'Users', value: '18.2K', percentage: 82, secondaryText: 'Monthly active', icon: 'Users' },
+            { label: 'Sessions', value: '61K', percentage: 76, secondaryText: 'Repeat usage', icon: 'Gauge' },
+            { label: 'Satisfaction', value: '94%', percentage: 94, secondaryText: 'Post-launch score', icon: 'Smile' },
+            { label: 'Uptime', value: '99.98%', percentage: 99, secondaryText: 'Platform reliability', icon: 'Server' }
+          ]
+        }
+      },
+      {
+        id: 'metrics',
+        name: 'Benchmark Panel',
+        desc: 'A comparison-oriented stat card for target-versus-actual stories.',
+        preview: {
+          type: 'metrics',
+          title: 'Benchmark Panel',
+          style: 'benchmark',
+          elements: [
+            { label: 'Actual', value: '82', percentage: 82, secondaryText: 'Current delivery', icon: 'CheckCircle2' },
+            { label: 'Target', value: '90', percentage: 90, secondaryText: 'Goal threshold', icon: 'Target' },
+            { label: 'Gap', value: '8 pts', percentage: 8, secondaryText: 'Remaining lift', icon: 'Minus' }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    label: 'Comparisons and before/after views',
+    presets: [
+      {
+        id: 'comparison',
+        name: 'Side-by-Side Comparison',
+        desc: 'Classic dual cards for direct tradeoffs.',
+        preview: {
+          type: 'comparison',
+          title: 'Side-by-Side Comparison',
+          style: 'vs-card',
+          elements: [
+            { label: 'Current state', value: '42%', percentage: 42, secondaryText: 'Manual workflow' },
+            { label: 'Storyline', value: '88%', percentage: 88, secondaryText: 'Automated deck generation' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Before/After Split',
+        desc: 'A transformation view that makes progress obvious.',
+        preview: {
+          type: 'comparison',
+          title: 'Before / After',
+          style: 'before-after',
+          elements: [
+            { label: 'Before', value: 'Low clarity', percentage: 28, secondaryText: 'Dense, unstructured notes' },
+            { label: 'After', value: 'Presentation-ready', percentage: 92, secondaryText: 'Clean, editable slide story' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Pro/Con Balance',
+        desc: 'Balanced pros and cons for decisions and recommendations.',
+        preview: {
+          type: 'comparison',
+          title: 'Pro / Con Balance',
+          style: 'pro-con',
+          elements: [
+            { label: 'Pros', value: '4', percentage: 74, secondaryText: 'Speed, consistency, exportability' },
+            { label: 'Cons', value: '2', percentage: 26, secondaryText: 'Requires review and tuning' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Benchmark Bars',
+        desc: 'A bar-based comparison for competitive analysis.',
+        preview: {
+          type: 'comparison',
+          title: 'Benchmark Bars',
+          style: 'benchmark-bars',
+          elements: [
+            { label: 'Usability', value: '92', percentage: 92, secondaryText: 'Primary option' },
+            { label: 'Cost', value: '68', percentage: 68, secondaryText: 'Lower is better' },
+            { label: 'Speed', value: '88', percentage: 88, secondaryText: 'Time to value' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Tradeoff Cards',
+        desc: 'Three-way decisions with a clear winner highlight.',
+        preview: {
+          type: 'comparison',
+          title: 'Tradeoff Cards',
+          style: 'tradeoff-cards',
+          elements: [
+            { label: 'Option A', value: 'Fast', percentage: 54, secondaryText: 'Best for speed' },
+            { label: 'Option B', value: 'Balanced', percentage: 72, secondaryText: 'Recommended default' },
+            { label: 'Option C', value: 'Deep', percentage: 46, secondaryText: 'Most detailed approach' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Feature Matrix',
+        desc: 'A matrix-style comparison for capabilities or scenarios.',
+        preview: {
+          type: 'comparison',
+          title: 'Feature Matrix',
+          style: 'matrix',
+          elements: [
+            { label: 'Coverage', value: 'High', percentage: 86, secondaryText: 'Broad feature support' },
+            { label: 'Flexibility', value: 'Medium', percentage: 64, secondaryText: 'Configurable behavior' },
+            { label: 'Adoption', value: 'High', percentage: 88, secondaryText: 'Easy to use' },
+            { label: 'Cost', value: 'Low', percentage: 34, secondaryText: 'Efficient to maintain' }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    label: 'Timelines, roadmaps, and process flows',
+    presets: [
+      {
+        id: 'process',
+        name: 'Timeline Flow',
+        desc: 'A horizontal sequence for generic slide stories.',
+        preview: {
+          type: 'process',
+          title: 'Timeline Flow',
+          style: 'timeline',
+          elements: [
+            { label: 'Discover', value: '01', secondaryText: 'Read the source PDF', icon: 'BookOpen' },
+            { label: 'Structure', value: '02', secondaryText: 'Build the deck outline', icon: 'LayoutGrid' },
+            { label: 'Refine', value: '03', secondaryText: 'Edit the storyline', icon: 'Sliders' },
+            { label: 'Present', value: '04', secondaryText: 'Play the final deck', icon: 'Presentation' }
+          ]
+        }
+      },
+      {
+        id: 'process',
+        name: 'Milestone Roadmap',
+        desc: 'A roadmap treatment with clear delivery markers.',
+        preview: {
+          type: 'process',
+          title: 'Milestone Roadmap',
+          style: 'roadmap',
+          elements: [
+            { label: 'Q1', value: 'Plan', secondaryText: 'Set direction', icon: 'Compass' },
+            { label: 'Q2', value: 'Build', secondaryText: 'Ship the core flow', icon: 'Hammer' },
+            { label: 'Q3', value: 'Scale', secondaryText: 'Expand adoption', icon: 'Rocket' },
+            { label: 'Q4', value: 'Optimize', secondaryText: 'Refine and automate', icon: 'Sparkles' }
+          ]
+        }
+      },
+      {
+        id: 'process',
+        name: 'Zigzag Sequence',
+        desc: 'Alternating nodes for a more energetic narrative.',
+        preview: {
+          type: 'process',
+          title: 'Zigzag Sequence',
+          style: 'zigzag',
+          elements: [
+            { label: 'Input', value: '01', secondaryText: 'Source material' },
+            { label: 'Shape', value: '02', secondaryText: 'Draft structure' },
+            { label: 'Tune', value: '03', secondaryText: 'Refine visuals' },
+            { label: 'Ship', value: '04', secondaryText: 'Deliver deck' }
+          ]
+        }
+      },
+      {
+        id: 'process',
+        name: 'Vertical Process Steps',
+        desc: 'A stacked process for narrow columns and mobile-friendly slides.',
+        preview: {
+          type: 'process',
+          title: 'Vertical Process',
+          style: 'vertical-steps',
+          elements: [
+            { label: 'Collect', value: '01', secondaryText: 'Gather facts' },
+            { label: 'Organize', value: '02', secondaryText: 'Group the story' },
+            { label: 'Design', value: '03', secondaryText: 'Apply visual logic' },
+            { label: 'Present', value: '04', secondaryText: 'Deliver with polish' }
+          ]
+        }
+      },
+      {
+        id: 'process',
+        name: 'Pipeline Stages',
+        desc: 'A funnel-like workflow for lead or delivery stages.',
+        preview: {
+          type: 'process',
+          title: 'Pipeline Stages',
+          style: 'pipeline',
+          elements: [
+            { label: 'Intake', value: '14', secondaryText: 'Requests in', icon: 'Inbox' },
+            { label: 'Draft', value: '09', secondaryText: 'Slides in progress', icon: 'FileText' },
+            { label: 'Review', value: '05', secondaryText: 'Needs feedback', icon: 'MessageSquare' },
+            { label: 'Ready', value: '03', secondaryText: 'Final deck queue', icon: 'CheckCircle2' }
+          ]
+        }
+      },
+      {
+        id: 'process',
+        name: 'Swimlane Flow',
+        desc: 'Parallel lanes for teams, audiences, or work streams.',
+        preview: {
+          type: 'process',
+          title: 'Swimlane Flow',
+          style: 'swimlane',
+          elements: [
+            { label: 'Research', value: 'Lane 1', secondaryText: 'Source analysis' },
+            { label: 'Writing', value: 'Lane 2', secondaryText: 'Draft generation' },
+            { label: 'Review', value: 'Lane 3', secondaryText: 'Stakeholder edits' }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    label: 'Org charts, trees, pyramids, and layered hierarchy',
+    presets: [
+      {
+        id: 'hierarchy',
+        name: 'Org Chart',
+        desc: 'A top-down structure for teams or reporting lines.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Org Chart',
+          style: 'org-chart',
+          elements: [
+            { label: 'Leadership', value: 'CEO', secondaryText: 'Strategy and direction', icon: 'Crown' },
+            { label: 'Product', value: 'VP', secondaryText: 'Build and ship', icon: 'Boxes' },
+            { label: 'Operations', value: 'VP', secondaryText: 'Run the system', icon: 'Settings' },
+            { label: 'Growth', value: 'VP', secondaryText: 'Reach and adoption', icon: 'TrendingUp' }
+          ]
+        }
+      },
+      {
+        id: 'hierarchy',
+        name: 'Branching Tree',
+        desc: 'A branching diagram for categories, dependencies, or ownership.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Branching Tree',
+          style: 'branch-tree',
+          elements: [
+            { label: 'Root', value: 'North Star', secondaryText: 'Primary objective', icon: 'Map' },
+            { label: 'Branch A', value: 'Group 1', secondaryText: 'Audience segment' },
+            { label: 'Branch B', value: 'Group 2', secondaryText: 'Delivery path' },
+            { label: 'Branch C', value: 'Group 3', secondaryText: 'Support layer' }
+          ]
+        }
+      },
+      {
+        id: 'hierarchy',
+        name: 'Layered Pyramid',
+        desc: 'A classic layered hierarchy for priorities and strategy.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Layered Pyramid',
+          style: 'pyramid',
+          elements: [
+            { label: 'Vision', value: 'North Star', secondaryText: 'Top-level direction' },
+            { label: 'Strategy', value: 'Plan', secondaryText: 'Key approach' },
+            { label: 'Execution', value: 'Delivery', secondaryText: 'Core working layer' },
+            { label: 'Detail', value: 'Tasks', secondaryText: 'Operational actions' }
+          ]
+        }
+      },
+      {
+        id: 'hierarchy',
+        name: 'Stack Architecture',
+        desc: 'Layered blocks for systems, platforms, or content tiers.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Stack Architecture',
+          style: 'architecture-stack',
+          elements: [
+            { label: 'Interface', value: 'Layer 1', secondaryText: 'User-facing layer' },
+            { label: 'Logic', value: 'Layer 2', secondaryText: 'Rules and orchestration' },
+            { label: 'Data', value: 'Layer 3', secondaryText: 'Persistence and sources' }
+          ]
+        }
+      },
+      {
+        id: 'hierarchy',
+        name: 'Nested Layers',
+        desc: 'A compact nested layout for complex structures.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Nested Layers',
+          style: 'nested-layers',
+          elements: [
+            { label: 'Top Layer', value: 'Level 1', secondaryText: 'Strategy layer' },
+            { label: 'Mid Layer', value: 'Level 2', secondaryText: 'Platform layer' },
+            { label: 'Base Layer', value: 'Level 3', secondaryText: 'Operational layer' }
+          ]
+        }
+      },
+      {
+        id: 'hierarchy',
+        name: 'Dependency Tree',
+        desc: 'A dependency-oriented tree for tasks or systems.',
+        preview: {
+          type: 'hierarchy',
+          title: 'Dependency Tree',
+          style: 'dependency-tree',
+          elements: [
+            { label: 'Core', value: 'Base', secondaryText: 'Primary dependency', icon: 'Database' },
+            { label: 'Module A', value: 'Built on Core', secondaryText: 'Feature layer' },
+            { label: 'Module B', value: 'Built on Core', secondaryText: 'Presentation layer' },
+            { label: 'Module C', value: 'Built on A + B', secondaryText: 'Composite output' }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    label: 'Funnels, matrices, quadrants, and radial layouts',
+    presets: [
+      {
+        id: 'pie',
+        name: 'Funnel Conversion',
+        desc: 'A stage-by-stage funnel for conversion or prioritization.',
+        preview: {
+          type: 'pie',
+          title: 'Funnel Conversion',
+          style: 'funnel',
+          elements: [
+            { label: 'Awareness', value: '100%', percentage: 100, secondaryText: 'Top of funnel' },
+            { label: 'Interest', value: '72%', percentage: 72, secondaryText: 'Qualified engagement' },
+            { label: 'Decision', value: '48%', percentage: 48, secondaryText: 'Serious evaluation' },
+            { label: 'Action', value: '27%', percentage: 27, secondaryText: 'Final conversion' }
+          ]
+        }
+      },
+      {
+        id: 'pie',
+        name: 'Circular Network',
+        desc: 'Radial loops for ecosystems, communities, or feedback systems.',
+        preview: {
+          type: 'pie',
+          title: 'Circular Network',
+          style: 'circular-network',
+          elements: [
+            { label: 'Core', value: '100%', percentage: 100, secondaryText: 'Central hub' },
+            { label: 'Partner', value: '68%', percentage: 68, secondaryText: 'Connected nodes' },
+            { label: 'Audience', value: '54%', percentage: 54, secondaryText: 'Reach and adoption' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Quadrant Matrix',
+        desc: 'A two-by-two matrix for positioning and prioritization.',
+        preview: {
+          type: 'comparison',
+          title: 'Quadrant Matrix',
+          style: 'quadrant',
+          elements: [
+            { label: 'High Impact', value: 'Act Now', percentage: 86, secondaryText: 'Top priority' },
+            { label: 'High Effort', value: 'Plan Carefully', percentage: 62, secondaryText: 'Needs coordination' },
+            { label: 'Low Effort', value: 'Quick Wins', percentage: 78, secondaryText: 'Easy leverage' },
+            { label: 'Low Impact', value: 'Defer', percentage: 24, secondaryText: 'Lower value' }
+          ]
+        }
+      },
+      {
+        id: 'comparison',
+        name: 'Heatmap Matrix',
+        desc: 'A heatmap-style table for intensity or category coverage.',
+        preview: {
+          type: 'comparison',
+          title: 'Heatmap Matrix',
+          style: 'heatmap',
+          elements: [
+            { label: 'North', value: '91', percentage: 91, secondaryText: 'Strong signal' },
+            { label: 'South', value: '63', percentage: 63, secondaryText: 'Moderate signal' },
+            { label: 'East', value: '48', percentage: 48, secondaryText: 'Mixed signal' },
+            { label: 'West', value: '77', percentage: 77, secondaryText: 'Strong signal' }
+          ]
+        }
+      },
+      {
+        id: 'pie',
+        name: 'Radial Rings',
+        desc: 'Nested progress rings for modern status storytelling.',
+        preview: {
+          type: 'pie',
+          title: 'Radial Rings',
+          style: 'radial-rings',
+          elements: [
+            { label: 'Adoption', value: '88%', percentage: 88, secondaryText: 'Primary ring' },
+            { label: 'Reach', value: '74%', percentage: 74, secondaryText: 'Secondary ring' },
+            { label: 'Quality', value: '61%', percentage: 61, secondaryText: 'Tertiary ring' }
+          ]
+        }
+      },
+      {
+        id: 'pie',
+        name: 'Donut Allocation',
+        desc: 'A clean split for budget, time, or ownership allocation.',
+        preview: {
+          type: 'pie',
+          title: 'Donut Allocation',
+          style: 'donut',
+          elements: [
+            { label: 'Research', value: '40%', percentage: 40, secondaryText: 'Source analysis' },
+            { label: 'Writing', value: '35%', percentage: 35, secondaryText: 'AI draft shaping' },
+            { label: 'Present', value: '25%', percentage: 25, secondaryText: 'Delivery polish' }
+          ]
+        }
+      }
+    ]
+  }
+];
+
+const GRAPHIC_OPTIONS: GraphicPreset[] = [
   {
     id: 'none',
     name: 'Text Only',
     desc: 'Keep this slide focused on bullets and speaker notes.',
     preview: null
   },
-  {
-    id: 'metrics',
-    name: 'Bento Stats Grid',
-    desc: 'Key metrics in modular cards with a dashboard feel.',
-    preview: {
-      type: 'metrics',
-      title: 'Performance Snapshot',
-      style: 'dashboard',
-      elements: [
-        { label: 'Reach', value: '92%', percentage: 92, secondaryText: 'Audience coverage', icon: 'TrendingUp' },
-        { label: 'Adoption', value: '78%', percentage: 78, secondaryText: 'Feature uptake', icon: 'Zap' },
-        { label: 'Velocity', value: '3.2x', percentage: 68, secondaryText: 'Faster delivery', icon: 'Award' }
-      ]
-    }
-  },
-  {
-    id: 'process',
-    name: 'Timeline / Process Steps',
-    desc: 'Sequential stages that explain a workflow or journey.',
-    preview: {
-      type: 'process',
-      title: 'Delivery Flow',
-      style: 'timeline',
-      elements: [
-        { label: 'Discover', value: '01', secondaryText: 'Read the source PDF', icon: 'BookOpen' },
-        { label: 'Structure', value: '02', secondaryText: 'Build the deck outline', icon: 'LayoutGrid' },
-        { label: 'Refine', value: '03', secondaryText: 'Edit the storyline', icon: 'Sliders' },
-        { label: 'Present', value: '04', secondaryText: 'Play the final deck', icon: 'Presentation' }
-      ]
-    }
-  },
-  {
-    id: 'comparison',
-    name: 'Meters / Comparisons',
-    desc: 'Side-by-side visual comparisons or tradeoffs.',
-    preview: {
-      type: 'comparison',
-      title: 'Option Tradeoff',
-      style: 'vs-card',
-      elements: [
-        { label: 'Current state', value: '42%', percentage: 42, secondaryText: 'Manual workflow' },
-        { label: 'Storyline', value: '88%', percentage: 88, secondaryText: 'Automated deck generation' }
-      ]
-    }
-  },
-  {
-    id: 'hierarchy',
-    name: 'Structural Tiers',
-    desc: 'Stacked or layered information architecture.',
-    preview: {
-      type: 'hierarchy',
-      title: 'Operating Model',
-      style: 'pyramid',
-      elements: [
-        { label: 'Strategy', value: 'North Star', secondaryText: 'Top-level direction' },
-        { label: 'Workflow', value: 'Decks + Slides', secondaryText: 'Main operating layer' },
-        { label: 'Detail', value: 'Bullet Points', secondaryText: 'Supporting evidence' }
-      ]
-    }
-  },
-  {
-    id: 'pie',
-    name: 'Proportional Slices',
-    desc: 'Circular ratios for mix, share, or allocation.',
-    preview: {
-      type: 'pie',
-      title: 'Allocation Mix',
-      style: 'radial',
-      elements: [
-        { label: 'Research', value: '40%', percentage: 40, secondaryText: 'Source analysis' },
-        { label: 'Writing', value: '35%', percentage: 35, secondaryText: 'AI draft shaping' },
-        { label: 'Present', value: '25%', percentage: 25, secondaryText: 'Delivery polish' }
-      ]
-    }
-  }
+  ...GRAPHIC_PRESET_GROUPS.flatMap((group) => group.presets)
 ];
 
-const GRAPHIC_TYPES = GRAPHIC_OPTIONS.filter((opt): opt is Extract<typeof opt, { id: GraphicType }> => opt.id !== 'none');
+const DEFAULT_GRAPHIC_STYLE_BY_TYPE: Record<GraphicType, string> = {
+  process: 'timeline',
+  comparison: 'vs-card',
+  metrics: 'dashboard',
+  hierarchy: 'org-chart',
+  pie: 'donut'
+};
+
+const GRAPHIC_CATEGORY_ORDER: Array<{ id: GraphicCategory; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'stats', label: 'Stats & KPIs' },
+  { id: 'comparison', label: 'Comparisons' },
+  { id: 'process', label: 'Timelines & Process' },
+  { id: 'hierarchy', label: 'Hierarchy & Trees' },
+  { id: 'pie', label: 'Funnels & Radial' }
+];
+
+const GRAPHIC_PRESET_CATEGORY: Record<string, GraphicCategory> = {
+  'KPI Dashboard': 'stats',
+  'Compact Stat Grid': 'stats',
+  'Executive Scoreboard': 'stats',
+  'Trend Snapshot': 'stats',
+  'Metric Tiles': 'stats',
+  'Benchmark Panel': 'stats',
+  'Side-by-Side Comparison': 'comparison',
+  'Before/After Split': 'comparison',
+  'Pro/Con Balance': 'comparison',
+  'Benchmark Bars': 'comparison',
+  'Tradeoff Cards': 'comparison',
+  'Feature Matrix': 'comparison',
+  'Timeline Flow': 'process',
+  'Milestone Roadmap': 'process',
+  'Zigzag Sequence': 'process',
+  'Vertical Process Steps': 'process',
+  'Pipeline Stages': 'process',
+  'Swimlane Flow': 'process',
+  'Org Chart': 'hierarchy',
+  'Branching Tree': 'hierarchy',
+  'Layered Pyramid': 'hierarchy',
+  'Stack Architecture': 'hierarchy',
+  'Nested Layers': 'hierarchy',
+  'Dependency Tree': 'hierarchy',
+  'Funnel Conversion': 'pie',
+  'Circular Network': 'pie',
+  'Quadrant Matrix': 'pie',
+  'Heatmap Matrix': 'pie',
+  'Radial Rings': 'pie',
+  'Donut Allocation': 'pie'
+};
 
 function cloneGraphic(graphic: SlideGraphic): SlideGraphic {
   return {
@@ -161,15 +645,10 @@ function cloneGraphic(graphic: SlideGraphic): SlideGraphic {
   };
 }
 
-function getGraphicPreset(type: GraphicType) {
-  return GRAPHIC_OPTIONS.find((option) => option.id === type) || GRAPHIC_OPTIONS[0];
-}
-
-function createGraphicForType(type: GraphicType, existing?: SlideGraphic): SlideGraphic {
-  const preset = getGraphicPreset(type);
+function createGraphicFromPreset(preset: GraphicPreset, existing?: SlideGraphic): SlideGraphic {
   if (!preset.preview) {
     return {
-      type,
+      type: 'metrics',
       title: existing?.title || 'Visual Graphic',
       elements: existing?.elements?.length
         ? existing.elements.map((el) => ({ ...el }))
@@ -177,7 +656,10 @@ function createGraphicForType(type: GraphicType, existing?: SlideGraphic): Slide
     };
   }
 
-  if (existing?.type === type) {
+  if (
+    existing?.type === preset.preview.type &&
+    (existing.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[existing.type]) === (preset.preview.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[preset.preview.type])
+  ) {
     return cloneGraphic(existing);
   }
 
@@ -185,6 +667,20 @@ function createGraphicForType(type: GraphicType, existing?: SlideGraphic): Slide
     ...preset.preview,
     title: existing?.title || preset.preview.title
   });
+}
+
+function getSelectedGraphicPreset(graphic?: SlideGraphic) {
+  if (!graphic) return GRAPHIC_OPTIONS[0];
+  return (
+    GRAPHIC_OPTIONS.find((option) => {
+      if (!option.preview) return false;
+      const graphicStyle = graphic.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[graphic.type];
+      const presetStyle = option.preview.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[option.preview.type];
+      return graphic.type === option.preview.type && graphicStyle === presetStyle;
+    }) ||
+    GRAPHIC_OPTIONS.find((option) => option.preview?.type === graphic.type) ||
+    GRAPHIC_OPTIONS[0]
+  );
 }
 
 export function SlideEditor({
@@ -213,8 +709,37 @@ export function SlideEditor({
   });
 
   const [copiedRawText, setCopiedRawText] = useState(false);
-  const [expandedSlideIndex, setExpandedSlideIndex] = useState<number | null>(0);
-  const [showRawTextPanel, setShowRawTextPanel] = useState(true);
+  const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
+  const [showRawTextPanel, setShowRawTextPanel] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('content');
+  const [graphicDrawerOpen, setGraphicDrawerOpen] = useState(false);
+  const [graphicSearch, setGraphicSearch] = useState('');
+  const [graphicCategory, setGraphicCategory] = useState<GraphicCategory>('all');
+
+  const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
+
+  const setActiveSlide = (index: number) => {
+    const safeIndex = Math.max(0, Math.min(index, data.slides.length - 1));
+    setActiveSlideIndex(safeIndex);
+  };
+
+  const duplicateSlide = (index: number) => {
+    const slide = data.slides[index];
+    const clone: SlideContent = {
+      ...slide,
+      id: `slide-custom-${Date.now()}`,
+      title: `${slide.title} Copy`,
+      content: [...slide.content],
+      speakerNotes: slide.speakerNotes,
+      quiz: slide.quiz ? { ...slide.quiz, options: [...slide.quiz.options] } : undefined,
+      links: slide.links ? slide.links.map((link) => ({ ...link })) : undefined,
+      graphic: slide.graphic ? cloneGraphic(slide.graphic) : undefined
+    };
+    const updatedSlides = [...data.slides];
+    updatedSlides.splice(index + 1, 0, clone);
+    setData({ ...data, slides: updatedSlides });
+    setActiveSlideIndex(index + 1);
+  };
 
   // Copy raw parsed text helper
   const handleCopyRawText = () => {
@@ -251,24 +776,23 @@ export function SlideEditor({
     };
     const updatedSlides = [...data.slides, newSlide];
     setData({ ...data, slides: updatedSlides });
-    setExpandedSlideIndex(updatedSlides.length - 1);
+    setActiveSlideIndex(updatedSlides.length - 1);
   };
 
-  const handleRemoveSlide = (index: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleRemoveSlide = (index: number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (data.slides.length <= 1) {
       alert("Your presentation must contain at least one slide.");
       return;
     }
+    if (!window.confirm('Delete this slide?')) return;
     const updatedSlides = data.slides.filter((_, idx) => idx !== index);
     setData({ ...data, slides: updatedSlides });
-    
-    // Adjust currently expanded slide index
-    if (expandedSlideIndex === index) {
-      setExpandedSlideIndex(Math.max(0, index - 1));
-    } else if (expandedSlideIndex !== null && expandedSlideIndex > index) {
-      setExpandedSlideIndex(expandedSlideIndex - 1);
-    }
+    setActiveSlideIndex((current) => {
+      if (current === index) return Math.max(0, index - 1);
+      if (current > index) return current - 1;
+      return current;
+    });
   };
 
   const handleMoveSlide = (index: number, direction: 'up' | 'down', e: React.MouseEvent) => {
@@ -283,10 +807,10 @@ export function SlideEditor({
     updatedSlides[targetIdx] = temp;
 
     setData({ ...data, slides: updatedSlides });
-    if (expandedSlideIndex === index) {
-      setExpandedSlideIndex(targetIdx);
-    } else if (expandedSlideIndex === targetIdx) {
-      setExpandedSlideIndex(index);
+    if (activeSlideIndex === index) {
+      setActiveSlideIndex(targetIdx);
+    } else if (activeSlideIndex === targetIdx) {
+      setActiveSlideIndex(index);
     }
   };
 
@@ -341,8 +865,31 @@ export function SlideEditor({
     handleUpdateGraphicField(slideIdx, 'elements', updatedElements);
   };
 
-  const renderGraphicThumbnail = (type: GraphicType | 'none') => {
-    if (type === 'none') {
+  const openGraphicPreset = (preset: GraphicPreset) => {
+    if (!activeSlide) return;
+    if (preset.id === 'none') {
+      updateSlideField(activeSlideIndex, 'graphic', undefined);
+      return;
+    }
+    updateSlideField(activeSlideIndex, 'graphic', createGraphicFromPreset(preset, activeSlide || undefined));
+    setInspectorTab('visual');
+  };
+
+  const filteredGraphicGroups = GRAPHIC_PRESET_GROUPS.map((group) => ({
+    ...group,
+    presets: group.presets.filter((preset) => {
+      const matchesSearch =
+        graphicSearch.trim() === '' ||
+        preset.name.toLowerCase().includes(graphicSearch.toLowerCase()) ||
+        preset.desc.toLowerCase().includes(graphicSearch.toLowerCase());
+      const category = GRAPHIC_PRESET_CATEGORY[preset.name];
+      const matchesCategory = graphicCategory === 'all' || graphicCategory === category;
+      return matchesSearch && matchesCategory;
+    })
+  })).filter((group) => group.presets.length > 0);
+
+  const renderGraphicThumbnail = (preset: GraphicPreset) => {
+    if (preset.id === 'none' || !preset.preview) {
       return (
         <div className="h-20 rounded-2xl border border-dashed border-lime-200 bg-white/70 p-3 flex flex-col justify-between">
           <div className="space-y-1">
@@ -354,7 +901,58 @@ export function SlideEditor({
       );
     }
 
+    const { type, style = '', elements = [] } = preset.preview;
+
     if (type === 'process') {
+      const isVertical = style.includes('vertical') || style.includes('zigzag');
+      const isSwimlane = style.includes('swimlane');
+      const isPipeline = style.includes('pipeline');
+
+      if (isSwimlane) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 flex flex-col gap-1.5 justify-between">
+            {['Research', 'Draft', 'Review'].map((label, idx) => (
+              <div key={label} className="flex items-center gap-2">
+                <div className="w-8 text-[9px] font-black uppercase text-lime-700/70">{label}</div>
+                <div className="flex-1 h-3 rounded-full bg-lime-100 overflow-hidden">
+                  <div className={cn("h-full rounded-full", idx === 1 ? "bg-lime-500 w-3/4" : idx === 2 ? "bg-lime-400 w-1/2" : "bg-lime-300 w-full")} />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (isPipeline) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-1.5">
+            {[55, 42, 28, 18].map((height, idx) => (
+              <div
+                key={idx}
+                className="flex-1 rounded-xl bg-lime-100 flex items-end justify-center overflow-hidden"
+                style={{ height: `${height}px`, clipPath: 'polygon(12% 0, 88% 0, 100% 100%, 0 100%)' }}
+              >
+                <div className="w-full h-full bg-lime-500/85" />
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (isVertical) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-between gap-1.5">
+            {elements.slice(0, 4).map((el, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-lime-500 shrink-0" />
+                <div className="h-2 rounded-full bg-lime-100 flex-1" />
+                <div className="w-6 h-2 rounded-full bg-lime-300 shrink-0" />
+              </div>
+            ))}
+          </div>
+        );
+      }
+
       return (
         <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-end gap-2">
           {[18, 28, 38, 24].map((height, idx) => (
@@ -370,6 +968,31 @@ export function SlideEditor({
     }
 
     if (type === 'comparison') {
+      const isMatrix = style.includes('matrix') || style.includes('quadrant') || style.includes('heatmap');
+      const isBeforeAfter = style.includes('before') || style.includes('after');
+
+      if (isMatrix) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 grid grid-cols-2 gap-1.5">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className={cn("rounded-xl flex items-center justify-center text-[9px] font-black", idx % 2 === 0 ? "bg-lime-100 text-lime-900" : "bg-lime-200 text-lime-900")}>
+                {idx + 1}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
+      if (isBeforeAfter) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-2">
+            <div className="flex-1 rounded-xl bg-lime-100 h-full flex items-center justify-center text-[9px] font-black text-lime-800">Before</div>
+            <div className="w-7 h-7 rounded-full border-2 border-lime-500 text-lime-700 flex items-center justify-center text-[9px] font-black">→</div>
+            <div className="flex-1 rounded-xl bg-lime-400/30 h-full flex items-center justify-center text-[9px] font-black text-lime-900">After</div>
+          </div>
+        );
+      }
+
       return (
         <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center gap-3">
           <div className="flex-1 space-y-2">
@@ -388,6 +1011,37 @@ export function SlideEditor({
     }
 
     if (type === 'hierarchy') {
+      const isTree = style.includes('tree') || style.includes('branch') || style.includes('org');
+      const isPyramid = style.includes('pyramid') || style.includes('triangular') || style.includes('funnel');
+
+      if (isTree) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-2.5 flex flex-col justify-between gap-1">
+            <div className="mx-auto w-12 h-4 rounded-xl bg-lime-500/80" />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 h-3 rounded-full bg-lime-100" />
+              <div className="flex-1 h-3 rounded-full bg-lime-100" />
+              <div className="flex-1 h-3 rounded-full bg-lime-100" />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 h-3 rounded-full bg-lime-200" />
+              <div className="flex-1 h-3 rounded-full bg-lime-200" />
+              <div className="flex-1 h-3 rounded-full bg-lime-200" />
+            </div>
+          </div>
+        );
+      }
+
+      if (isPyramid) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-end gap-1">
+            <div className="h-3 rounded-xl bg-lime-100 w-full" />
+            <div className="h-3 rounded-xl bg-lime-300 w-4/5 mx-auto" />
+            <div className="h-3 rounded-xl bg-lime-500 w-2/3 mx-auto" />
+          </div>
+        );
+      }
+
       return (
         <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-end gap-1">
           <div className="h-3 rounded-xl bg-lime-100 w-full" />
@@ -395,6 +1049,37 @@ export function SlideEditor({
           <div className="h-3 rounded-xl bg-lime-500 w-2/3 mx-auto" />
         </div>
       );
+    }
+
+    if (type === 'pie') {
+      const isFunnel = style.includes('funnel');
+      const isRadial = style.includes('radial') || style.includes('ring') || style.includes('circle');
+
+      if (isFunnel) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex flex-col justify-between">
+            {[100, 76, 52, 28].map((width, idx) => (
+              <div
+                key={idx}
+                className={cn("mx-auto h-3 rounded-full", idx === 0 ? "bg-lime-100" : idx === 1 ? "bg-lime-200" : idx === 2 ? "bg-lime-400/60" : "bg-lime-500")}
+                style={{ width: `${width}%` }}
+              />
+            ))}
+          </div>
+        );
+      }
+
+      if (isRadial) {
+        return (
+          <div className="h-20 rounded-2xl border border-lime-200 bg-white/80 p-3 flex items-center justify-center">
+            <div className="relative w-14 h-14">
+              <div className="absolute inset-0 rounded-full border-4 border-lime-100" />
+              <div className="absolute inset-2 rounded-full border-4 border-lime-300" />
+              <div className="absolute inset-4 rounded-full border-4 border-lime-500 border-t-transparent border-r-transparent" />
+            </div>
+          </div>
+        );
+      }
     }
 
     return (
@@ -516,809 +1201,702 @@ export function SlideEditor({
   };
 
   return (
-    <div className="w-full min-h-screen bg-lime-50/30 flex flex-col">
-      {/* 1. Sticky Header Bar */}
-      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-lime-200/80 shadow-sm px-6 py-4.5 z-40 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-lime-400 border border-lime-500/40 p-2.5 rounded-xl text-lime-950">
-            <Sliders className="w-5 h-5" />
+    <div className="min-h-screen bg-gradient-to-br from-lime-50 via-white to-emerald-50 text-slate-900">
+      <header className="sticky top-0 z-40 border-b border-lime-200/70 bg-white/90 backdrop-blur">
+        <div className="px-4 md:px-6 py-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-11 w-11 rounded-2xl bg-lime-500 text-lime-950 flex items-center justify-center shadow-sm border border-lime-600/20">
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base md:text-lg font-black tracking-tight text-lime-950 truncate">Storyline Blueprint Editor</h1>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full bg-lime-100 text-lime-800">Slide-first</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                  Slide {activeSlideIndex + 1} / {data.slides.length}
+                </span>
+                {saveStatus && (
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                    {saveStatus}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-lime-900/60 font-semibold truncate">Work the current slide, preview it live, and open the graphic catalog when you need a new visual style.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black text-lime-950 leading-tight tracking-tight">Storyline Blueprint Editor</h1>
-            <p className="text-xs text-lime-900/60 font-semibold">Refine, structure, and customize your parsed deck before rendering the slideshow</p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowRawTextPanel(!showRawTextPanel)}
-            className={cn(
-              "px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border transition-all cursor-pointer",
-              showRawTextPanel 
-                ? "bg-lime-950 border-lime-950 text-lime-50 shadow-sm" 
-                : "bg-white hover:bg-lime-50/30 border-lime-200/80 text-lime-950"
-            )}
-          >
-            <FileText className="w-4 h-4" />
-            {showRawTextPanel ? 'Hide Source Text' : 'View Source Text'}
-          </button>
-
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 border border-lime-200/80 hover:bg-lime-50/30 rounded-full text-xs font-black text-lime-950 cursor-pointer transition-all"
-          >
-            Cancel
-          </button>
-
-          {onSave && (
-            <>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowRawTextPanel((v) => !v)}
+              className={cn(
+                "px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border transition-all cursor-pointer",
+                showRawTextPanel ? "bg-lime-950 border-lime-950 text-lime-50" : "bg-white border-lime-200 text-lime-950 hover:bg-lime-50"
+              )}
+            >
+              <FileText className="w-4 h-4" />
+              Source
+            </button>
+            {onSave && (
               <button
                 onClick={() => handleSaveClick(false)}
-                className="px-4 py-2 border border-lime-200 bg-lime-50 hover:bg-lime-100 rounded-full text-xs font-black text-lime-900 flex items-center gap-2 cursor-pointer transition-all"
+                className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
               >
                 <Save className="w-4 h-4 text-lime-700" />
                 {savedDeckId ? 'Save' : 'Save Draft'}
               </button>
-              {savedDeckId && (
-                <button
-                  onClick={() => handleSaveClick(true)}
-                  className="px-4 py-2 border border-lime-200/80 hover:bg-lime-50/30 rounded-full text-xs font-black text-lime-950 cursor-pointer transition-all"
-                >
-                  Save As New
-                </button>
-              )}
-            </>
-          )}
-
-          <button
-            onClick={handleFinaliseClick}
-            className="px-5 py-2.5 bg-lime-950 hover:bg-lime-900 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] text-lime-50 rounded-full text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-lime-950/10"
-          >
-            <Sparkles className="w-4 h-4 text-lime-300" />
-            Finalise & Present
-          </button>
+            )}
+            {onSave && savedDeckId && (
+              <button
+                onClick={() => handleSaveClick(true)}
+                className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
+              >
+                Save As New
+              </button>
+            )}
+            <button
+              onClick={onCancel}
+              className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleFinaliseClick}
+              className="px-4 py-2 rounded-full text-xs font-black flex items-center gap-1.5 bg-lime-950 text-lime-50 hover:bg-lime-900 cursor-pointer transition-all shadow-sm"
+            >
+              <Sparkles className="w-4 h-4 text-lime-300" />
+              Finalise & Present
+            </button>
+          </div>
         </div>
       </header>
 
-      {saveStatus && (
-        <div className="fixed top-[78px] right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-lg">
-          {saveStatus}
-        </div>
-      )}
-
-      {/* 2. Workspace Content Panels */}
-      <div className="flex-1 flex overflow-hidden min-h-0 w-full">
-        {/* PANEL A: Raw Output Extracted Text (Slideable Left Panel) */}
+      <div className="relative">
         <AnimatePresence initial={false}>
           {showRawTextPanel && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '28%', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="border-r border-lime-200 bg-white/40 backdrop-blur-sm flex flex-col h-[calc(100vh-73px)] min-w-[320px] max-w-[420px]"
+            <motion.aside
+              initial={{ x: -24, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -24, opacity: 0 }}
+              className="fixed left-0 top-[73px] bottom-0 z-30 w-[min(38vw,420px)] border-r border-lime-200 bg-white/95 backdrop-blur shadow-xl overflow-hidden"
             >
-              <div className="p-4 border-b border-lime-150 bg-white/70 backdrop-blur flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-lime-700" />
-                  <span className="font-black text-sm text-lime-950">Raw Extracted PDF Content</span>
-                </div>
-                {data.rawParsedText && (
-                  <button
-                    onClick={handleCopyRawText}
-                    className="p-1.5 rounded-xl border border-lime-200 bg-white hover:bg-lime-50 text-lime-800 transition-colors cursor-pointer"
-                    title="Copy source text to clipboard"
-                  >
-                    {copiedRawText ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              <div className="h-full flex flex-col">
+                <div className="p-4 border-b border-lime-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-lime-700" />
+                    <span className="text-sm font-black text-lime-950">Source text</span>
+                  </div>
+                  <button onClick={handleCopyRawText} className="p-2 rounded-xl border border-lime-200 bg-white hover:bg-lime-50">
+                    {copiedRawText ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-lime-700" />}
                   </button>
-                )}
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 text-xs leading-relaxed whitespace-pre-wrap text-slate-700">
+                  {data.rawParsedText || 'No parsed text returned from this file.'}
+                </div>
               </div>
-
-              <div className="flex-1 overflow-y-auto p-4 md:p-5 font-mono text-xs text-lime-900/80 leading-relaxed whitespace-pre-wrap select-text">
-                {data.rawParsedText ? (
-                  data.rawParsedText
-                ) : (
-                  <p className="text-lime-900/50 italic text-center py-12 font-sans">No parsed text returned from this file.</p>
-                )}
-              </div>
-            </motion.div>
+            </motion.aside>
           )}
         </AnimatePresence>
 
-        {/* PANEL B: Active Multi-slide Editor (Center Workspace) */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 h-[calc(100vh-73px)]">
-          <div className="max-w-4xl mx-auto space-y-6">
-            
-            {/* 1. Global Presentation Title Card */}
-            <div className="p-6 bg-white rounded-3xl border border-lime-200 shadow-sm space-y-4">
-              <label className="block text-xs font-black uppercase tracking-wider text-lime-800/80">
-                Overall Deck Title
-              </label>
-              <input
-                type="text"
-                value={data.title}
-                onChange={(e) => setData({ ...data, title: e.target.value })}
-                placeholder="E.g. Fiscal Analysis Q2 2026"
-                className="w-full text-2xl font-black text-lime-950 bg-lime-50/20 border border-lime-200/80 hover:border-lime-300 focus:border-lime-500 focus:bg-white rounded-2xl px-5 py-3.5 outline-none focus:ring-4 focus:ring-lime-500/10 transition-all"
-              />
-            </div>
-
-            {/* 2. Slide Cards List */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-wider text-lime-800/80 px-1">
-                Presentation Slides ({data.slides.length})</h3>
-
-              {data.slides.map((slide, sIdx) => {
-                const isExpanded = expandedSlideIndex === sIdx;
-                const bulletCount = slide.content.length;
-
-                return (
-                  <div 
-                    key={slide.id} 
-                    className={cn(
-                      "bg-white rounded-3xl border transition-all overflow-hidden shadow-sm",
-                      isExpanded 
-                        ? "border-lime-400 shadow-md ring-4 ring-lime-500/5" 
-                        : "border-lime-200/80 hover:border-lime-300"
-                    )}
-                  >
-                    {/* Slide Header (Summary Bar) */}
-                    <div 
-                      onClick={() => setExpandedSlideIndex(isExpanded ? null : sIdx)}
-                      className="flex items-center justify-between px-6 py-4.5 cursor-pointer select-none bg-white hover:bg-lime-50/20 transition-colors"
+        <div className={cn("px-4 md:px-6 py-5", showRawTextPanel ? "xl:pl-[min(38vw,420px)]" : "")}>
+          <div className="grid grid-cols-1 xl:grid-cols-[270px_minmax(0,1fr)_380px] gap-4 min-h-[calc(100vh-138px)]">
+            <aside className="order-1 rounded-[20px] border border-lime-200 bg-white/90 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-lime-100 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Slides</div>
+                  <div className="text-sm font-black text-lime-950">{data.slides.length} total</div>
+                </div>
+                <button
+                  onClick={handleAddSlide}
+                  className="h-9 w-9 rounded-xl bg-lime-950 text-lime-50 flex items-center justify-center hover:bg-lime-900 transition-colors"
+                  title="Add slide"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {data.slides.map((slide, idx) => {
+                  const isActive = idx === activeSlideIndex;
+                  return (
+                    <button
+                      key={slide.id}
+                      onClick={() => setActiveSlide(idx)}
+                      className={cn(
+                        "w-full text-left rounded-[18px] border p-3 transition-all",
+                        isActive ? "border-lime-700 bg-lime-50 ring-2 ring-lime-500/10" : "border-lime-100 bg-white hover:border-lime-200 hover:bg-lime-50/40"
+                      )}
                     >
-                      <div className="flex items-center gap-4 truncate pr-4">
-                        <span className="w-8 h-8 rounded-full bg-lime-50 border border-lime-100/80 flex items-center justify-center font-black text-xs text-lime-700 flex-shrink-0">
-                          {sIdx + 1}
-                        </span>
-                        <div className="truncate">
-                          <h4 className="font-black text-lime-950 text-sm leading-snug">{slide.title || '(Untitled Slide)'}</h4>
-                          <p className="text-xs text-lime-900/60 mt-0.5 font-bold">
-                            {bulletCount} point{bulletCount !== 1 && 's'} 
-                            {slide.graphic ? ` • Interactive ${slide.graphic.type} graphic` : ''}
-                            {slide.quiz ? ' • Interactive Quiz' : ''}
-                          </p>
+                      <div className="flex items-start gap-3">
+                        <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0", isActive ? "bg-lime-950 text-lime-50" : "bg-lime-100 text-lime-800")}>
+                          {idx + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-black text-lime-950 truncate">{slide.title || '(Untitled Slide)'}</div>
+                            {isActive && <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-900">Active</span>}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">{slide.content.length} bullets</span>
+                            {slide.graphic && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800">{slide.graphic.type}</span>}
+                            {slide.quiz && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Quiz</span>}
+                            {slide.links && slide.links.length > 0 && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800">Links</span>}
+                          </div>
                         </div>
                       </div>
-
-                      {/* Controls Area */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Order adjustment button */}
-                        <button
-                          onClick={(e) => handleMoveSlide(sIdx, 'up', e)}
-                          disabled={sIdx === 0}
-                          className="p-1.5 rounded-xl border border-lime-100 bg-white text-lime-900 disabled:opacity-20 transition-all cursor-pointer hover:bg-lime-50"
-                          title="Move Slide Up"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => handleMoveSlide(sIdx, 'down', e)}
-                          disabled={sIdx === data.slides.length - 1}
-                          className="p-1.5 rounded-xl border border-lime-100 bg-white text-lime-900 disabled:opacity-20 transition-all cursor-pointer hover:bg-lime-50"
-                          title="Move Slide Down"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-
-                        <div className="w-px h-4 bg-lime-100 mx-1" />
-
-                        {/* Remove button */}
-                        <button
-                          onClick={(e) => handleRemoveSlide(sIdx, e)}
-                          className="p-1.5 rounded-xl border border-transparent hover:border-red-200 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all cursor-pointer"
-                          title="Remove Slide"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-
-                        <div className="w-px h-4 bg-lime-100 mx-1" />
-
-                        {isExpanded ? <ChevronUp className="w-4 h-4 text-lime-700" /> : <ChevronDown className="w-4 h-4 text-lime-700" />}
+                      <div className="mt-3 flex items-center justify-end gap-1.5">
+                        <button onClick={(e) => handleMoveSlide(idx, 'up', e)} disabled={idx === 0} className="p-1.5 rounded-lg border border-lime-100 bg-white disabled:opacity-30" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => handleMoveSlide(idx, 'down', e)} disabled={idx === data.slides.length - 1} className="p-1.5 rounded-lg border border-lime-100 bg-white disabled:opacity-30" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => duplicateSlide(idx)} className="p-1.5 rounded-lg border border-lime-100 bg-white" title="Duplicate slide"><Copy className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => handleRemoveSlide(idx, e)} className="p-1.5 rounded-lg border border-lime-100 bg-white text-red-500" title="Delete slide"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
-                    </div>
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={handleAddSlide}
+                  className="w-full rounded-[18px] border border-dashed border-lime-200 bg-lime-50/30 py-3 text-sm font-black text-lime-800 hover:bg-lime-50 transition-colors"
+                >
+                  Add slide
+                </button>
+              </div>
+            </aside>
 
-                    {/* Slide Body (Forms & Editables) */}
-                    {isExpanded && (
-                      <div className="px-8 pb-8 pt-6 border-t border-lime-100 bg-lime-50/10 space-y-6">
-                        
-                        {/* Slide Title Input */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-black text-lime-800 uppercase tracking-wider">Slide Title</label>
-                          <input
-                            type="text"
-                            value={slide.title}
-                            onChange={(e) => updateSlideField(sIdx, 'title', e.target.value)}
-                            placeholder="Slide Title"
-                            className="w-full text-base font-bold text-lime-950 bg-white border border-lime-200/80 hover:border-lime-300 focus:border-lime-500 focus:ring-4 focus:ring-lime-500/10 rounded-2xl px-4 py-3 outline-none transition-all"
-                          />
-                        </div>
-
-                        {/* Slide Bullet points */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="block text-xs font-black text-lime-800 uppercase tracking-wider">Bullet Points</label>
-                            <button
-                              type="button"
-                              onClick={() => handleAddBullet(sIdx)}
-                              className="text-xs font-black text-lime-700 hover:text-lime-900 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add Bullet
-                            </button>
+            <main className="order-3 xl:order-2 space-y-4">
+              <section className="rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
+                <div className="border-b border-lime-100 px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Live Slide</div>
+                    <div className="text-sm font-black text-lime-950 truncate">{activeSlide?.title || 'Untitled slide'}</div>
+                  </div>
+                  <button
+                    onClick={() => setGraphicDrawerOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-black text-lime-900 hover:bg-lime-100 transition-colors"
+                  >
+                    <GalleryVerticalEnd className="w-4 h-4" />
+                    Open Graphic Library
+                  </button>
+                </div>
+                <div className="p-4 md:p-6">
+                  <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-white to-lime-50 p-4 md:p-6 min-h-[520px] shadow-inner">
+                    <div className="mx-auto max-w-4xl">
+                      <div className="rounded-[18px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="min-w-0">
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Preview</div>
+                            <h2 className="text-xl font-black text-slate-950 truncate">{activeSlide?.title || 'Untitled Slide'}</h2>
                           </div>
-
-                          <div className="space-y-3">
-                            {slide.content.map((point, pIdx) => (
-                              <div key={pIdx} className="flex items-start gap-2 group">
-                                <span className="w-2 h-2 rounded-full bg-lime-500 flex-shrink-0 mt-4.5" />
-                                <div className="flex-1 min-w-0">
-                                  <HtmlBulletEditor
-                                    value={point}
-                                    onChange={(newValue) => handleUpdateBullet(sIdx, pIdx, newValue)}
-                                    placeholder="Provide descriptive details (supports HTML formatting)"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveBullet(sIdx, pIdx)}
-                                  disabled={slide.content.length <= 1}
-                                  className="opacity-0 group-hover:opacity-100 p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-0 mt-1"
-                                  title="Delete point"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-full bg-lime-100 text-lime-800">
+                            {activeSlide?.graphic ? activeSlide.graphic.type : 'Text only'}
                           </div>
                         </div>
-
-                        {/* Slide Interactive Graphic customization */}
-                        <div className="space-y-4 border border-lime-200 bg-white rounded-3xl p-6 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <LayoutGrid className="w-4 h-4 text-lime-700" />
-                              <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Visual Diagram Block</span>
-                            </div>
-                            {slide.graphic && (
-                              <button
-                                type="button"
-                                onClick={() => updateSlideField(sIdx, 'graphic', undefined)}
-                                className="text-xs font-black text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Remove Graphic
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4 pt-3 border-t border-lime-100">
-                            <div className="space-y-4">
-                              <div className="rounded-3xl border border-lime-200 bg-lime-50/30 p-4">
-                                <div className="flex items-center justify-between gap-2 mb-3">
-                                  <div>
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-lime-800/70">Live Preview</p>
-                                    <p className="text-xs text-lime-900/50 font-semibold">This is the actual graphic used in presentation mode.</p>
-                                  </div>
-                                  <span className="text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-1 bg-white border border-lime-200 text-lime-800">
-                                    {slide.graphic ? 'Actual graphic' : 'Template preview'}
-                                  </span>
-                                </div>
-                                <div className="min-h-[260px] rounded-2xl bg-white border border-lime-200 p-3 overflow-hidden">
-                                  {slide.graphic ? (
-                                    <InteractiveGraphic
-                                      graphic={slide.graphic}
-                                      accentClass="bg-lime-500"
-                                      isVerticalMode={false}
-                                    />
-                                  ) : (
-                                    <div className="h-full min-h-[240px] flex flex-col items-center justify-center text-center px-8 text-lime-900/55">
-                                      <LayoutGrid className="w-10 h-10 mb-4 text-lime-300" />
-                                      <p className="text-sm font-black text-lime-900/80">Choose a visual diagram style to preview the graphic here.</p>
-                                      <p className="text-xs mt-2 font-semibold leading-relaxed">
-                                        The gallery below shows each template with a thumbnail, label, and summary.
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {slide.graphic && (
-                                <div className="space-y-4 pt-1">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div>
-                                      <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider mb-1">Graphic Title</label>
-                                      <input
-                                        type="text"
-                                        value={slide.graphic.title || ''}
-                                        onChange={(e) => handleUpdateGraphicField(sIdx, 'title', e.target.value)}
-                                        placeholder="Optional Title (e.g. Statistical Milestones)"
-                                        className="w-full text-xs text-lime-950 bg-lime-50/20 border border-lime-200/80 rounded-xl px-3.5 py-2.5 outline-none focus:border-lime-500"
-                                      />
-                                    </div>
-                                    <div className="flex items-end justify-end">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAddGraphicElement(sIdx)}
-                                        className="text-xs font-black text-lime-700 hover:text-lime-900 flex items-center gap-1 cursor-pointer"
-                                      >
-                                        <ListPlus className="w-3.5 h-3.5" />
-                                        Add Graphic Node
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-3 pt-2">
-                                    <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Graphic Elements / Nodes</label>
-                                    {slide.graphic.elements.map((el, elIdx) => (
-                                      <div key={elIdx} className="p-4 bg-lime-50/10 border border-lime-200/50 rounded-2xl space-y-3 relative group">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveGraphicElement(sIdx, elIdx)}
-                                          disabled={slide.graphic!.elements.length <= 1}
-                                          className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 rounded-xl bg-transparent hover:bg-red-50 disabled:opacity-0 transition-all cursor-pointer"
-                                          title="Delete Graphic Node"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-6">
-                                          <div>
-                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Label</label>
-                                            <input
-                                              type="text"
-                                              value={el.label}
-                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'label', e.target.value)}
-                                              placeholder="Item/Stage Name"
-                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Statistic / Value</label>
-                                            <input
-                                              type="text"
-                                              value={el.value || ''}
-                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'value', e.target.value)}
-                                              placeholder="E.g. Stage 1, $4.5M, 90%"
-                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                            />
-                                          </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pr-6">
-                                          <div className="sm:col-span-2">
-                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Secondary Text Description</label>
-                                            <input
-                                              type="text"
-                                              value={el.secondaryText || ''}
-                                              onChange={(e) => handleUpdateGraphicElement(sIdx, elIdx, 'secondaryText', e.target.value)}
-                                              placeholder="Description or context details"
-                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Percentage (0-100)</label>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              value={el.percentage !== undefined ? el.percentage : ''}
-                                              onChange={(e) => {
-                                                const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
-                                                handleUpdateGraphicElement(sIdx, elIdx, 'percentage', val);
-                                              }}
-                                              placeholder="E.g. 75"
-                                              className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                            />
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-wider text-lime-800/70">Graphic Gallery</p>
-                                  <p className="text-xs text-lime-900/50 font-semibold">Pick a template with a thumbnail and short description.</p>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {GRAPHIC_OPTIONS.map((option) => {
-                                  const isSelected = option.id === (slide.graphic?.type || 'none');
-                                  return (
-                                    <button
-                                      key={option.id}
-                                      type="button"
-                                      onClick={() => {
-                                        if (option.id === 'none') {
-                                          updateSlideField(sIdx, 'graphic', undefined);
-                                          return;
-                                        }
-                                        updateSlideField(sIdx, 'graphic', createGraphicForType(option.id, slide.graphic || undefined));
-                                      }}
-                                      className={cn(
-                                        "text-left rounded-3xl border p-3 transition-all cursor-pointer shadow-sm hover:shadow-md",
-                                        isSelected
-                                          ? "border-lime-700 ring-2 ring-lime-500/15 bg-lime-50/60"
-                                          : "border-lime-200 bg-white hover:border-lime-300"
-                                      )}
-                                    >
-                                      {renderGraphicThumbnail(option.id)}
-                                      <div className="mt-3">
-                                        <div className="flex items-center justify-between gap-2">
-                                          <h4 className="text-sm font-black text-lime-950 leading-tight">{option.name}</h4>
-                                          {isSelected && (
-                                            <span className="text-[9px] font-black uppercase tracking-wider rounded-full px-1.5 py-0.5 bg-lime-100 text-lime-900">
-                                              Selected
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="mt-1 text-[10px] leading-relaxed font-semibold text-lime-900/55">{option.desc}</p>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Slide Audience Interactive Quiz */}
-                        <div className="space-y-4 border border-lime-200 bg-white rounded-3xl p-6 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <HelpCircle className="w-4 h-4 text-amber-500" />
-                              <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Audience Assessment Quiz</span>
-                            </div>
-
-                            {!slide.quiz ? (
-                              <button
-                                type="button"
-                                onClick={() => handleAddQuizEntirely(sIdx)}
-                                className="text-xs font-black text-amber-700 hover:text-amber-850 flex items-center gap-1 cursor-pointer"
-                              >
-                                <PlusCircle className="w-3.5 h-3.5" />
-                                Add Audience Quiz
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveQuizEntirely(sIdx)}
-                                className="text-xs font-black text-red-500 hover:text-red-600 flex items-center gap-1 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Remove Quiz
-                              </button>
-                            )}
-                          </div>
-
-                          {slide.quiz && (
-                            <div className="space-y-4 pt-3 border-t border-gray-100">
-                              <div>
-                                <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider mb-1">Quiz Question</label>
-                                <input
-                                  type="text"
-                                  value={slide.quiz.question}
-                                  onChange={(e) => handleUpdateQuizField(sIdx, 'question', e.target.value)}
-                                  placeholder="Enter quiz question"
-                                  className="w-full text-xs text-lime-950 bg-white border border-lime-200/80 focus:border-lime-500 rounded-xl px-4 py-2.5 outline-none focus:ring-4 focus:ring-lime-500/5 transition-all"
-                                />
-                              </div>
-
+                        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] p-5">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Slide bullets</div>
                               <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <label className="block text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Options (Select Radio for Correct Answer)</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleAddQuizOption(sIdx)}
-                                    className="text-[10px] font-black text-amber-700 hover:text-amber-850 cursor-pointer"
-                                  >
-                                    + Add Option
-                                  </button>
-                                </div>
-
-                                {slide.quiz.options.map((opt, oIdx) => (
-                                  <div key={oIdx} className="flex items-center gap-2 group">
-                                    <input
-                                      type="radio"
-                                      name={`slide-quiz-correct-${sIdx}`}
-                                      checked={slide.quiz?.correctAnswerIndex === oIdx}
-                                      onChange={() => handleUpdateQuizField(sIdx, 'correctAnswerIndex', oIdx)}
-                                      className="w-3.5 h-3.5 text-lime-700 cursor-pointer"
-                                      title="Mark as correct answer"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={opt}
-                                      onChange={(e) => handleUpdateQuizOption(sIdx, oIdx, e.target.value)}
-                                      placeholder={`Option ${oIdx + 1}`}
-                                      className="flex-1 text-xs text-lime-950 bg-white border border-lime-200/85 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveQuizOption(sIdx, oIdx)}
-                                      disabled={slide.quiz!.options.length <= 2}
-                                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer disabled:opacity-0"
-                                      title="Delete option"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                {activeSlide?.content.map((point, idx) => (
+                                  <div key={idx} className="flex gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                                    <div className="mt-1 h-2 w-2 rounded-full bg-lime-500 shrink-0" />
+                                    <div className="text-sm leading-relaxed text-slate-800" dangerouslySetInnerHTML={{ __html: point }} />
                                   </div>
                                 ))}
                               </div>
                             </div>
+                            {activeSlide?.speakerNotes && (
+                              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700 mb-1">Speaker notes</div>
+                                <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap">{activeSlide.speakerNotes}</p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-3">
+                            {activeSlide?.graphic ? (
+                              <InteractiveGraphic
+                                graphic={activeSlide.graphic}
+                                accentClass="bg-lime-500"
+                                isVerticalMode={false}
+                              />
+                            ) : (
+                              <div className="min-h-[320px] rounded-[18px] border border-dashed border-lime-200 bg-lime-50/40 flex flex-col items-center justify-center text-center p-6">
+                                <LayoutGrid className="w-10 h-10 text-lime-300 mb-3" />
+                                <div className="text-sm font-black text-lime-900">No graphic selected</div>
+                                <p className="mt-2 text-xs text-lime-900/60 max-w-[24rem]">Open the graphic library to choose a preset, then edit labels and values in the Visual tab.</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-lime-100 flex flex-wrap items-center gap-2">
+                  {([
+                    ['content', 'Content', ClipboardList],
+                    ['visual', 'Visual', GalleryVerticalEnd],
+                    ['interact', 'Interact', MessageSquareText],
+                    ['theme', 'Theme', Palette]
+                  ] as Array<[InspectorTab, string, any]>).map(([tab, label, Icon]) => {
+                    const selected = inspectorTab === tab;
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setInspectorTab(tab)}
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black border transition-colors",
+                          selected ? "bg-lime-950 text-lime-50 border-lime-950" : "bg-white text-lime-950 border-lime-200 hover:bg-lime-50"
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="p-4 md:p-5 space-y-4">
+                  {inspectorTab === 'content' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Slide title</label>
+                        <input
+                          type="text"
+                          value={activeSlide?.title || ''}
+                          onChange={(e) => updateSlideField(activeSlideIndex, 'title', e.target.value)}
+                          className="w-full rounded-2xl border border-lime-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-lime-500"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Bullets</label>
+                          <button onClick={() => handleAddBullet(activeSlideIndex)} className="text-xs font-black text-lime-800 flex items-center gap-1">
+                            <Plus className="w-3.5 h-3.5" />
+                            Add bullet
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          {activeSlide?.content.map((point, pIdx) => (
+                            <div key={pIdx} className="flex items-start gap-2">
+                              <span className="mt-4 h-2 w-2 rounded-full bg-lime-500 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <HtmlBulletEditor
+                                  value={point}
+                                  onChange={(newValue) => handleUpdateBullet(activeSlideIndex, pIdx, newValue)}
+                                  placeholder="Add a concise bullet"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBullet(activeSlideIndex, pIdx)}
+                                disabled={activeSlide?.content.length <= 1}
+                                className="mt-1 rounded-xl border border-slate-200 p-2 text-slate-400 disabled:opacity-30"
+                                title="Delete bullet"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Speaker notes</label>
+                        <textarea
+                          value={activeSlide?.speakerNotes || ''}
+                          onChange={(e) => updateSlideField(activeSlideIndex, 'speakerNotes', e.target.value)}
+                          rows={4}
+                          className="w-full rounded-2xl border border-lime-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-lime-500 resize-y"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {inspectorTab === 'visual' && (
+                    <div className="space-y-4">
+                      <div className="rounded-[18px] border border-lime-200 bg-lime-50/40 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Graphic preview</div>
+                            <div className="text-sm font-black text-lime-950">{activeSlide?.graphic ? activeSlide.graphic.title || activeSlide.graphic.type : 'No graphic selected'}</div>
+                          </div>
+                          <button
+                            onClick={() => setGraphicDrawerOpen(true)}
+                            className="rounded-full border border-lime-200 bg-white px-3 py-2 text-xs font-black text-lime-900"
+                          >
+                            Open Graphic Library
+                          </button>
+                        </div>
+                        <div className="rounded-[18px] border border-lime-200 bg-white p-3 min-h-[280px]">
+                          {activeSlide?.graphic ? (
+                            <InteractiveGraphic graphic={activeSlide.graphic} accentClass="bg-lime-500" isVerticalMode={false} />
+                          ) : (
+                            <div className="h-[250px] flex flex-col items-center justify-center text-center text-lime-900/60">
+                              <GalleryVerticalEnd className="w-10 h-10 text-lime-300 mb-2" />
+                              Pick a preset from the library to start.
+                            </div>
                           )}
                         </div>
+                      </div>
 
-                        {/* Interactive Supporting links & Resources */}
-                        <div className="space-y-4 border border-lime-200 bg-white rounded-3xl p-6 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <LinkIcon className="w-4 h-4 text-lime-500" />
-                              <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Supporting Documentation & Links</span>
+                      {activeSlide?.graphic && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700 mb-1">Graphic title</label>
+                              <input
+                                type="text"
+                                value={activeSlide.graphic.title || ''}
+                                onChange={(e) => handleUpdateGraphicField(activeSlideIndex, 'title', e.target.value)}
+                                className="w-full rounded-2xl border border-lime-200 bg-white px-4 py-3 text-sm outline-none focus:border-lime-500"
+                              />
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleAddLink(sIdx)}
-                              className="text-xs font-black text-lime-700 hover:text-lime-850 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add Resource Link
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Graphic nodes</label>
+                            <button onClick={() => handleAddGraphicElement(activeSlideIndex)} className="text-xs font-black text-lime-800 flex items-center gap-1">
+                              <ListPlus className="w-3.5 h-3.5" />
+                              Add node
                             </button>
                           </div>
+                          <div className="space-y-3">
+                            {activeSlide.graphic.elements.map((el, elIdx) => (
+                              <div key={elIdx} className="rounded-[18px] border border-slate-100 bg-white p-3 space-y-3 relative">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveGraphicElement(activeSlideIndex, elIdx)}
+                                  disabled={activeSlide.graphic!.elements.length <= 1}
+                                  className="absolute right-2 top-2 rounded-lg border border-slate-200 p-1 text-slate-400 disabled:opacity-30"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <div className="grid grid-cols-1 gap-3 pr-8">
+                                  <input
+                                    type="text"
+                                    value={el.label}
+                                    onChange={(e) => handleUpdateGraphicElement(activeSlideIndex, elIdx, 'label', e.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                    placeholder="Label"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={el.value || ''}
+                                    onChange={(e) => handleUpdateGraphicElement(activeSlideIndex, elIdx, 'value', e.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                    placeholder="Value"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={el.secondaryText || ''}
+                                    onChange={(e) => handleUpdateGraphicElement(activeSlideIndex, elIdx, 'secondaryText', e.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                    placeholder="Description"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={el.percentage !== undefined ? el.percentage : ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                      handleUpdateGraphicElement(activeSlideIndex, elIdx, 'percentage', val);
+                                    }}
+                                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                    placeholder="Percentage"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                          {slide.links && slide.links.length > 0 && (
-                            <div className="space-y-3 pt-3 border-t border-lime-100">
-                              {slide.links.map((link, lIdx) => (
-                                <div key={lIdx} className="flex items-center gap-3 bg-lime-50/10 p-4 rounded-2xl border border-lime-200/55 relative group">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveLink(sIdx, lIdx)}
-                                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
-                                    title="Delete Link"
-                                  >
+                  {inspectorTab === 'interact' && (
+                    <div className="space-y-4">
+                      <div className="rounded-[18px] border border-slate-100 bg-white p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Quiz</div>
+                            <div className="text-sm font-black text-lime-950">{activeSlide?.quiz ? 'Enabled' : 'Disabled'}</div>
+                          </div>
+                          {!activeSlide?.quiz ? (
+                            <button onClick={() => handleAddQuizEntirely(activeSlideIndex)} className="rounded-full border border-lime-200 px-3 py-2 text-xs font-black text-lime-900">Add quiz</button>
+                          ) : (
+                            <button onClick={() => handleRemoveQuizEntirely(activeSlideIndex)} className="rounded-full border border-red-200 px-3 py-2 text-xs font-black text-red-600">Remove quiz</button>
+                          )}
+                        </div>
+                        {activeSlide?.quiz && (
+                          <div className="mt-4 space-y-3">
+                            <input
+                              type="text"
+                              value={activeSlide.quiz.question}
+                              onChange={(e) => handleUpdateQuizField(activeSlideIndex, 'question', e.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-lime-500"
+                            />
+                            <div className="space-y-2">
+                              {activeSlide.quiz.options.map((opt, oIdx) => (
+                                <div key={oIdx} className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name={`slide-quiz-correct-${activeSlideIndex}`}
+                                    checked={activeSlide.quiz?.correctAnswerIndex === oIdx}
+                                    onChange={() => handleUpdateQuizField(activeSlideIndex, 'correctAnswerIndex', oIdx)}
+                                  />
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={(e) => handleUpdateQuizOption(activeSlideIndex, oIdx, e.target.value)}
+                                    className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                  />
+                                  <button onClick={() => handleRemoveQuizOption(activeSlideIndex, oIdx)} disabled={activeSlide.quiz.options.length <= 2} className="rounded-lg border border-slate-200 p-2 text-slate-400 disabled:opacity-30">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pr-8">
-                                    <div>
-                                      <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Link Label / Title</label>
-                                      <input
-                                        type="text"
-                                        value={link.title}
-                                        onChange={(e) => handleUpdateLink(sIdx, lIdx, 'title', e.target.value)}
-                                        placeholder="E.g. Department Financial Portal"
-                                        className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-[10px] font-semibold text-lime-950/70 mb-1">Destination URL</label>
-                                      <input
-                                        type="url"
-                                        value={link.url}
-                                        onChange={(e) => handleUpdateLink(sIdx, lIdx, 'url', e.target.value)}
-                                        placeholder="https://example.com"
-                                        className="w-full text-xs bg-white border border-lime-200/60 rounded-xl px-3 py-2 outline-none focus:border-lime-500"
-                                      />
-                                    </div>
-                                  </div>
                                 </div>
                               ))}
                             </div>
-                          )}
-                        </div>
-
-                        {/* Embedded Video Resource */}
-                        <div className="space-y-3 border border-lime-200 bg-white rounded-3xl p-6 shadow-sm">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Video className="w-4 h-4 text-rose-500" />
-                            <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Embedded YouTube Video URL</span>
                           </div>
-                          <input
-                            type="url"
-                            value={slide.videoUrl || ''}
-                            onChange={(e) => updateSlideField(sIdx, 'videoUrl', e.target.value || undefined)}
-                            placeholder="E.g. https://www.youtube.com/embed/dQw4w9WgXcQ"
-                            className="w-full text-xs text-lime-950 bg-white border border-lime-200/80 focus:border-lime-500 focus:ring-4 focus:ring-lime-500/5 rounded-xl px-4 py-2.5 outline-none transition-all"
-                          />
-                          <p className="text-[10px] text-lime-900/50 font-bold">Specify a YouTube embedded URL (must contain `/embed/`) to present a supplementary video player directly on the slide.</p>
-                        </div>
-
-                        {/* Presenter Speaker Notes */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-black text-lime-800 uppercase tracking-wider">Presenter / Speaker Notes</label>
-                          <textarea
-                            value={slide.speakerNotes || ''}
-                            onChange={(e) => updateSlideField(sIdx, 'speakerNotes', e.target.value)}
-                            placeholder="Provide details to assist the presenter during the delivery..."
-                            rows={3}
-                            className="w-full text-xs text-lime-950 bg-white border border-lime-200/85 focus:border-lime-500 focus:ring-4 focus:ring-lime-500/5 rounded-2xl px-4 py-3.5 outline-none transition-all resize-y font-semibold"
-                          />
-                        </div>
-
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
 
-            {/* Giant Add New Slide button */}
-            <button
-              onClick={handleAddSlide}
-              className="w-full py-5 border-2 border-dashed border-lime-200/80 hover:border-lime-400 hover:bg-lime-50/20 text-lime-600/70 hover:text-lime-950 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition-all cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              Add New Custom Slide
-            </button>
+                      <div className="rounded-[18px] border border-slate-100 bg-white p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Links</div>
+                          <button onClick={() => handleAddLink(activeSlideIndex)} className="rounded-full border border-lime-200 px-3 py-2 text-xs font-black text-lime-900">Add link</button>
+                        </div>
+                        {activeSlide?.links?.length ? (
+                          <div className="space-y-2">
+                            {activeSlide.links.map((link, lIdx) => (
+                              <div key={lIdx} className="rounded-2xl border border-slate-100 p-3 space-y-2 relative">
+                                <button onClick={() => handleRemoveLink(activeSlideIndex, lIdx)} className="absolute right-2 top-2 rounded-lg border border-slate-200 p-1 text-slate-400">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <input
+                                  type="text"
+                                  value={link.title}
+                                  onChange={(e) => handleUpdateLink(activeSlideIndex, lIdx, 'title', e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                  placeholder="Title"
+                                />
+                                <input
+                                  type="url"
+                                  value={link.url}
+                                  onChange={(e) => handleUpdateLink(activeSlideIndex, lIdx, 'url', e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-lime-500"
+                                  placeholder="https://example.com"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500">No links on this slide yet.</div>
+                        )}
+                      </div>
 
-          </div>
-        </div>
-
-        {/* PANEL C: Sidebar Styling & Presets Builder (Right Panel) */}
-        <div className="w-[30%] border-l border-lime-200 bg-white flex flex-col h-[calc(100vh-73px)] min-w-[340px] max-w-[440px] overflow-y-auto p-6 space-y-6">
-          <div className="flex items-center gap-2 pb-2 border-b border-lime-100">
-            <Settings className="w-4.5 h-4.5 text-lime-700 animate-spin-slow" />
-            <h3 className="font-black text-sm text-lime-950 uppercase tracking-wider">Theme & Graphics Stylist</h3>
-          </div>
-
-          {/* 1. Theme selection presets */}
-          <div className="space-y-3">
-            <label className="block text-xs font-black uppercase tracking-wider text-lime-900/60">
-              Active Visual Palette
-            </label>
-            <div className="flex flex-col gap-2.5">
-              {THEMES.map((t) => {
-                const isSelected = theme === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={cn(
-                      "w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer",
-                      isSelected 
-                        ? "border-lime-700 bg-lime-50/30 ring-1 ring-lime-500/20 shadow-sm" 
-                        : "border-lime-100 hover:border-lime-200 bg-white"
-                    )}
-                  >
-                    <div className={cn("w-5 h-5 rounded-full border border-white/20 shadow-inner flex-shrink-0 mt-0.5", t.colors)} />
-                    <div>
-                      <h4 className="font-black text-lime-950 text-xs flex items-center gap-1.5">
-                        {t.name}
-                        {isSelected && <span className="text-[9px] bg-lime-200 text-lime-950 px-1.5 py-0.5 rounded-full font-black">Selected</span>}
-                      </h4>
-                      <p className="text-[10px] text-lime-900/50 mt-0.5 font-bold leading-relaxed">{t.desc}</p>
+                      <div className="rounded-[18px] border border-slate-100 bg-white p-4 space-y-3">
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Video URL</div>
+                        <input
+                          type="url"
+                          value={activeSlide?.videoUrl || ''}
+                          onChange={(e) => updateSlideField(activeSlideIndex, 'videoUrl', e.target.value || undefined)}
+                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-xs outline-none focus:border-lime-500"
+                          placeholder="https://www.youtube.com/embed/..."
+                        />
+                      </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                  )}
 
-          {/* 2. Custom Theme Fields (only shown if theme === 'custom') */}
-          {theme === 'custom' && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="p-5 bg-lime-50/20 rounded-3xl border border-lime-200 space-y-4 shadow-inner"
-            >
-              <div className="flex items-center gap-1.5 pb-2 border-b border-lime-100">
-                <Palette className="w-4 h-4 text-pink-600" />
-                <span className="font-black text-xs text-lime-950 uppercase tracking-wider">Custom Style Properties</span>
-              </div>
+                  {inspectorTab === 'theme' && (
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Theme</label>
+                        <div className="grid gap-2">
+                          {THEMES.map((t) => {
+                            const isSelected = theme === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setTheme(t.id)}
+                                className={cn(
+                                  "flex items-start gap-3 rounded-[18px] border p-3 text-left transition-all",
+                                  isSelected ? "border-lime-700 bg-lime-50" : "border-lime-200 bg-white hover:bg-lime-50/50"
+                                )}
+                              >
+                                <div className={cn("mt-0.5 h-4 w-4 rounded-full border", t.colors)} />
+                                <div>
+                                  <div className="text-sm font-black text-lime-950">{t.name}</div>
+                                  <div className="text-xs text-lime-900/55">{t.desc}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {theme === 'custom' && (
+                        <div className="space-y-4 rounded-[18px] border border-lime-200 bg-lime-50/40 p-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Custom settings</div>
+                          <div className="grid grid-cols-1 gap-3">
+                            <select value={customSettings.fontFamily} onChange={(e) => setCustomSettings({ ...customSettings, fontFamily: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                              {FONTS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                            </select>
+                            <div className="grid grid-cols-2 gap-2">
+                              <select value={customSettings.alignment} onChange={(e) => setCustomSettings({ ...customSettings, alignment: e.target.value as any })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                              </select>
+                              <select value={customSettings.spacing} onChange={(e) => setCustomSettings({ ...customSettings, spacing: e.target.value as any })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs">
+                                <option value="compact">Compact</option>
+                                <option value="normal">Normal</option>
+                                <option value="relaxed">Relaxed</option>
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <input type="color" value={customSettings.primaryColor} onChange={(e) => setCustomSettings({ ...customSettings, primaryColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
+                              <input type="color" value={customSettings.backgroundColor} onChange={(e) => setCustomSettings({ ...customSettings, backgroundColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
+                              <input type="color" value={customSettings.textColor} onChange={(e) => setCustomSettings({ ...customSettings, textColor: e.target.value })} className="h-10 w-full rounded-xl border border-slate-200" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </section>
+            </main>
 
-              {/* Font Family selector */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-lime-800/60 uppercase tracking-wider flex items-center gap-1">
-                  <FontIcon className="w-3 h-3" />
-                  Typography pairing
-                </label>
-                <select
-                  value={customSettings.fontFamily}
-                  onChange={(e) => setCustomSettings({ ...customSettings, fontFamily: e.target.value })}
-                  className="w-full text-xs border border-lime-200/80 rounded-xl px-3 py-2 bg-white outline-none cursor-pointer focus:border-lime-500"
+            <aside className="order-2 xl:order-3 rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-lime-100 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Deck settings</div>
+                  <div className="text-sm font-black text-lime-950">Theme and status</div>
+                </div>
+                <button
+                  onClick={() => setInspectorTab('theme')}
+                  className="rounded-full border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-black text-lime-900"
                 >
-                  {FONTS.map(f => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
+                  Theme
+                </button>
               </div>
-
-              {/* Spacing alignment */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Alignment</label>
-                  <select
-                    value={customSettings.alignment}
-                    onChange={(e) => setCustomSettings({ ...customSettings, alignment: e.target.value as any })}
-                    className="w-full text-xs border border-lime-200/80 rounded-xl px-2.5 py-2 bg-white outline-none cursor-pointer focus:border-lime-500"
-                  >
-                    <option value="left">Left Aligned</option>
-                    <option value="center">Centered</option>
-                    <option value="right">Right Aligned</option>
-                  </select>
+              <div className="p-4 space-y-4">
+                <div className="rounded-[18px] border border-slate-100 bg-slate-50/70 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Deck title</div>
+                  <input
+                    type="text"
+                    value={data.title}
+                    onChange={(e) => setData({ ...data, title: e.target.value })}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-lg font-black text-slate-900 outline-none focus:border-lime-500"
+                    placeholder="E.g. Fiscal Analysis Q2 2026"
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Gutter Spacing</label>
-                  <select
-                    value={customSettings.spacing}
-                    onChange={(e) => setCustomSettings({ ...customSettings, spacing: e.target.value as any })}
-                    className="w-full text-xs border border-lime-200/80 rounded-xl px-2.5 py-2 bg-white outline-none cursor-pointer focus:border-lime-500"
-                  >
-                    <option value="compact">Compact (S)</option>
-                    <option value="normal">Normal (M)</option>
-                    <option value="relaxed">Relaxed (L)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Hex Color pickers */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-lime-800/60 uppercase tracking-wider">Theme Colors</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[9px] font-black text-lime-950/70 mb-1 text-center truncate">Primary</label>
-                    <div className="flex flex-col items-center gap-1.5">
-                      <input
-                        type="color"
-                        value={customSettings.primaryColor}
-                        onChange={(e) => setCustomSettings({ ...customSettings, primaryColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer border-0"
-                      />
-                      <span className="font-mono text-[9px] text-lime-900/50 uppercase">{customSettings.primaryColor}</span>
+                <div className="rounded-[18px] border border-slate-100 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Quick actions</div>
+                      <div className="text-sm font-black text-lime-950">Current slide</div>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-[9px] font-black text-lime-950/70 mb-1 text-center truncate">Background</label>
-                    <div className="flex flex-col items-center gap-1.5">
-                      <input
-                        type="color"
-                        value={customSettings.backgroundColor}
-                        onChange={(e) => setCustomSettings({ ...customSettings, backgroundColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer border border-lime-200/80"
-                      />
-                      <span className="font-mono text-[9px] text-lime-900/50 uppercase">{customSettings.backgroundColor}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[9px] font-black text-lime-950/70 mb-1 text-center truncate">Text / Ink</label>
-                    <div className="flex flex-col items-center gap-1.5">
-                      <input
-                        type="color"
-                        value={customSettings.textColor}
-                        onChange={(e) => setCustomSettings({ ...customSettings, textColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer border border-lime-200/80"
-                      />
-                      <span className="font-mono text-[9px] text-lime-900/50 uppercase">{customSettings.textColor}</span>
-                    </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => duplicateSlide(activeSlideIndex)} className="rounded-full border border-lime-200 px-3 py-2 text-xs font-black text-lime-900">Duplicate</button>
+                    <button onClick={(e) => handleMoveSlide(activeSlideIndex, 'up', e)} className="rounded-full border border-lime-200 px-3 py-2 text-xs font-black text-lime-900">Up</button>
+                    <button onClick={(e) => handleMoveSlide(activeSlideIndex, 'down', e)} className="rounded-full border border-lime-200 px-3 py-2 text-xs font-black text-lime-900">Down</button>
                   </div>
                 </div>
+                <div className="rounded-[18px] border border-slate-100 bg-lime-50/40 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Save state</div>
+                  <div className="mt-2 text-sm font-black text-lime-950">{saveStatus || (savedDeckId ? 'Saved deck' : 'Working draft')}</div>
+                  <p className="mt-1 text-xs text-lime-900/60">Save, save as new, finalise, and presentation export stay unchanged.</p>
+                </div>
               </div>
-            </motion.div>
-          )}
-
-          {/* Quick Preview Slide text card */}
-          <div className="p-5 bg-lime-950 text-lime-100/90 rounded-3xl mt-auto border border-lime-900 space-y-2.5">
-            <div className="flex items-center gap-1.5">
-              <Eye className="w-4 h-4 text-lime-400" />
-              <span className="font-black text-[11px] text-lime-400 uppercase tracking-wider">Rendering Live Summary</span>
-            </div>
-            <p className="text-[10px] leading-relaxed text-lime-100/70 font-semibold">
-              Clicking <strong className="text-lime-300 font-black">Finalise & Present</strong> combines your edited slide configurations, custom graphic templates, and selected theme palette to spawn a presentation.
-            </p>
+            </aside>
           </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {graphicDrawerOpen && (
+          <motion.div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setGraphicDrawerOpen(false)}>
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-x-4 top-4 bottom-4 mx-auto max-w-6xl rounded-[24px] bg-white shadow-2xl border border-lime-200 overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-lime-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Graphic library</div>
+                  <div className="text-lg font-black text-lime-950">Choose a preset for the active slide</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={graphicSearch}
+                    onChange={(e) => setGraphicSearch(e.target.value)}
+                    placeholder="Search presets"
+                    className="w-56 rounded-full border border-lime-200 bg-white px-4 py-2 text-sm outline-none focus:border-lime-500"
+                  />
+                  <button onClick={() => setGraphicDrawerOpen(false)} className="rounded-full border border-lime-200 bg-white p-2">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="border-b border-lime-100 px-4 py-3 overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {GRAPHIC_CATEGORY_ORDER.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setGraphicCategory(category.id)}
+                      className={cn(
+                        "rounded-full px-3 py-2 text-xs font-black border transition-colors",
+                        graphicCategory === category.id ? "bg-lime-950 text-lime-50 border-lime-950" : "bg-white text-lime-950 border-lime-200 hover:bg-lime-50"
+                      )}
+                    >
+                      {category.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {GRAPHIC_PRESET_GROUPS.flatMap((group) => group.presets).filter((preset) => {
+                    const matchesSearch = graphicSearch.trim() === '' || preset.name.toLowerCase().includes(graphicSearch.toLowerCase()) || preset.desc.toLowerCase().includes(graphicSearch.toLowerCase());
+                    const category = GRAPHIC_PRESET_CATEGORY[preset.name];
+                    return matchesSearch && (graphicCategory === 'all' || graphicCategory === category);
+                  }).map((preset) => {
+                    const selected = !!activeSlide?.graphic && activeSlide.graphic.type === preset.preview?.type && (activeSlide.graphic.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[activeSlide.graphic.type]) === (preset.preview?.style || DEFAULT_GRAPHIC_STYLE_BY_TYPE[preset.preview?.type || activeSlide.graphic.type]);
+                    return (
+                      <button
+                        key={preset.name}
+                        onClick={() => {
+                          openGraphicPreset(preset);
+                          setGraphicDrawerOpen(false);
+                        }}
+                        className={cn(
+                          "text-left rounded-[18px] border p-3 transition-all shadow-sm hover:shadow-md",
+                          selected ? "border-lime-700 ring-2 ring-lime-500/10 bg-lime-50/60" : "border-lime-200 bg-white hover:border-lime-300"
+                        )}
+                      >
+                        {renderGraphicThumbnail(preset)}
+                        <div className="mt-3 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-black text-lime-950 truncate">{preset.name}</div>
+                            <div className="mt-1 text-[10px] leading-relaxed text-lime-900/55">{preset.desc}</div>
+                          </div>
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800 shrink-0">
+                            {GRAPHIC_PRESET_CATEGORY[preset.name]}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

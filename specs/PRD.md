@@ -220,6 +220,8 @@ The user saves generated or edited presentation data to their account, returns t
 - The user must be able to add, remove, or change slide graphics.
 - The user must be able to preview the live graphic in the editor before finalising the deck.
 - The user must be able to select graphics from a visual gallery with thumbnail previews and short descriptions.
+- The graphic gallery must expose 20+ presets grouped by intent, including stats/KPIs, comparisons, timelines/process flows, hierarchy/tree layouts, and radial/matrix variants.
+- Graphic presets must reuse the existing renderer families and drive template-specific behavior through `SlideGraphic.style`.
 - The user must be able to edit graphic title, type, labels, values, descriptions, percentages, and icon names.
 - The user must be able to select final theme and custom theme settings before presenting.
 - The user must be able to save a newly generated deck from the editor.
@@ -250,6 +252,7 @@ The user saves generated or edited presentation data to their account, returns t
   - Pie: radial proportional visualization.
 - Graphics must support labels, values, descriptions, optional percentages, and optional Lucide icon names.
 - Graphics must support a `style` variation for template-specific rendering.
+- The editor gallery must provide multiple preset styles per common use case, not just one per renderer family.
 - The AI prompt must guide generated graphics toward the available template variations for each graphic type.
 - Unknown icon names must fall back to a safe default icon.
 - Graphics must animate into view.

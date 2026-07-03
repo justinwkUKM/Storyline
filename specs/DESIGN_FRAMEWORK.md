@@ -158,6 +158,8 @@ Design guidance:
 - Keep source text available because users need to verify AI interpretation.
 - Bullet editing should use a compact inline rich text toolbar rather than opening a modal or separate formatting panel.
 - Graphic selection should be visual first, with thumbnails and labels instead of a plain select whenever possible.
+- The graphic picker should be grouped by intent, with 20+ presets across stats, comparisons, process flows, hierarchy/tree structures, and radial or matrix layouts.
+- The live preview must render the actual slide graphic, not a static placeholder mock, so users understand the selected style before presentation.
 
 ### 3.5 Presentation Mode
 
