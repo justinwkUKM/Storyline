@@ -84,7 +84,7 @@ Purpose: provide the authenticated user's home base for saved presentations.
 
 Required areas:
 
-- Header with product identity, current user email, and logout.
+- Header with product identity, premium credit status badge showing remaining monthly balance, current user email, and logout.
 - Saved deck list.
 - Empty state.
 - Refresh action.
@@ -106,14 +106,15 @@ Purpose: collect source file and generation preferences.
 Required areas:
 
 - Product identity.
-- PDF upload dropzone.
+- Credit status indicator and cycle renewal warnings.
+- PDF upload dropzone (automatically locked/disabled when credits are depleted).
 - Theme selection.
 - Custom theme editor when Custom is selected.
 - Graphic style selection.
 - Content tone selection.
 - Slide count selection.
 - Slide orientation selection.
-- Generate action.
+- Generate action (disabled when credits are depleted).
 - Loading overlay during generation.
 - Error banner for failed generation.
 
@@ -160,7 +161,7 @@ Required areas:
 - Slide card with animated transitions.
 - Presenter control bar below the slide.
 - Next/previous controls and slide counter.
-- Export controls.
+- Export controls (PDF, PPTX, and MP4 video).
 - Fullscreen and close controls.
 - Speaker notes hover affordance.
 - Hidden export DOM for PDF rendering.

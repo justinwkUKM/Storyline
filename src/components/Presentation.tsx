@@ -15,7 +15,8 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
-  Edit3
+  Edit3,
+  Video
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
@@ -701,6 +702,214 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
     }
   };
 
+  // Slideshow Video (MP4/WebM) Download
+  const exportToMP4 = async () => {
+    setIsDownloading(true);
+    setDownloadProgress('Preparing high-res slides for video...');
+    const styleElements = Array.from(document.querySelectorAll('style')) as HTMLStyleElement[];
+    const originalStyleContents = new Map<HTMLStyleElement, string>();
+
+    try {
+      // Temporarily sanitize style tags to avoid oklch / oklab issues with html2canvas
+      for (const styleEl of styleElements) {
+        if (styleEl.innerHTML) {
+          originalStyleContents.set(styleEl, styleEl.innerHTML);
+          styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
+        }
+      }
+
+      const canvasWidth = isVertical ? 720 : 1280;
+      const canvasHeight = isVertical ? 960 : 720;
+
+      const slideCanvases: HTMLCanvasElement[] = [];
+
+      // Step 1: Render all slides (and quiz pages if present) to canvases
+      for (let i = 0; i < data.slides.length; i++) {
+        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+        const contentEl = document.getElementById(`pdf-slide-content-${i}`);
+        if (contentEl) {
+          await new Promise(r => setTimeout(r, 120));
+          const canvas = await html2canvas(contentEl, {
+            width: canvasWidth,
+            height: canvasHeight,
+            scale: 1, // Keep scale 1 to limit memory usage during recording
+            useCORS: true,
+            logging: false,
+            onclone: (clonedDoc) => {
+              const allElements = clonedDoc.getElementsByTagName('*');
+              for (let j = 0; j < allElements.length; j++) {
+                const el = allElements[j] as HTMLElement;
+                const styleAttr = el.getAttribute?.('style');
+                if (styleAttr) {
+                  el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                }
+              }
+              const styles = clonedDoc.getElementsByTagName('style');
+              for (let j = 0; j < styles.length; j++) {
+                const s = styles[j];
+                if (s.innerHTML) {
+                  s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                }
+              }
+            }
+          });
+          slideCanvases.push(canvas);
+        }
+
+        // Render dedicated quiz page as a slide in the video if present
+        if (data.slides[i].quiz) {
+          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+          const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
+          if (quizEl) {
+            await new Promise(r => setTimeout(r, 120));
+            const canvas = await html2canvas(quizEl, {
+              width: canvasWidth,
+              height: canvasHeight,
+              scale: 1,
+              useCORS: true,
+              logging: false,
+              onclone: (clonedDoc) => {
+                const allElements = clonedDoc.getElementsByTagName('*');
+                for (let j = 0; j < allElements.length; j++) {
+                  const el = allElements[j] as HTMLElement;
+                  const styleAttr = el.getAttribute?.('style');
+                  if (styleAttr) {
+                    el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                  }
+                }
+                const styles = clonedDoc.getElementsByTagName('style');
+                for (let j = 0; j < styles.length; j++) {
+                  const s = styles[j];
+                  if (s.innerHTML) {
+                    s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                  }
+                }
+              }
+            });
+            slideCanvases.push(canvas);
+          }
+        }
+      }
+
+      if (slideCanvases.length === 0) {
+        throw new Error('No slides successfully rendered to video.');
+      }
+
+      setDownloadProgress('Recording slideshow video (0%)...');
+
+      // Step 2: Create master canvas and start MediaRecorder
+      const masterCanvas = document.createElement('canvas');
+      masterCanvas.width = canvasWidth;
+      masterCanvas.height = canvasHeight;
+      const ctx = masterCanvas.getContext('2d')!;
+
+      // Determine best matching mimeType support
+      const supportedMimeTypes = [
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+      ];
+      let selectedMimeType = '';
+      for (const mimeType of supportedMimeTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          break;
+        }
+      }
+
+      if (!selectedMimeType) {
+        throw new Error('This browser does not support video recording API.');
+      }
+
+      const stream = masterCanvas.captureStream(30); // 30 fps
+      const recorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
+      const recordedChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      };
+
+      // Slide timing config: 3 seconds (3000ms) per slide
+      const slideDuration = 3000;
+      const totalDuration = slideCanvases.length * slideDuration;
+
+      const recordingPromise = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => {
+          try {
+            const blob = new Blob(recordedChunks, { type: selectedMimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const isMp4 = selectedMimeType.includes('mp4');
+            a.download = `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_presentation.${isMp4 ? 'mp4' : 'webm'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+        recorder.onerror = (e) => reject(e);
+      });
+
+      // Start recording
+      recorder.start();
+
+      const startTime = performance.now();
+
+      // Step 3: Draw frames onto master canvas in a loop
+      await new Promise<void>((resolve, reject) => {
+        const renderLoop = () => {
+          const elapsed = performance.now() - startTime;
+          if (elapsed >= totalDuration) {
+            // Draw last frame one final time
+            const lastFrame = slideCanvases[slideCanvases.length - 1];
+            ctx.drawImage(lastFrame, 0, 0, canvasWidth, canvasHeight);
+            recorder.stop();
+            resolve();
+            return;
+          }
+
+          const currentSlideIdx = Math.floor(elapsed / slideDuration);
+          const currentFrame = slideCanvases[currentSlideIdx];
+          if (currentFrame) {
+            ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+          }
+
+          // Update progress
+          const percentage = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+          setDownloadProgress(`Recording video ${percentage}%...`);
+
+          requestAnimationFrame(renderLoop);
+        };
+
+        requestAnimationFrame(renderLoop);
+      });
+
+      await recordingPromise;
+
+    } catch (err: any) {
+      console.error('Failed to export MP4:', err);
+      alert('Could not export video: ' + (err.message || 'Unknown error'));
+    } finally {
+      // Restore original styles
+      for (const [styleEl, originalContent] of Array.from(originalStyleContents.entries())) {
+        try {
+          styleEl.innerHTML = originalContent;
+        } catch (e) {
+          console.error("Failed to restore style:", e);
+        }
+      }
+      setIsDownloading(false);
+      setDownloadProgress('');
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -1108,6 +1317,15 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
                 Download PPTX
+              </button>
+
+              <button
+                onClick={exportToMP4}
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                title="Download Presentation MP4 Video"
+              >
+                <Video className="w-3.5 h-3.5 text-rose-400" />
+                Download MP4
               </button>
             </div>
           )}

@@ -260,8 +260,10 @@ The user saves generated or edited presentation data to their account, returns t
 - PPTX export must include core slide text and simplified visual blocks.
 - PPTX export must strip rich text bullet HTML to readable plain text.
 - PPTX export must include quiz slides for slides that contain quizzes.
+- The app must export the presentation to an MP4 video (or fallback WebM format depending on browser codec support).
+- Video export must render slide canvases sequentially (3 seconds per slide, 4 seconds for quiz pages) and record them at 30 fps using MediaRecorder.
 - Export filenames must be derived from the deck title.
-- The UI must show export progress while files are being generated.
+- The UI must show export/encoding progress while files are being generated.
 
 ### 8.10 Error Handling
 
@@ -285,6 +287,15 @@ The user saves generated or edited presentation data to their account, returns t
 - Save operations must remove `rawParsedText` before persistence.
 - Uploaded PDF buffers must not be stored.
 - Extracted source text must remain available in the current editor session after generation, but must not be persisted by default.
+
+### 8.12 Credit System
+
+- New users must receive 100 credits upon registration.
+- Credits must automatically renew to 100 every month on the anniversary of the user's cycle.
+- Renewal must be handled lazily upon user authentication/middleware verification.
+- Generating a presentation must deduct exactly 1 credit from the user's balance on success.
+- If a user has 0 credits, presentation generation must be disabled and locked.
+- The UI must display remaining credits in the application header and uploader form with the cycle renewal date.
 
 ## 9. Data Model
 
@@ -665,7 +676,8 @@ Success response:
 - A user can generate horizontal or vertical decks.
 - A user can present with keyboard and on-screen controls.
 - Slides can show generated diagrams, quizzes, links, video embeds, and speaker notes.
-- A user can export PDF and PPTX files.
+- A user can export PDF, PPTX, and MP4/WebM video files.
+- A user starts with 100 credits, and gets renewed monthly. 1 credit is deducted per presentation generation.
 - `npm run lint` completes without TypeScript errors.
 
 ## 14. Current Limitations
