@@ -32,8 +32,8 @@ interface UploaderProps {
 }
 
 const THEMES: { id: ThemeName; name: string; description: string; colors: string }[] = [
+  { id: 'limefrost', name: 'Limefrost', description: 'Fresh, bold, and signature Storyline', colors: 'bg-lime-400 text-lime-950' },
   { id: 'modern', name: 'Modern', description: 'Clean and professional', colors: 'bg-blue-500 text-white' },
-  { id: 'limefrost', name: 'Limefrost', description: 'Fresh and energetic', colors: 'bg-lime-400 text-lime-950' },
   { id: 'cosmic', name: 'Cosmic', description: 'Dark and elegant', colors: 'bg-slate-900 text-purple-400' },
   { id: 'minimal', name: 'Minimal', description: 'Black and white simplicity', colors: 'bg-white text-black border border-gray-200' },
   { id: 'custom', name: 'Custom', description: 'Fully personalized', colors: 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white' }
@@ -41,9 +41,9 @@ const THEMES: { id: ThemeName; name: string; description: string; colors: string
 
 const DEFAULT_CUSTOM_SETTINGS: CustomizationSettings = {
   fontFamily: 'font-sans',
-  primaryColor: '#3b82f6',
-  backgroundColor: '#ffffff',
-  textColor: '#1f2937',
+  primaryColor: '#a3e635',
+  backgroundColor: '#f7fee7',
+  textColor: '#1a2e05',
   spacing: 'normal',
   alignment: 'left',
 };
@@ -92,7 +92,7 @@ const TONES = [
 
 export function Uploader({ onGenerate, isLoading }: UploaderProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [theme, setTheme] = useState<ThemeName>('modern');
+  const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
   const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
   const [tone, setTone] = useState<string>('executive');
@@ -126,11 +126,11 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
   return (
     <div className="max-w-6xl mx-auto p-6 w-full">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 mb-4">
-          Transform PDFs into Presentations
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Turn PDFs into Storylines
         </h1>
         <p className="text-lg text-gray-600">
-          Upload your document, choose a style, and let AI craft a beautiful slide deck for you.
+          Upload a document, choose a style, and shape a bold, editable presentation.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
             {...getRootProps()}
             className={cn(
               "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center h-64 cursor-pointer transition-colors",
-              isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400 bg-gray-50",
+              isDragActive ? "border-lime-500 bg-lime-50" : "border-gray-300 hover:border-gray-400 bg-gray-50",
               file && "border-green-500 bg-green-50 hover:border-green-600"
             )}
           >
@@ -309,7 +309,7 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
         {/* Graphic Style Selection Card */}
         <div className="space-y-4 p-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-blue-600" />
+            <Sparkles className="w-5 h-5 text-lime-700" />
             <h2 className="text-xl font-bold text-gray-900">3. Graphic Customization</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
@@ -326,20 +326,20 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
                   className={cn(
                     "flex items-start gap-4 p-4 rounded-xl text-left border transition-all duration-200",
                     isSelected 
-                      ? "border-blue-600 bg-blue-50/50 shadow-sm ring-1 ring-blue-500/30" 
+                      ? "border-lime-700 bg-lime-50/50 shadow-sm ring-1 ring-lime-500/30" 
                       : "border-gray-100 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-200"
                   )}
                 >
                   <div className={cn(
                     "p-2.5 rounded-lg border flex-shrink-0",
-                    isSelected ? "bg-blue-600 border-blue-500 text-white" : "bg-white border-gray-200 text-gray-500"
+                    isSelected ? "bg-lime-700 border-lime-500 text-white" : "bg-white border-gray-200 text-gray-500"
                   )}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
                       {style.name}
-                      {isSelected && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">Selected</span>}
+                      {isSelected && <span className="text-xs bg-lime-100 text-lime-900 px-2 py-0.5 rounded-full font-medium">Selected</span>}
                     </h4>
                     <p className="text-xs text-gray-500 mt-1 leading-normal">{style.description}</p>
                   </div>
@@ -476,7 +476,7 @@ export function Uploader({ onGenerate, isLoading }: UploaderProps) {
           disabled={!file || isLoading}
           className={cn(
             "px-8 py-4 rounded-full font-medium text-lg text-white shadow-lg transition-all flex items-center justify-center min-w-[200px]",
-            !file || isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95"
+            !file || isLoading ? "bg-gray-400 cursor-not-allowed" : "bg-lime-700 hover:bg-lime-800 hover:scale-105 active:scale-95"
           )}
         >
           {isLoading ? (

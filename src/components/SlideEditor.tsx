@@ -53,8 +53,8 @@ const FONTS = [
 ];
 
 const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = [
-  { id: 'modern', name: 'Modern Corporate', desc: 'Clean professional blue & slate theme', colors: 'bg-blue-600 text-slate-800' },
   { id: 'limefrost', name: 'Lime Frost', desc: 'Fresh minty lime and dark green tones', colors: 'bg-lime-500 text-lime-900' },
+  { id: 'modern', name: 'Modern Corporate', desc: 'Clean professional blue & slate theme', colors: 'bg-blue-600 text-slate-800' },
   { id: 'cosmic', name: 'Cosmic Slate', desc: 'Ambient futuristic dark mode styling', colors: 'bg-purple-600 text-slate-200 dark' },
   { id: 'minimal', name: 'High-Contrast Mono', desc: 'Swiss minimalist absolute dark & white', colors: 'bg-black text-black' },
   { id: 'custom', name: 'Custom Theme Builder', desc: 'Tailor colors, spacing, and layouts', colors: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white' }
@@ -70,7 +70,7 @@ const GRAPHIC_TYPES: { id: 'process' | 'comparison' | 'metrics' | 'hierarchy' | 
 
 export function SlideEditor({
   initialData,
-  initialTheme = 'modern',
+  initialTheme = 'limefrost',
   initialCustomSettings,
   savedDeckId,
   saveStatus,
@@ -86,9 +86,9 @@ export function SlideEditor({
   const [theme, setTheme] = useState<ThemeName>(initialTheme);
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(initialCustomSettings || {
     fontFamily: 'font-sans',
-    primaryColor: '#2563eb',
-    backgroundColor: '#ffffff',
-    textColor: '#1f2937',
+    primaryColor: '#a3e635',
+    backgroundColor: '#f7fee7',
+    textColor: '#1a2e05',
     spacing: 'normal',
     alignment: 'left'
   });
@@ -338,11 +338,11 @@ export function SlideEditor({
       {/* 1. Sticky Header Bar */}
       <header className="sticky top-0 bg-white border-b border-gray-200 shadow-sm px-6 py-4 z-40 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 p-2.5 rounded-xl text-white">
+          <div className="bg-lime-700 p-2.5 rounded-xl text-white">
             <Sliders className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900 leading-tight">Presentation Blueprint Editor</h1>
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">Storyline Blueprint Editor</h1>
             <p className="text-xs text-gray-500 font-medium">Refine, structure, and customize your parsed deck before rendering the slideshow</p>
           </div>
         </div>
@@ -372,7 +372,7 @@ export function SlideEditor({
             <>
               <button
                 onClick={() => handleSaveClick(false)}
-                className="px-4 py-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded-xl text-xs font-bold text-blue-700 flex items-center gap-2 cursor-pointer transition-all"
+                className="px-4 py-2 border border-lime-200 bg-lime-50 hover:bg-lime-100 rounded-xl text-xs font-bold text-lime-800 flex items-center gap-2 cursor-pointer transition-all"
               >
                 <Save className="w-4 h-4" />
                 {savedDeckId ? 'Save' : 'Save Draft'}
@@ -418,7 +418,7 @@ export function SlideEditor({
             >
               <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-blue-600" />
+                  <BookOpen className="w-4 h-4 text-lime-700" />
                   <span className="font-bold text-sm text-gray-900">Raw Extracted PDF Content</span>
                 </div>
                 {data.rawParsedText && (
@@ -457,7 +457,7 @@ export function SlideEditor({
                 value={data.title}
                 onChange={(e) => setData({ ...data, title: e.target.value })}
                 placeholder="E.g. Fiscal Analysis Q2 2026"
-                className="w-full text-2xl font-extrabold text-gray-900 bg-gray-50 border border-gray-200 hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded-xl px-4 py-3 outline-none transition-all"
+                className="w-full text-2xl font-extrabold text-gray-900 bg-gray-50 border border-gray-200 hover:border-gray-300 focus:border-lime-500 focus:bg-white rounded-xl px-4 py-3 outline-none transition-all"
               />
             </div>
 
@@ -477,7 +477,7 @@ export function SlideEditor({
                     className={cn(
                       "bg-white rounded-2xl border transition-all overflow-hidden",
                       isExpanded 
-                        ? "border-blue-500/60 shadow-md ring-1 ring-blue-500/20" 
+                        ? "border-lime-500/60 shadow-md ring-1 ring-lime-500/20" 
                         : "border-gray-200 hover:border-gray-300 shadow-sm"
                     )}
                   >
@@ -487,7 +487,7 @@ export function SlideEditor({
                       className="flex items-center justify-between px-6 py-4 cursor-pointer select-none bg-white hover:bg-gray-50/50"
                     >
                       <div className="flex items-center gap-4 truncate pr-4">
-                        <span className="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-xs text-blue-600 flex-shrink-0">
+                        <span className="w-7 h-7 rounded-full bg-lime-50 border border-lime-100 flex items-center justify-center font-bold text-xs text-lime-700 flex-shrink-0">
                           {sIdx + 1}
                         </span>
                         <div className="truncate">
@@ -549,7 +549,7 @@ export function SlideEditor({
                             value={slide.title}
                             onChange={(e) => updateSlideField(sIdx, 'title', e.target.value)}
                             placeholder="Slide Title"
-                            className="w-full text-base font-bold text-gray-900 bg-white border border-gray-200 hover:border-gray-300 focus:border-blue-500 rounded-xl px-4 py-2.5 outline-none transition-all"
+                            className="w-full text-base font-bold text-gray-900 bg-white border border-gray-200 hover:border-gray-300 focus:border-lime-500 rounded-xl px-4 py-2.5 outline-none transition-all"
                           />
                         </div>
 
@@ -560,7 +560,7 @@ export function SlideEditor({
                             <button
                               type="button"
                               onClick={() => handleAddBullet(sIdx)}
-                              className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                              className="text-xs font-bold text-lime-700 hover:text-lime-800 flex items-center gap-1 cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               Add Bullet
@@ -570,7 +570,7 @@ export function SlideEditor({
                           <div className="space-y-3">
                             {slide.content.map((point, pIdx) => (
                               <div key={pIdx} className="flex items-start gap-2 group">
-                                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-4.5" />
+                                <span className="w-2 h-2 rounded-full bg-lime-500 flex-shrink-0 mt-4.5" />
                                 <div className="flex-1 min-w-0">
                                   <HtmlBulletEditor
                                     value={point}
@@ -785,7 +785,7 @@ export function SlideEditor({
                                       name={`slide-quiz-correct-${sIdx}`}
                                       checked={slide.quiz?.correctAnswerIndex === oIdx}
                                       onChange={() => handleUpdateQuizField(sIdx, 'correctAnswerIndex', oIdx)}
-                                      className="w-3.5 h-3.5 text-blue-600 cursor-pointer"
+                                      className="w-3.5 h-3.5 text-lime-700 cursor-pointer"
                                       title="Mark as correct answer"
                                     />
                                     <input
@@ -815,13 +815,13 @@ export function SlideEditor({
                         <div className="space-y-3 border border-gray-200/60 bg-white rounded-2xl p-5 shadow-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <LinkIcon className="w-4 h-4 text-blue-500" />
+                              <LinkIcon className="w-4 h-4 text-lime-500" />
                               <span className="font-bold text-xs text-gray-900 uppercase tracking-wider">Supporting Documentation & Links</span>
                             </div>
                             <button
                               type="button"
                               onClick={() => handleAddLink(sIdx)}
-                              className="text-xs font-bold text-blue-500 hover:text-blue-600 flex items-center gap-1 cursor-pointer"
+                              className="text-xs font-bold text-lime-500 hover:text-lime-700 flex items-center gap-1 cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               Add Resource Link
@@ -880,7 +880,7 @@ export function SlideEditor({
                             value={slide.videoUrl || ''}
                             onChange={(e) => updateSlideField(sIdx, 'videoUrl', e.target.value || undefined)}
                             placeholder="E.g. https://www.youtube.com/embed/dQw4w9WgXcQ"
-                            className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-blue-500 rounded-xl px-4 py-2.5 outline-none transition-all"
+                            className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-lime-500 rounded-xl px-4 py-2.5 outline-none transition-all"
                           />
                           <p className="text-[10px] text-gray-400 font-medium">Specify a YouTube embedded URL (must contain `/embed/`) to present a supplementary video player directly on the slide.</p>
                         </div>
@@ -893,7 +893,7 @@ export function SlideEditor({
                             onChange={(e) => updateSlideField(sIdx, 'speakerNotes', e.target.value)}
                             placeholder="Provide details to assist the presenter during the delivery..."
                             rows={3}
-                            className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-blue-500 rounded-xl px-4 py-3 outline-none transition-all resize-y font-medium"
+                            className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-lime-500 rounded-xl px-4 py-3 outline-none transition-all resize-y font-medium"
                           />
                         </div>
 
@@ -907,7 +907,7 @@ export function SlideEditor({
             {/* Giant Add New Slide button */}
             <button
               onClick={handleAddSlide}
-              className="w-full py-5 border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/20 text-gray-400 hover:text-blue-600 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer"
+              className="w-full py-5 border-2 border-dashed border-gray-200 hover:border-lime-400 hover:bg-lime-50/20 text-gray-400 hover:text-lime-700 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all cursor-pointer"
             >
               <Plus className="w-5 h-5" />
               Add New Custom Slide
@@ -919,7 +919,7 @@ export function SlideEditor({
         {/* PANEL C: Sidebar Styling & Presets Builder (Right Panel) */}
         <div className="w-[30%] border-l border-gray-200 bg-white flex flex-col h-[calc(100vh-73px)] min-w-[340px] max-w-[440px] overflow-y-auto p-6 space-y-6">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-            <Settings className="w-4.5 h-4.5 text-blue-600 animate-spin-slow" />
+            <Settings className="w-4.5 h-4.5 text-lime-700 animate-spin-slow" />
             <h3 className="font-bold text-sm text-gray-900 uppercase tracking-wider">Theme & Graphics Stylist</h3>
           </div>
 
@@ -938,7 +938,7 @@ export function SlideEditor({
                     className={cn(
                       "w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3.5 cursor-pointer",
                       isSelected 
-                        ? "border-blue-600 bg-blue-50/30 ring-1 ring-blue-500/20 shadow-sm" 
+                        ? "border-lime-700 bg-lime-50/30 ring-1 ring-lime-500/20 shadow-sm" 
                         : "border-gray-100 hover:border-gray-200 bg-gray-50/10 hover:bg-gray-50/40"
                     )}
                   >
@@ -946,7 +946,7 @@ export function SlideEditor({
                     <div>
                       <h4 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
                         {t.name}
-                        {isSelected && <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-bold">Selected</span>}
+                        {isSelected && <span className="text-[9px] bg-lime-100 text-lime-900 px-1.5 py-0.5 rounded-full font-bold">Selected</span>}
                       </h4>
                       <p className="text-[10px] text-gray-400 mt-0.5 font-medium leading-relaxed">{t.desc}</p>
                     </div>

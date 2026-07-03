@@ -79,7 +79,7 @@ export function HtmlBulletEditor({
       className={cn(
         "w-full flex flex-col rounded-xl border bg-white transition-all overflow-hidden",
         isFocused 
-          ? "border-blue-500 shadow-sm ring-1 ring-blue-500/20" 
+          ? "border-lime-500 shadow-sm ring-1 ring-lime-500/20" 
           : "border-gray-200 hover:border-gray-300",
         className
       )}
@@ -168,7 +168,7 @@ export function HtmlBulletEditor({
               </button>
             </>
           ) : (
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-lime-700 bg-lime-50 px-2 py-0.5 rounded uppercase tracking-wider">
               HTML Source Code Mode
             </span>
           )}

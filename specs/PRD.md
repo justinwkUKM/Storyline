@@ -1,16 +1,18 @@
-# Product Requirements Document: SlideCraft AI
+# Product Requirements Document: Storyline
 
 ## 1. Product Summary
 
-SlideCraft AI is a web application that converts text-based PDF documents into editable, animated, presentation-ready slide decks. The product combines authenticated user accounts, saved deck persistence, PDF text extraction, Gemini-powered summarization, structured slide generation, a post-generation editing workspace, and full-screen presentation/export tools.
+Storyline is a web application that converts text-based PDF documents into editable, animated, presentation-ready visual stories. The product combines authenticated user accounts, saved deck persistence, PDF text extraction, Gemini-powered summarization, structured slide generation, a post-generation editing workspace, and full-screen presentation/export tools.
 
 The core value is speed with control: users can upload a dense document, receive a structured deck, refine the content and visuals, then present or export the result without moving through separate authoring tools.
+
+The public brand experience is Storyline. The default product styling is the Limefrost theme: pale lime surfaces, deep green text, bold typography, high contrast primary actions, and a polished Apple-like marketing entry page before authentication.
 
 ## 2. Problem Statement
 
 Users frequently need to turn reports, papers, notes, and whitepapers into clear presentation decks. This process is slow because it requires reading the source, identifying key points, grouping ideas into slides, writing concise bullets, creating visuals, adding references, and formatting slides consistently.
 
-Existing workflows usually force users to choose between speed and quality. Auto-generated summaries are fast but hard to present. Manual presentation tools provide control but require significant effort. SlideCraft AI closes that gap by generating a deck structure automatically, then letting the user inspect, edit, style, present, and export the result.
+Existing workflows usually force users to choose between speed and quality. Auto-generated summaries are fast but hard to present. Manual presentation tools provide control but require significant effort. Storyline closes that gap by generating a deck structure automatically, then letting the user inspect, edit, style, present, and export the result.
 
 ## 3. Goals
 
@@ -24,6 +26,8 @@ Existing workflows usually force users to choose between speed and quality. Auto
 - Export the deck to high-resolution PDF and editable PowerPoint.
 - Let authenticated users save, reopen, update, and delete generated decks.
 - Preserve deck JSON across sessions without storing uploaded PDF files by default.
+- Present a Storyline-branded landing page that explains the product and routes unauthenticated users into sign-in or registration.
+- Use Limefrost as the default visual theme for the marketing page, authenticated shell, upload flow, editor defaults, and newly generated decks unless the user selects another theme.
 - Give clear failure messages for invalid files, unreadable PDFs, missing API keys, AI errors, and invalid response formats.
 
 ## 4. Non-Goals
@@ -51,6 +55,10 @@ Existing workflows usually force users to choose between speed and quality. Auto
 
 An authenticated user uploads a PDF, selects a visual theme, chooses a graphic style, tone, slide count, and orientation, then generates a presentation. The system extracts readable text, asks Gemini to structure the content, validates the response, and displays an editable draft.
 
+### 6.1.1 Discover and Enter the Product
+
+An unauthenticated visitor opens Storyline, sees a Limefrost marketing page with the product name, value proposition, feature summary, and a primary call to action. The visitor can continue to the login/register screen without seeing the authenticated app until a valid session exists.
+
 ### 6.2 Refine the Generated Deck
 
 The user reviews extracted source text, edits the deck title, changes slide titles and bullets, adjusts speaker notes, adds or removes slides, reorders slides, and changes visual diagram settings.
@@ -77,37 +85,40 @@ The user saves generated or edited presentation data to their account, returns t
 
 ## 7. User Journey
 
-1. The user opens SlideCraft AI.
-2. If unauthenticated, the user registers or signs in with email and password.
-3. The authenticated user lands on the saved deck library.
-4. The user opens an existing deck or starts a new presentation.
-5. The user uploads one PDF through drag-and-drop or file picker.
-6. The user selects a theme: Modern, Limefrost, Cosmic, Minimal, or Custom.
-7. If Custom is selected, the user configures typography, alignment, spacing, and colors.
-8. The user selects a graphic style:
+1. The user opens Storyline.
+2. If unauthenticated, the user sees the Storyline landing page.
+3. The user clicks the primary call to action and registers or signs in with email and password.
+4. The authenticated user lands on the saved deck library.
+5. The user opens an existing deck or starts a new presentation.
+6. The user uploads one PDF through drag-and-drop or file picker.
+7. The user selects a theme: Limefrost, Modern, Cosmic, Minimal, or Custom. Limefrost is selected by default.
+8. If Custom is selected, the user configures typography, alignment, spacing, and colors.
+9. The user selects a graphic style:
    - Modern Infographic
    - Bento Grid Layout
    - Executive and Technical Tiers
-9. The user selects a content tone:
+10. The user selects a content tone:
    - Executive Summary
    - Academic Deep-Dive
    - Creative Storyteller
-10. The user chooses slide count: automatic or an exact target count.
-11. The user chooses orientation: horizontal or vertical.
-12. The user clicks Generate Presentation.
-13. The frontend sends the PDF and generation settings to `/api/generate`.
-14. The backend verifies the session, extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
-15. The editor opens with the generated deck and extracted source text.
-16. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings.
-17. The user saves the deck as a new saved deck or updates an existing saved deck.
-18. The user finalizes the deck.
-19. The presentation opens in a full-screen style viewer.
-20. The user presents, exports, returns to the library, or exits back to the upload flow.
+11. The user chooses slide count: automatic or an exact target count.
+12. The user chooses orientation: horizontal or vertical.
+13. The user clicks Generate Presentation.
+14. The frontend sends the PDF and generation settings to `/api/generate`.
+15. The backend verifies the session, extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
+16. The editor opens with the generated deck and extracted source text.
+17. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings.
+18. The user saves the deck as a new saved deck or updates an existing saved deck.
+19. The user finalizes the deck.
+20. The presentation opens in a full-screen style viewer.
+21. The user presents, exports, returns to the library, or exits back to the upload flow.
 
 ## 8. Functional Requirements
 
 ### 8.0 Authentication and Account Access
 
+- The unauthenticated root experience must show the Storyline marketing page first.
+- The marketing page must include a primary path into sign-in/registration.
 - The app must require authentication before users can generate, save, list, open, update, or delete decks.
 - Users must be able to register with email and password.
 - Users must be able to sign in with email and password.
@@ -177,6 +188,7 @@ The user saves generated or edited presentation data to their account, returns t
 ### 8.5 Upload Configuration
 
 - The user must be able to choose predefined themes before generation.
+- Limefrost must be the default selected theme for new presentations.
 - The user must be able to configure a custom theme before generation.
 - The user must be able to select graphic style before generation.
 - The user must be able to select content tone before generation.

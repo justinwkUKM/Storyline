@@ -17,6 +17,7 @@ import { Presentation } from './components/Presentation';
 import { SlideEditor } from './components/SlideEditor';
 import { AuthScreen } from './components/AuthScreen';
 import { DeckLibrary } from './components/DeckLibrary';
+import { LandingPage } from './components/LandingPage';
 import { AnimatePresence, motion } from 'motion/react';
 import { FileText, LogOut } from 'lucide-react';
 
@@ -45,10 +46,11 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
 
   const [draftPresentation, setDraftPresentation] = useState<PresentationData | null>(null);
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [theme, setTheme] = useState<ThemeName>('modern');
+  const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings | undefined>();
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(true);
@@ -97,6 +99,7 @@ export default function App() {
       });
       setUser(data.user);
       setShowLibrary(true);
+      setShowAuth(false);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed');
     }
@@ -229,7 +232,11 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthScreen onSubmit={handleAuthSubmit} error={authError} />;
+    if (!showAuth) {
+      return <LandingPage onGetStarted={() => setShowAuth(true)} />;
+    }
+
+    return <AuthScreen onSubmit={handleAuthSubmit} error={authError} onBack={() => setShowAuth(false)} />;
   }
 
   const startNewPresentation = () => {
@@ -241,20 +248,20 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center font-sans">
+    <div className="min-h-screen bg-lime-50 flex flex-col items-center justify-center font-sans">
       {!presentation && !draftPresentation && (
-        <header className="w-full bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <header className="w-full bg-lime-50/90 backdrop-blur border-b border-lime-200 px-6 py-4 flex items-center justify-between">
           <button onClick={() => setShowLibrary(true)} className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2.5 rounded-xl shadow-sm">
-              <FileText className="w-6 h-6 text-white" />
+            <div className="bg-lime-400 border border-lime-500/40 p-2.5 rounded-xl shadow-sm">
+              <FileText className="w-6 h-6 text-lime-950" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-gray-900">SlideCraft AI</span>
+            <span className="text-xl font-black text-lime-950">Storyline</span>
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500 hidden sm:block">{user.email}</span>
+            <span className="text-sm text-lime-900/70 hidden sm:block">{user.email}</span>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-sm font-bold text-gray-700 flex items-center gap-2"
+              className="px-4 py-2 rounded-full border border-lime-200 bg-white/70 hover:bg-white text-sm font-bold text-lime-950 flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
               Logout
@@ -363,10 +370,10 @@ export default function App() {
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                    className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mb-6"
+                    className="w-16 h-16 border-4 border-lime-200 border-t-lime-700 rounded-full mb-6"
                   />
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-2">Analyzing your PDF...</h3>
-                  <p className="text-gray-500">Extracting text and synthesizing slides using Gemini AI</p>
+                  <h3 className="text-2xl font-black text-lime-950 mb-2">Building your storyline...</h3>
+                  <p className="text-lime-900/70">Extracting text and shaping a deck with Gemini AI</p>
                 </motion.div>
               )}
             </AnimatePresence>

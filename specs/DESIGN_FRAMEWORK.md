@@ -1,10 +1,10 @@
-# Design Framework: SlideCraft AI
+# Design Framework: Storyline
 
 ## 1. Design Intent
 
-SlideCraft AI should feel like a focused presentation production tool, not a marketing site. The interface must help users move quickly through a dense workflow: upload a document, configure generation, inspect the AI result, refine the deck, present, and export.
+Storyline should feel like a bold, focused presentation production tool with a polished marketing entry point. The product interface must help users move quickly through a dense workflow: upload a document, configure generation, inspect the AI result, refine the deck, present, and export.
 
-The design direction is professional, editorial, and utility-driven. Visual polish should come from spacing, typography, motion, clear states, and strong slide composition rather than decorative backgrounds or unnecessary illustration.
+The brand direction is Limefrost by default: pale lime fields, sharp deep-green text, black-green primary actions, confident type, and restrained Apple-like product polish. Visual polish should come from spacing, typography, motion, clear states, and strong slide composition rather than generic decoration.
 
 ## 2. Product Experience Principles
 
@@ -20,17 +20,45 @@ Slides should use diagrams and structured visual blocks to clarify content. Visu
 
 This is a work tool. Screens may contain many controls, but grouping, hierarchy, and spacing should keep the workflow scannable.
 
-### 2.4 Clear Mode Changes
+### 2.4 Storyline Before Sign-In
 
-The app has five major modes: auth, library, upload, edit, and present. Transitions between modes should be visually clear and preserve user confidence about where they are in the workflow.
+Unauthenticated visitors should understand the product before they hit the auth form. The landing page must make the Storyline name, PDF-to-deck promise, and primary call to action obvious in the first viewport.
 
-### 2.5 Export Is a First-Class Outcome
+### 2.5 Clear Mode Changes
+
+The app has six major modes: marketing, auth, library, upload, edit, and present. Transitions between modes should be visually clear and preserve user confidence about where they are in the workflow.
+
+### 2.6 Export Is a First-Class Outcome
 
 PDF and PowerPoint export are not secondary afterthoughts. Presentation mode must include obvious export controls, progress states, and predictable filenames.
 
 ## 3. Information Architecture
 
-### 3.0 Authentication Screen
+### 3.0 Marketing Landing Page
+
+Purpose: introduce Storyline and route unauthenticated visitors into account access.
+
+Required areas:
+
+- Storyline brand mark and name.
+- One direct sign-in action in the top navigation.
+- Large first-viewport headline naming the PDF-to-visual-story outcome.
+- Supporting copy that mentions editable decks, saved projects, and export.
+- Primary call to action into auth.
+- Secondary feature anchor.
+- Product-like visual scene showing generated deck structure.
+- Feature summary section visible immediately after the hero.
+
+Design guidance:
+
+- Use Limefrost as the dominant brand system.
+- Keep the hero product-led rather than abstract.
+- Avoid generic SaaS gradients, abstract SVG art, and stock imagery.
+- Use a full-bleed product scene behind or around the headline instead of a split text-and-card hero.
+- Keep the Storyline name prominent in the first viewport.
+- Leave a visible hint of the feature section below the hero on common desktop and mobile viewports.
+
+### 3.1 Authentication Screen
 
 Purpose: gate the application and create a persistent user identity for saved decks.
 
@@ -50,7 +78,7 @@ Design guidance:
 - Make the register/sign-in switch lightweight and reversible.
 - Password helper text should appear only where needed.
 
-### 3.0.1 Saved Deck Library
+### 3.2 Saved Deck Library
 
 Purpose: provide the authenticated user's home base for saved presentations.
 
@@ -71,7 +99,7 @@ Design guidance:
 - Empty state should point directly to creating a new deck.
 - Loading states should be centered inside the library content area.
 
-### 3.1 Upload and Configure Screen
+### 3.3 Upload and Configure Screen
 
 Purpose: collect source file and generation preferences.
 
@@ -98,7 +126,7 @@ Design guidance:
 - Present slide count and orientation as explicit segmented/card choices after tone selection.
 - Use `Layers` for slide-count controls and `Monitor` for orientation controls.
 
-### 3.2 Blueprint Editor
+### 3.4 Blueprint Editor
 
 Purpose: review, correct, and enrich the generated deck before presentation.
 
@@ -122,7 +150,7 @@ Design guidance:
 - Keep source text available because users need to verify AI interpretation.
 - Bullet editing should use a compact inline rich text toolbar rather than opening a modal or separate formatting panel.
 
-### 3.3 Presentation Mode
+### 3.5 Presentation Mode
 
 Purpose: present, interact, and export.
 
@@ -174,6 +202,8 @@ Avoid:
 
 The app supports four predefined themes and one custom theme.
 
+Limefrost is the default product theme and the default new-deck theme. Other themes remain available as intentional deck styling choices.
+
 #### Modern
 
 - Background: white.
@@ -186,7 +216,8 @@ The app supports four predefined themes and one custom theme.
 - Background: pale lime.
 - Text: deep green.
 - Accent: lime.
-- Best for energetic, growth-oriented, or educational decks.
+- Primary actions: near-black green with lime text or white text depending on contrast.
+- Best for Storyline default branding, energetic reports, growth-oriented decks, and educational decks.
 
 #### Cosmic
 

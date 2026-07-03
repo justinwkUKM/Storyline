@@ -70,7 +70,7 @@ export function InteractiveGraphic({
 
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-bold",
-                  isDark ? "bg-slate-800 text-purple-400" : "bg-blue-50 text-blue-600"
+                  isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700"
                 )}>
                   {el.icon ? renderIcon(el.icon, "w-4 h-4") : index + 1}
                 </div>
@@ -81,7 +81,7 @@ export function InteractiveGraphic({
                     {el.value && (
                       <span className={cn(
                         "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                        isDark ? "bg-purple-950/40 text-purple-300" : "bg-blue-50 text-blue-700"
+                        isDark ? "bg-purple-950/40 text-purple-300" : "bg-lime-50 text-lime-800"
                       )}>
                         {el.value}
                       </span>
@@ -135,10 +135,10 @@ export function InteractiveGraphic({
                   "w-12 h-12 rounded-full flex items-center justify-center border-2 shadow transition-colors mb-2 shrink-0 bg-white",
                   isDark 
                     ? "bg-slate-900 border-slate-800 text-white hover:border-purple-500" 
-                    : "bg-white border-gray-100 text-gray-800 hover:border-blue-500"
+                    : "bg-white border-gray-100 text-gray-800 hover:border-lime-500"
                 )}
               >
-                {el.icon ? renderIcon(el.icon, "w-5 h-5 " + (isDark ? "text-purple-400" : "text-blue-500")) : (
+                {el.icon ? renderIcon(el.icon, "w-5 h-5 " + (isDark ? "text-purple-400" : "text-lime-500")) : (
                   <span className="font-bold text-sm">{index + 1}</span>
                 )}
               </motion.div>
@@ -146,7 +146,7 @@ export function InteractiveGraphic({
               {el.value && (
                 <span className={cn(
                   "text-[9px] font-bold px-1.5 py-0.2 rounded-full mb-1 uppercase tracking-wide shrink-0",
-                  isDark ? "bg-purple-950/40 text-purple-300" : "bg-blue-50 text-blue-700"
+                  isDark ? "bg-purple-950/40 text-purple-300" : "bg-lime-50 text-lime-800"
                 )}>
                   {el.value}
                 </span>
@@ -185,7 +185,7 @@ export function InteractiveGraphic({
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
               <span className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-sm border shadow-lg tracking-wider",
-                isDark ? "bg-slate-900 border-slate-800 text-purple-400" : "bg-white border-gray-100 text-blue-600"
+                isDark ? "bg-slate-900 border-slate-800 text-purple-400" : "bg-white border-gray-100 text-lime-700"
               )}>
                 VS
               </span>
@@ -203,14 +203,14 @@ export function InteractiveGraphic({
               <div className="mb-2">
                 <span className={cn(
                   "p-2.5 rounded-xl inline-block mb-2",
-                  isDark ? "bg-slate-800 text-purple-400" : "bg-blue-50 text-blue-600"
+                  isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700"
                 )}>
                   {renderIcon(elements[0].icon || "Layers", "w-5 h-5")}
                 </span>
                 <h4 className="font-extrabold text-sm truncate">{elements[0].label}</h4>
               </div>
               <div className="my-2">
-                <span className="text-2xl font-extrabold tracking-tight">
+                <span className="text-2xl font-extrabold ">
                   {elements[0].percentage !== undefined ? `${elements[0].percentage}%` : (elements[0].value || 'Option A')}
                 </span>
               </div>
@@ -238,7 +238,7 @@ export function InteractiveGraphic({
                 <h4 className="font-extrabold text-sm truncate">{elements[1].label}</h4>
               </div>
               <div className="my-2">
-                <span className="text-2xl font-extrabold tracking-tight text-emerald-500">
+                <span className="text-2xl font-extrabold text-emerald-500">
                   {elements[1].percentage !== undefined ? `${elements[1].percentage}%` : (elements[1].value || 'Option B')}
                 </span>
               </div>
@@ -279,7 +279,7 @@ export function InteractiveGraphic({
                   </div>
                   <div className="flex items-baseline gap-1 shrink-0 font-mono">
                     {el.value && <span className="opacity-60">{el.value}</span>}
-                    <span className={cn("font-extrabold", isDark ? "text-purple-400" : "text-blue-600")}>
+                    <span className={cn("font-extrabold", isDark ? "text-purple-400" : "text-lime-700")}>
                       {percentage}%
                     </span>
                   </div>
@@ -340,13 +340,13 @@ export function InteractiveGraphic({
               <div className="absolute right-[-20px] top-[-20px] w-16 h-16 rounded-full opacity-10 bg-current" style={{ color: accentStyleObj?.backgroundColor }} />
 
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn("p-1.5 rounded-lg text-xs", isDark ? "bg-slate-800 text-purple-400" : "bg-blue-50 text-blue-600")}>
+                <span className={cn("p-1.5 rounded-lg text-xs", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
                   {renderIcon(heroEl.icon || "TrendingUp", "w-4 h-4")}
                 </span>
                 <span className="text-xs font-bold uppercase tracking-wider opacity-70">Core Metric Indicator</span>
               </div>
               <div className="my-2">
-                <h4 className="text-3xl font-black tracking-tight leading-none" style={{ color: accentStyleObj?.backgroundColor }}>
+                <h4 className="text-3xl font-black leading-none" style={{ color: accentStyleObj?.backgroundColor }}>
                   {heroEl.value || "—"}
                 </h4>
                 <div className="font-extrabold text-sm mt-1 truncate">{heroEl.label}</div>
@@ -411,13 +411,13 @@ export function InteractiveGraphic({
                 "p-3 rounded-2xl flex flex-col justify-between border shadow-sm transition-all relative overflow-hidden",
                 isDark 
                   ? "bg-slate-900/60 border-slate-800/85 hover:border-purple-500/40" 
-                  : "bg-white border-gray-100 hover:border-blue-500/40"
+                  : "bg-white border-gray-100 hover:border-lime-500/40"
               )}
             >
               <div className="flex justify-between items-center mb-1.5">
                 <span className={cn(
                   "p-1.5 rounded-lg shrink-0", 
-                  isDark ? "bg-slate-800 text-purple-400" : "bg-gray-50 text-blue-600"
+                  isDark ? "bg-slate-800 text-purple-400" : "bg-gray-50 text-lime-700"
                 )}>
                   {renderIcon(el.icon || "Activity", "w-4 h-4")}
                 </span>
@@ -434,7 +434,7 @@ export function InteractiveGraphic({
               </div>
 
               <div>
-                <div className={cn("text-xl font-black tracking-tight leading-tight", isDark ? "text-white" : "text-gray-900")}>
+                <div className={cn("text-xl font-black leading-tight", isDark ? "text-white" : "text-gray-900")}>
                   {el.value || "—"}
                 </div>
                 <div className={cn("text-xs font-bold mt-0.5 truncate", isDark ? "text-slate-300" : "text-gray-800")}>
@@ -482,7 +482,7 @@ export function InteractiveGraphic({
                     "p-2 rounded-xl border flex items-center justify-between shadow-md relative overflow-hidden transition-all hover:scale-[1.02]",
                     isDark 
                       ? "bg-slate-900 border-slate-800 text-white hover:border-purple-500" 
-                      : "bg-white border-gray-100 text-gray-800 hover:border-blue-500"
+                      : "bg-white border-gray-100 text-gray-800 hover:border-lime-500"
                   )}
                 >
                   <div 
@@ -498,7 +498,7 @@ export function InteractiveGraphic({
                   {el.value && (
                     <span className={cn(
                       "text-[9px] font-black px-1.5 py-0.5 rounded shrink-0",
-                      isDark ? "bg-slate-800 text-purple-400" : "bg-gray-100 text-blue-600"
+                      isDark ? "bg-slate-800 text-purple-400" : "bg-gray-100 text-lime-700"
                     )}>
                       {el.value}
                     </span>
@@ -533,7 +533,7 @@ export function InteractiveGraphic({
                   "p-3 rounded-xl border flex items-center justify-between shadow-sm transition-all relative overflow-hidden group",
                   isDark 
                     ? "bg-slate-900 border-slate-800/80 text-white hover:border-purple-500" 
-                    : "bg-white border-gray-100 text-gray-800 hover:border-blue-500"
+                    : "bg-white border-gray-100 text-gray-800 hover:border-lime-500"
                 )}
               >
                 {/* Visual Level indicator strip */}
@@ -561,7 +561,7 @@ export function InteractiveGraphic({
                 {el.value && (
                   <span className={cn(
                     "text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0",
-                    isDark ? "bg-slate-800 text-purple-400" : "bg-gray-100 text-blue-600"
+                    isDark ? "bg-slate-800 text-purple-400" : "bg-gray-100 text-lime-700"
                   )}>
                     {el.value}
                   </span>

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import { ApiError } from './http';
 
-const SESSION_COOKIE = 'slidecraft_session';
+const SESSION_COOKIE = 'storyline_session';
 const SESSION_DAYS = 30;
 
 export interface AuthUser {

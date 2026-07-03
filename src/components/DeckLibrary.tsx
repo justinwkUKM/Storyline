@@ -17,23 +17,23 @@ export function DeckLibrary({ decks, isLoading, error, onNew, onOpen, onDelete, 
     <div className="w-full max-w-6xl mx-auto px-6 py-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">Saved Decks</h1>
-          <p className="text-gray-500 mt-1">Open a saved presentation or generate a new one from a PDF.</p>
+          <h1 className="text-4xl font-black text-lime-950">Storylines</h1>
+          <p className="text-lime-900/70 mt-1 font-medium">Open a saved deck or shape a new visual story from a PDF.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={onRefresh}
-            className="px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-bold flex items-center gap-2"
+            className="px-4 py-2 rounded-full border border-lime-200 bg-white/70 hover:bg-white text-lime-950 text-sm font-bold flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
           <button
             onClick={onNew}
-            className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center gap-2"
+            className="px-5 py-2 rounded-full bg-lime-950 hover:bg-lime-900 text-lime-50 text-sm font-black flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            New Presentation
+            New Storyline
           </button>
         </div>
       </div>
@@ -45,38 +45,38 @@ export function DeckLibrary({ decks, isLoading, error, onNew, onOpen, onDelete, 
       )}
 
       {isLoading ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 flex flex-col items-center justify-center text-gray-500">
+        <div className="bg-white/80 border border-lime-200 rounded-3xl p-12 flex flex-col items-center justify-center text-lime-900/70">
           <Loader2 className="w-8 h-8 animate-spin mb-3" />
           Loading decks...
         </div>
       ) : decks.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900">No saved decks yet</h2>
-          <p className="text-gray-500 mt-2">Generate your first presentation and save it here.</p>
+        <div className="bg-white/80 border border-lime-200 rounded-3xl p-12 text-center shadow-xl shadow-lime-950/5">
+          <FileText className="w-12 h-12 text-lime-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-black text-lime-950">No storylines yet</h2>
+          <p className="text-lime-900/70 mt-2 font-medium">Generate your first deck and save it here.</p>
           <button
             onClick={onNew}
-            className="mt-6 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold inline-flex items-center gap-2"
+            className="mt-6 px-5 py-3 rounded-full bg-lime-950 hover:bg-lime-900 text-lime-50 text-sm font-black inline-flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            Create Deck
+            Create Storyline
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {decks.map((deck) => (
-            <div key={deck.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+            <div key={deck.id} className="bg-white/85 border border-lime-200 rounded-3xl p-5 shadow-sm flex flex-col gap-4">
               <button onClick={() => onOpen(deck.id)} className="text-left flex-1">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-lime-300 text-lime-950 flex items-center justify-center mb-4">
                   <FileText className="w-5 h-5" />
                 </div>
-                <h3 className="font-bold text-gray-900 line-clamp-2">{deck.title}</h3>
-                <p className="text-xs text-gray-400 mt-2">
+                <h3 className="font-black text-lime-950 line-clamp-2">{deck.title}</h3>
+                <p className="text-xs text-lime-900/50 mt-2 font-medium">
                   Updated {new Date(deck.updatedAt).toLocaleString()}
                 </p>
               </button>
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <button onClick={() => onOpen(deck.id)} className="text-sm font-bold text-blue-600 hover:text-blue-700">
+                <button onClick={() => onOpen(deck.id)} className="text-sm font-black text-lime-800 hover:text-lime-950">
                   Open
                 </button>
                 <button
