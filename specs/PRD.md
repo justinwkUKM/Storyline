@@ -2,7 +2,7 @@
 
 ## 1. Product Summary
 
-SlideCraft AI is a web application that converts text-based PDF documents into editable, animated, presentation-ready slide decks. The product combines PDF text extraction, Gemini-powered summarization, structured slide generation, a post-generation editing workspace, and full-screen presentation/export tools.
+SlideCraft AI is a web application that converts text-based PDF documents into editable, animated, presentation-ready slide decks. The product combines authenticated user accounts, saved deck persistence, PDF text extraction, Gemini-powered summarization, structured slide generation, a post-generation editing workspace, and full-screen presentation/export tools.
 
 The core value is speed with control: users can upload a dense document, receive a structured deck, refine the content and visuals, then present or export the result without moving through separate authoring tools.
 
@@ -21,16 +21,20 @@ Existing workflows usually force users to choose between speed and quality. Auto
 - Support multiple visual themes and custom brand styling.
 - Present the deck as a polished animated HTML experience.
 - Export the deck to high-resolution PDF and editable PowerPoint.
+- Let authenticated users save, reopen, update, and delete generated decks.
+- Preserve deck JSON across sessions without storing uploaded PDF files by default.
 - Give clear failure messages for invalid files, unreadable PDFs, missing API keys, AI errors, and invalid response formats.
 
 ## 4. Non-Goals
 
 - Full PowerPoint feature parity.
 - Collaborative multi-user editing.
-- Persistent user accounts, cloud storage, or deck history.
+- Cloud file storage or uploaded PDF retention.
+- Organization accounts, role-based access control, or shared team workspaces.
 - OCR for scanned image-only PDFs.
 - Manual image generation for slide backgrounds.
 - Support for Word, plain text, spreadsheets, or web URLs as source documents.
+- Password reset, email verification, and social login in the first auth version.
 
 ## 5. Target Users
 
@@ -44,7 +48,7 @@ Existing workflows usually force users to choose between speed and quality. Auto
 
 ### 6.1 Generate a Presentation From a PDF
 
-The user uploads a PDF, selects a visual theme, chooses a graphic style, tone, slide count, and orientation, then generates a presentation. The system extracts readable text, asks Gemini to structure the content, validates the response, and displays an editable draft.
+An authenticated user uploads a PDF, selects a visual theme, chooses a graphic style, tone, slide count, and orientation, then generates a presentation. The system extracts readable text, asks Gemini to structure the content, validates the response, and displays an editable draft.
 
 ### 6.2 Refine the Generated Deck
 
@@ -62,32 +66,55 @@ The user launches the generated deck in presentation mode, navigates with contro
 
 The user downloads a high-resolution PDF or editable PPTX file. Slides with quizzes generate additional quiz pages in exported outputs.
 
+### 6.6 Save and Reopen Decks
+
+The user saves generated or edited presentation data to their account, returns to the deck library later, opens a saved deck, continues editing, presents it, exports it, or deletes it.
+
 ## 7. User Journey
 
 1. The user opens SlideCraft AI.
-2. The user uploads one PDF through drag-and-drop or file picker.
-3. The user selects a theme: Modern, Limefrost, Cosmic, Minimal, or Custom.
-4. If Custom is selected, the user configures typography, alignment, spacing, and colors.
-5. The user selects a graphic style:
+2. If unauthenticated, the user registers or signs in with email and password.
+3. The authenticated user lands on the saved deck library.
+4. The user opens an existing deck or starts a new presentation.
+5. The user uploads one PDF through drag-and-drop or file picker.
+6. The user selects a theme: Modern, Limefrost, Cosmic, Minimal, or Custom.
+7. If Custom is selected, the user configures typography, alignment, spacing, and colors.
+8. The user selects a graphic style:
    - Modern Infographic
    - Bento Grid Layout
    - Executive and Technical Tiers
-6. The user selects a content tone:
+9. The user selects a content tone:
    - Executive Summary
    - Academic Deep-Dive
    - Creative Storyteller
-7. The user chooses slide count: automatic or an exact target count.
-8. The user chooses orientation: horizontal or vertical.
-9. The user clicks Generate Presentation.
-10. The frontend sends the PDF and generation settings to `/api/generate`.
-11. The backend extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
-12. The editor opens with the generated deck and extracted source text.
-13. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings.
-14. The user finalizes the deck.
-15. The presentation opens in a full-screen style viewer.
-16. The user presents, exports, or exits back to the upload flow.
+10. The user chooses slide count: automatic or an exact target count.
+11. The user chooses orientation: horizontal or vertical.
+12. The user clicks Generate Presentation.
+13. The frontend sends the PDF and generation settings to `/api/generate`.
+14. The backend verifies the session, extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
+15. The editor opens with the generated deck and extracted source text.
+16. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings.
+17. The user saves the deck as a new saved deck or updates an existing saved deck.
+18. The user finalizes the deck.
+19. The presentation opens in a full-screen style viewer.
+20. The user presents, exports, returns to the library, or exits back to the upload flow.
 
 ## 8. Functional Requirements
+
+### 8.0 Authentication and Account Access
+
+- The app must require authentication before users can generate, save, list, open, update, or delete decks.
+- Users must be able to register with email and password.
+- Users must be able to sign in with email and password.
+- Email addresses must be normalized to lowercase before storage and lookup.
+- Duplicate email registration must return a clear error.
+- Passwords must be at least 8 characters.
+- Passwords must be hashed before storage and never returned to the frontend.
+- Successful registration and login must create an authenticated session.
+- Users must be able to log out.
+- Logging out must invalidate the current session and clear the browser session cookie.
+- `GET /api/auth/me` must return the current user only when a valid session exists.
+- Unauthenticated API access to protected routes must return a JSON `401` error.
 
 ### 8.1 PDF Upload
 
@@ -108,6 +135,7 @@ The user downloads a high-resolution PDF or editable PPTX file. Slides with quiz
 
 ### 8.3 AI Slide Generation
 
+- The `/api/generate` route must require authentication.
 - The backend must require `GEMINI_API_KEY`.
 - The backend must call Gemini using a structured JSON response schema.
 - The prompt must include extracted PDF text, chosen graphic style, chosen tone, and slide count requirement.
@@ -168,6 +196,10 @@ The user downloads a high-resolution PDF or editable PPTX file. Slides with quiz
 - The user must be able to add, remove, or change slide graphics.
 - The user must be able to edit graphic title, type, labels, values, descriptions, percentages, and icon names.
 - The user must be able to select final theme and custom theme settings before presenting.
+- The user must be able to save a newly generated deck from the editor.
+- The user must be able to update an existing saved deck from the editor.
+- The user must be able to save an existing deck as a new copy.
+- The UI must show save progress or save result feedback.
 
 ### 8.7 Presentation Mode
 
@@ -215,6 +247,19 @@ The user downloads a high-resolution PDF or editable PPTX file. Slides with quiz
 - Missing or invalid API key conditions must be surfaced clearly.
 - Gemini rate limit, safety, and general API failures must be mapped to user-facing messages.
 - Unexpected backend errors must include a generic explanation plus available error message.
+
+### 8.11 Saved Deck Library
+
+- Authenticated users must see a saved deck library before starting a new presentation.
+- The library must show saved deck title, created timestamp, and updated timestamp.
+- The library must support refresh, open, delete, and create-new actions.
+- Empty library state must guide the user to create a new deck.
+- Deleting a deck must remove it only from the current authenticated user's library.
+- Opening a deck must load its saved `PresentationData`, `ThemeName`, and optional `CustomizationSettings` into the existing editor/presenter flow.
+- Save operations must store deck JSON only.
+- Save operations must remove `rawParsedText` before persistence.
+- Uploaded PDF buffers must not be stored.
+- Extracted source text must remain available in the current editor session after generation, but must not be persisted by default.
 
 ## 9. Data Model
 
@@ -284,6 +329,66 @@ interface CustomizationSettings {
 }
 ```
 
+### 9.6 AuthUser
+
+```ts
+interface AuthUser {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+```
+
+### 9.7 DeckSummary
+
+```ts
+interface DeckSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+}
+```
+
+### 9.8 SavedDeck
+
+```ts
+interface SavedDeck extends DeckSummary {
+  presentationData: PresentationData;
+  theme: ThemeName;
+  customSettings?: CustomizationSettings;
+}
+```
+
+### 9.9 Database Models
+
+#### User
+
+- `id`: unique user identifier.
+- `email`: unique normalized email.
+- `passwordHash`: hashed password.
+- `createdAt`: account creation timestamp.
+- `updatedAt`: account update timestamp.
+
+#### Session
+
+- `id`: unique session identifier.
+- `tokenHash`: SHA-256 hash of opaque session token.
+- `userId`: owning user.
+- `expiresAt`: session expiry timestamp.
+- `createdAt`: session creation timestamp.
+
+#### Deck
+
+- `id`: unique deck identifier.
+- `title`: deck title for library display.
+- `presentationData`: serialized `PresentationData` JSON without `rawParsedText`.
+- `theme`: saved `ThemeName`.
+- `customSettings`: optional serialized `CustomizationSettings` JSON.
+- `userId`: owning user.
+- `createdAt`: deck creation timestamp.
+- `updatedAt`: last saved timestamp.
+
 ## 10. Technical Requirements
 
 - Frontend framework: React 19.
@@ -293,6 +398,10 @@ interface CustomizationSettings {
 - Icons: `lucide-react`.
 - Upload interaction: `react-dropzone`.
 - Backend framework: Express.
+- Authentication: email/password with hashed passwords and signed HTTP-only session cookies.
+- Session storage: opaque random session tokens stored hashed in SQLite.
+- Database ORM: Prisma.
+- Database: SQLite.
 - TypeScript runtime for development: `tsx`.
 - PDF parsing: `pdf-parse`.
 - Upload parsing: `multer` with memory storage.
@@ -311,7 +420,73 @@ Returns:
 { "status": "ok" }
 ```
 
-### 11.2 `POST /api/generate`
+### 11.2 Auth API
+
+#### `POST /api/auth/register`
+
+Request:
+
+```json
+{ "email": "user@example.com", "password": "password123" }
+```
+
+Success response:
+
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "createdAt": "2026-07-03T00:00:00.000Z"
+  }
+}
+```
+
+#### `POST /api/auth/login`
+
+Request:
+
+```json
+{ "email": "user@example.com", "password": "password123" }
+```
+
+Success response:
+
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "createdAt": "2026-07-03T00:00:00.000Z"
+  }
+}
+```
+
+#### `POST /api/auth/logout`
+
+Success response:
+
+```json
+{ "ok": true }
+```
+
+#### `GET /api/auth/me`
+
+Success response:
+
+```json
+{
+  "user": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "createdAt": "2026-07-03T00:00:00.000Z"
+  }
+}
+```
+
+### 11.3 `POST /api/generate`
+
+Authentication: required.
 
 Request:
 
@@ -341,17 +516,85 @@ Error response:
 { "error": "User-facing error message" }
 ```
 
+### 11.4 Deck API
+
+All deck routes require authentication and operate only on the current user's decks.
+
+#### `GET /api/decks`
+
+Success response:
+
+```json
+{
+  "decks": [
+    {
+      "id": "deck-id",
+      "title": "Deck title",
+      "createdAt": "2026-07-03T00:00:00.000Z",
+      "updatedAt": "2026-07-03T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### `POST /api/decks`
+
+Request:
+
+```json
+{
+  "title": "Deck title",
+  "presentationData": { "title": "Deck title", "slides": [] },
+  "theme": "modern",
+  "customSettings": null
+}
+```
+
+Success response:
+
+```json
+{ "deck": "SavedDeck" }
+```
+
+#### `GET /api/decks/:id`
+
+Success response:
+
+```json
+{ "deck": "SavedDeck" }
+```
+
+#### `PUT /api/decks/:id`
+
+Request shape matches `POST /api/decks`.
+
+Success response:
+
+```json
+{ "deck": "SavedDeck" }
+```
+
+#### `DELETE /api/decks/:id`
+
+Success response:
+
+```json
+{ "ok": true }
+```
+
 ## 12. Quality Attributes
 
 ### 12.1 Usability
 
-- The product must present one clear flow from upload to edit to present.
+- The product must present one clear flow from sign-in to library to upload to edit to present.
 - Users must be able to recover from AI output issues by editing the generated deck.
 - Controls should be discoverable and grouped by task.
+- Users must be able to distinguish unsaved generated drafts from saved decks.
 
 ### 12.2 Reliability
 
 - The backend must guard against malformed AI responses.
+- The backend must guard every deck operation with ownership checks.
 - The frontend must not assume successful responses are valid JSON unless content type confirms it.
 - Export actions must reset loading state after completion or failure.
 
@@ -360,10 +603,16 @@ Error response:
 - Large extracted text must be truncated before AI generation.
 - Upload processing must avoid writing temporary files to disk.
 - Export DOM nodes must remain offscreen and not interfere with the live presentation.
+- Deck library queries must return summaries by default and load full presentation JSON only for a selected deck.
 
 ### 12.4 Security and Privacy
 
 - API keys must come from environment variables.
+- `SESSION_SECRET` must come from environment variables in production.
+- Session cookies must be signed, HTTP-only, SameSite Lax, and Secure in production.
+- Session tokens must be opaque random values, and only token hashes may be stored in the database.
+- Expired sessions must be deleted opportunistically during auth checks.
+- Users must only access decks where `deck.userId` matches their authenticated user ID.
 - Uploaded files must be processed in memory.
 - External links must open with `noopener noreferrer`.
 - The app must not persist uploaded PDFs or extracted text by default.
@@ -377,8 +626,12 @@ Error response:
 ## 13. Acceptance Criteria
 
 - A user can upload a valid text-based PDF and generate a deck.
+- A user can register, log in, remain authenticated by session cookie, and log out.
+- Unauthenticated users cannot generate or access deck APIs.
 - A user receives clear errors for missing, corrupt, encrypted, scanned, or unreadable PDFs.
 - A user can edit the generated deck before presenting.
+- A user can save, reopen, update, copy, and delete decks in their own account.
+- Saved decks do not include uploaded PDF files or `rawParsedText`.
 - A user can add, remove, and reorder slides.
 - A user can change theme and custom styling in the editor.
 - A user can request automatic or exact slide count before generation.
@@ -391,8 +644,9 @@ Error response:
 ## 14. Current Limitations
 
 - Scanned PDFs require OCR before upload.
-- The app does not currently store decks across sessions.
-- The app does not provide authentication or user workspaces.
+- The app stores decks as JSON only and does not store source PDFs.
+- The app supports individual accounts only; there are no shared workspaces or team permissions.
+- The app does not include password reset or email verification yet.
 - The app does not validate video URLs beyond accepting URL text.
 - The PPTX export uses simplified diagram rendering rather than preserving every HTML animation or layout detail.
 - Generated external links and video references depend on AI output quality and may need user review.
@@ -401,7 +655,9 @@ Error response:
 
 - OCR support for scanned PDFs.
 - Support for `.docx`, `.txt`, and web URL sources.
-- Persistent project save/load.
+- Password reset and email verification.
+- Google OAuth or other social sign-in providers.
+- Team workspaces and deck sharing.
 - More export layout fidelity for PPTX.
 - Rich image/background generation per slide.
 - Model retry and regeneration controls per slide.

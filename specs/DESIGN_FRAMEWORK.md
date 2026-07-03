@@ -22,13 +22,54 @@ This is a work tool. Screens may contain many controls, but grouping, hierarchy,
 
 ### 2.4 Clear Mode Changes
 
-The app has three major modes: upload, edit, and present. Transitions between modes should be visually clear and preserve user confidence about where they are in the workflow.
+The app has five major modes: auth, library, upload, edit, and present. Transitions between modes should be visually clear and preserve user confidence about where they are in the workflow.
 
 ### 2.5 Export Is a First-Class Outcome
 
 PDF and PowerPoint export are not secondary afterthoughts. Presentation mode must include obvious export controls, progress states, and predictable filenames.
 
 ## 3. Information Architecture
+
+### 3.0 Authentication Screen
+
+Purpose: gate the application and create a persistent user identity for saved decks.
+
+Required areas:
+
+- Product identity.
+- Login/register mode switch.
+- Email input.
+- Password input.
+- Primary submit action.
+- Error region for invalid credentials, duplicate email, and validation failures.
+
+Design guidance:
+
+- Keep the auth surface compact and centered.
+- Use one primary card rather than a full marketing layout.
+- Make the register/sign-in switch lightweight and reversible.
+- Password helper text should appear only where needed.
+
+### 3.0.1 Saved Deck Library
+
+Purpose: provide the authenticated user's home base for saved presentations.
+
+Required areas:
+
+- Header with product identity, current user email, and logout.
+- Saved deck list.
+- Empty state.
+- Refresh action.
+- New presentation action.
+- Open and delete actions per deck.
+
+Design guidance:
+
+- Treat the library as an operational dashboard, not a landing page.
+- Show deck title and last updated timestamp prominently.
+- Keep delete controls visually secondary and confirm before destructive actions.
+- Empty state should point directly to creating a new deck.
+- Loading states should be centered inside the library content area.
 
 ### 3.1 Upload and Configure Screen
 
@@ -64,6 +105,8 @@ Purpose: review, correct, and enrich the generated deck before presentation.
 Required areas:
 
 - Sticky header with editor title, source text toggle, cancel, and finalize action.
+- Save action for new or existing decks.
+- Save As New action for existing decks.
 - Optional left source-text panel.
 - Main slide editor column.
 - Right theme/style sidebar.
@@ -74,6 +117,8 @@ Design guidance:
 - Use collapsible slide panels to avoid overwhelming the user.
 - Keep destructive actions small and visually secondary until hovered.
 - Use persistent finalize action in the header.
+- Keep save controls close to finalize because both are deck-level actions.
+- Show short save status feedback without blocking editing.
 - Keep source text available because users need to verify AI interpretation.
 
 ### 3.3 Presentation Mode
@@ -347,6 +392,13 @@ Backend failures:
 - Always return `{ "error": "..." }`.
 - Frontend must display the backend error when available.
 
+Auth and persistence:
+
+- Authentication failures should appear inline on the auth card.
+- Unauthorized app/API states should send the user back to authentication.
+- Save feedback should be brief: Saving, Saved, or the returned error.
+- Library errors should stay in the library view and not obscure existing deck cards unnecessarily.
+
 ## 7. Motion Framework
 
 Motion should support orientation and polish, not distract.
@@ -604,6 +656,19 @@ Rules:
 - Use simplified visual blocks instead of attempting to export HTML animations.
 - Use deck title for metadata and filename.
 
+## 10.3 Persistence Design
+
+Saved deck persistence should preserve editing continuity while minimizing stored source data.
+
+Rules:
+
+- Save `PresentationData`, theme, and optional custom settings.
+- Do not persist uploaded PDF files.
+- Do not persist `rawParsedText`.
+- Keep `rawParsedText` available in the current editor session after generation until the user leaves or reloads.
+- Loaded saved decks may not show source text because it is intentionally not stored.
+- Save As New must create a separate deck record rather than overwriting the current deck.
+
 ## 11. Accessibility Guidelines
 
 - Preserve keyboard navigation in presentation mode.
@@ -613,8 +678,32 @@ Rules:
 - Do not rely on color alone for quiz correctness; include text labels such as Correct and Incorrect.
 - External links should open safely with `target="_blank"` and `rel="noopener noreferrer"`.
 - Icon-only controls should include titles or accessible labels.
+- Auth and library controls should use native forms and buttons.
+- Authentication errors should be exposed as text, not color alone.
 
-## 12. Implementation Notes
+## 12. Auth and Data Guidelines
+
+### 12.1 Auth UX
+
+- Require login or registration before showing the library or generator.
+- Keep user identity visible in the authenticated header.
+- Logout should be available from the authenticated shell.
+- Do not expose session tokens or password state in the client.
+
+### 12.2 Data Ownership
+
+- Every saved deck belongs to exactly one user.
+- Users should only see decks they own.
+- Deck delete actions must confirm intent.
+- Deck API responses should return summaries in list views and full presentation JSON only when opening a deck.
+
+### 12.3 Privacy
+
+- Treat uploaded PDFs and extracted source text as transient processing data.
+- Persist only the edited deck JSON, theme, and custom styling.
+- Avoid adding source text persistence unless the product explicitly introduces a user-facing opt-in.
+
+## 13. Implementation Notes
 
 Current implementation files:
 
@@ -625,5 +714,8 @@ Current implementation files:
 - Graphics: `src/components/InteractiveGraphic.tsx`
 - Shared types: `src/types.ts`
 - Backend generation: `server.ts`
+- Auth and deck APIs: `src/server/`
+- Auth screen: `src/components/AuthScreen.tsx`
+- Deck library: `src/components/DeckLibrary.tsx`
 
 When adding new UI, keep behavior aligned with these existing boundaries. Avoid moving generation logic into the frontend, avoid introducing persistent storage without a product requirement, and keep export-specific rendering separate from live presentation rendering.
