@@ -1,8 +1,9 @@
 import React from 'react';
-import { FileText, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { DeckSummary } from '../types';
+import { Coins, FileText, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AuthUser, DeckSummary } from '../types';
 
 interface DeckLibraryProps {
+  user: AuthUser;
   decks: DeckSummary[];
   isLoading: boolean;
   error?: string | null;
@@ -12,7 +13,7 @@ interface DeckLibraryProps {
   onRefresh: () => void;
 }
 
-export function DeckLibrary({ decks, isLoading, error, onNew, onOpen, onDelete, onRefresh }: DeckLibraryProps) {
+export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDelete, onRefresh }: DeckLibraryProps) {
   return (
     <div className="w-full max-w-6xl mx-auto px-6 py-12 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
@@ -20,21 +21,33 @@ export function DeckLibrary({ decks, isLoading, error, onNew, onOpen, onDelete, 
           <h1 className="text-4xl font-black text-lime-950 tracking-tight">Storylines</h1>
           <p className="text-lime-900/70 mt-2 font-semibold">Open a saved deck or shape a new visual story from a PDF.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onRefresh}
-            className="px-5 py-2.5 rounded-full border border-lime-200/80 bg-white/80 backdrop-blur hover:bg-white text-lime-950 text-sm font-black flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+        <div className="flex flex-col sm:items-end gap-3">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur border border-lime-200/80 text-xs font-black text-lime-950 shadow-sm"
+            title={`Credits automatically renew on ${new Date(new Date(user.creditsResetAt).setMonth(new Date(user.creditsResetAt).getMonth() + 1)).toLocaleDateString()}`}
           >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-          <button
-            onClick={onNew}
-            className="px-6 py-2.5 rounded-full bg-lime-950 hover:bg-lime-900 text-lime-50 text-sm font-black flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-lime-950/10 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            New Storyline
-          </button>
+            <Coins className="w-3.5 h-3.5 text-lime-700" />
+            <span>{user.credits} / 100 credits</span>
+            <span className="text-lime-900/50 font-bold hidden sm:inline">
+              Renew {new Date(new Date(user.creditsResetAt).setMonth(new Date(user.creditsResetAt).getMonth() + 1)).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onRefresh}
+              className="px-5 py-2.5 rounded-full border border-lime-200/80 bg-white/80 backdrop-blur hover:bg-white text-lime-950 text-sm font-black flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button
+              onClick={onNew}
+              className="px-6 py-2.5 rounded-full bg-lime-950 hover:bg-lime-900 text-lime-50 text-sm font-black flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-lime-950/10 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              New Storyline
+            </button>
+          </div>
         </div>
       </div>
 

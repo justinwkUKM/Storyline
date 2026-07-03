@@ -297,7 +297,7 @@ The user saves generated or edited presentation data to their account, returns t
 - Renewal must be handled lazily upon user authentication/middleware verification.
 - Generating a presentation must deduct exactly 1 credit from the user's balance on success.
 - If a user has 0 credits, presentation generation must be disabled and locked.
-- The UI must display remaining credits in the application header and uploader form with the cycle renewal date.
+- The UI must display remaining credits in the application header, library dashboard, and uploader form with the cycle renewal date.
 
 ## 9. Data Model
 

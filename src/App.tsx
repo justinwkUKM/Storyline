@@ -77,6 +77,12 @@ export default function App() {
     }
   };
 
+  const refreshCurrentUser = async () => {
+    const data = await apiRequest<{ user: AuthUser }>('/api/auth/me');
+    setUser(data.user);
+    return data.user;
+  };
+
   useEffect(() => {
     apiRequest<{ user: AuthUser }>('/api/auth/me')
       .then((data) => setUser(data.user))
@@ -152,6 +158,7 @@ export default function App() {
         if (typeof data.creditsRemaining === 'number' && user) {
           setUser({ ...user, credits: data.creditsRemaining });
         }
+        void refreshCurrentUser().catch(() => undefined);
       } else {
         throw new Error('Received invalid presentation structure from server');
       }
@@ -347,6 +354,7 @@ export default function App() {
             className="w-full flex-1"
           >
             <DeckLibrary
+              user={user}
               decks={decks}
               isLoading={decksLoading}
               error={decksError}
