@@ -181,10 +181,10 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
                 <p className="text-xs font-bold mt-2 text-red-900/60">0 credits remaining for this cycle</p>
               </div>
             ) : file ? (
-              <div className="flex flex-col items-center text-emerald-800">
-                <File className="w-12 h-12 mb-4 text-emerald-600 animate-bounce" />
-                <p className="font-black text-center text-sm line-clamp-2 px-2">{file.name}</p>
-                <p className="text-xs font-bold opacity-75 mt-2">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+              <div className="flex flex-col items-center text-emerald-800 w-full max-w-full overflow-hidden">
+                <File className="w-12 h-12 mb-4 text-emerald-600 animate-bounce flex-shrink-0" />
+                <p className="font-black text-center text-sm line-clamp-2 px-4 break-all w-full leading-snug">{file.name}</p>
+                <p className="text-xs font-bold opacity-75 mt-2 flex-shrink-0">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
             ) : (
               <div className="flex flex-col items-center text-lime-900/60">
