@@ -50,3 +50,24 @@ export interface CustomizationSettings {
   spacing: 'compact' | 'normal' | 'relaxed';
   alignment: 'left' | 'center' | 'right';
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  createdAt: string;
+  credits: number;
+  creditsResetAt: string;
+}
+
+export interface DeckSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface SavedDeck extends DeckSummary {
+  presentationData: PresentationData;
+  theme: ThemeName;
+  customSettings?: CustomizationSettings;
+}

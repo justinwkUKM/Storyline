@@ -15,13 +15,15 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
-  Edit3
+  Edit3,
+  Video
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import pptxgen from 'pptxgenjs';
+import { sanitizeRichTextHtml, stripRichTextHtml } from '../lib/richText';
 
 interface PresentationProps {
   data: PresentationData;
@@ -41,7 +43,7 @@ const themeStyles: Record<ThemeName, { bg: string; text: string; accent: string;
 
 function stripHtml(html: string): string {
   if (!html) return '';
-  return html.replace(/<[^>]*>/g, '');
+  return stripRichTextHtml(html);
 }
 
 function oklabToRgb(l_val: number, a_val: number, b_val: number): [number, number, number] {
@@ -700,6 +702,214 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
     }
   };
 
+  // Slideshow Video (MP4/WebM) Download
+  const exportToMP4 = async () => {
+    setIsDownloading(true);
+    setDownloadProgress('Preparing high-res slides for video...');
+    const styleElements = Array.from(document.querySelectorAll('style')) as HTMLStyleElement[];
+    const originalStyleContents = new Map<HTMLStyleElement, string>();
+
+    try {
+      // Temporarily sanitize style tags to avoid oklch / oklab issues with html2canvas
+      for (const styleEl of styleElements) {
+        if (styleEl.innerHTML) {
+          originalStyleContents.set(styleEl, styleEl.innerHTML);
+          styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
+        }
+      }
+
+      const canvasWidth = isVertical ? 720 : 1280;
+      const canvasHeight = isVertical ? 960 : 720;
+
+      const slideCanvases: HTMLCanvasElement[] = [];
+
+      // Step 1: Render all slides (and quiz pages if present) to canvases
+      for (let i = 0; i < data.slides.length; i++) {
+        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+        const contentEl = document.getElementById(`pdf-slide-content-${i}`);
+        if (contentEl) {
+          await new Promise(r => setTimeout(r, 120));
+          const canvas = await html2canvas(contentEl, {
+            width: canvasWidth,
+            height: canvasHeight,
+            scale: 1, // Keep scale 1 to limit memory usage during recording
+            useCORS: true,
+            logging: false,
+            onclone: (clonedDoc) => {
+              const allElements = clonedDoc.getElementsByTagName('*');
+              for (let j = 0; j < allElements.length; j++) {
+                const el = allElements[j] as HTMLElement;
+                const styleAttr = el.getAttribute?.('style');
+                if (styleAttr) {
+                  el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                }
+              }
+              const styles = clonedDoc.getElementsByTagName('style');
+              for (let j = 0; j < styles.length; j++) {
+                const s = styles[j];
+                if (s.innerHTML) {
+                  s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                }
+              }
+            }
+          });
+          slideCanvases.push(canvas);
+        }
+
+        // Render dedicated quiz page as a slide in the video if present
+        if (data.slides[i].quiz) {
+          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+          const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
+          if (quizEl) {
+            await new Promise(r => setTimeout(r, 120));
+            const canvas = await html2canvas(quizEl, {
+              width: canvasWidth,
+              height: canvasHeight,
+              scale: 1,
+              useCORS: true,
+              logging: false,
+              onclone: (clonedDoc) => {
+                const allElements = clonedDoc.getElementsByTagName('*');
+                for (let j = 0; j < allElements.length; j++) {
+                  const el = allElements[j] as HTMLElement;
+                  const styleAttr = el.getAttribute?.('style');
+                  if (styleAttr) {
+                    el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                  }
+                }
+                const styles = clonedDoc.getElementsByTagName('style');
+                for (let j = 0; j < styles.length; j++) {
+                  const s = styles[j];
+                  if (s.innerHTML) {
+                    s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                  }
+                }
+              }
+            });
+            slideCanvases.push(canvas);
+          }
+        }
+      }
+
+      if (slideCanvases.length === 0) {
+        throw new Error('No slides successfully rendered to video.');
+      }
+
+      setDownloadProgress('Recording slideshow video (0%)...');
+
+      // Step 2: Create master canvas and start MediaRecorder
+      const masterCanvas = document.createElement('canvas');
+      masterCanvas.width = canvasWidth;
+      masterCanvas.height = canvasHeight;
+      const ctx = masterCanvas.getContext('2d')!;
+
+      // Determine best matching mimeType support
+      const supportedMimeTypes = [
+        'video/mp4',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+      ];
+      let selectedMimeType = '';
+      for (const mimeType of supportedMimeTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) {
+          selectedMimeType = mimeType;
+          break;
+        }
+      }
+
+      if (!selectedMimeType) {
+        throw new Error('This browser does not support video recording API.');
+      }
+
+      const stream = masterCanvas.captureStream(30); // 30 fps
+      const recorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
+      const recordedChunks: Blob[] = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      };
+
+      // Slide timing config: 3 seconds (3000ms) per slide
+      const slideDuration = 3000;
+      const totalDuration = slideCanvases.length * slideDuration;
+
+      const recordingPromise = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => {
+          try {
+            const blob = new Blob(recordedChunks, { type: selectedMimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const isMp4 = selectedMimeType.includes('mp4');
+            a.download = `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_presentation.${isMp4 ? 'mp4' : 'webm'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+        recorder.onerror = (e) => reject(e);
+      });
+
+      // Start recording
+      recorder.start();
+
+      const startTime = performance.now();
+
+      // Step 3: Draw frames onto master canvas in a loop
+      await new Promise<void>((resolve, reject) => {
+        const renderLoop = () => {
+          const elapsed = performance.now() - startTime;
+          if (elapsed >= totalDuration) {
+            // Draw last frame one final time
+            const lastFrame = slideCanvases[slideCanvases.length - 1];
+            ctx.drawImage(lastFrame, 0, 0, canvasWidth, canvasHeight);
+            recorder.stop();
+            resolve();
+            return;
+          }
+
+          const currentSlideIdx = Math.floor(elapsed / slideDuration);
+          const currentFrame = slideCanvases[currentSlideIdx];
+          if (currentFrame) {
+            ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+          }
+
+          // Update progress
+          const percentage = Math.min(100, Math.round((elapsed / totalDuration) * 100));
+          setDownloadProgress(`Recording video ${percentage}%...`);
+
+          requestAnimationFrame(renderLoop);
+        };
+
+        requestAnimationFrame(renderLoop);
+      });
+
+      await recordingPromise;
+
+    } catch (err: any) {
+      console.error('Failed to export MP4:', err);
+      alert('Could not export video: ' + (err.message || 'Unknown error'));
+    } finally {
+      // Restore original styles
+      for (const [styleEl, originalContent] of Array.from(originalStyleContents.entries())) {
+        try {
+          styleEl.innerHTML = originalContent;
+        } catch (e) {
+          console.error("Failed to restore style:", e);
+        }
+      }
+      setIsDownloading(false);
+      setDownloadProgress('');
+    }
+  };
+
   return (
     <div 
       className={cn(
@@ -758,7 +968,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25, duration: 0.5 }}
-                  className={cn("font-extrabold tracking-tight mb-4", isVertical ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl lg:text-6xl", !isCustom && style.title)}
+                  className={cn("font-extrabold mb-4", isVertical ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl lg:text-6xl", !isCustom && style.title)}
                   style={titleStyleObj}
                 >
                   {currentSlide.title}
@@ -782,7 +992,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                     initial={{ opacity: 0, x: -15 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 }}
-                    className={cn("text-2xl md:text-3xl font-bold tracking-tight", !isCustom && style.title)}
+                    className={cn("text-2xl md:text-3xl font-bold", !isCustom && style.title)}
                     style={titleStyleObj}
                   >
                     {currentSlide.title}
@@ -810,7 +1020,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                           className={cn(
                             "px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all relative",
                             activeTab === 'quiz'
-                              ? "bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400"
+                              ? "bg-white text-lime-700 shadow-sm dark:bg-slate-800 dark:text-lime-400"
                               : "text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200"
                           )}
                         >
@@ -874,7 +1084,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                                   style={textStyleObj}
                                 >
                                   <span className={cn("inline-block rounded-full mt-2 mr-3 flex-shrink-0", isVertical ? "w-1.5 h-1.5" : "w-2 h-2", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-3' : 'ml-0 mr-3', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                                  <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: point }} />
+                                  <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
                                 </motion.li>
                               ))}
                             </ul>
@@ -885,7 +1095,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                                 onClick={() => setShowVideo(true)}
                                 className={cn("flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-[10px] md:text-xs font-semibold text-left transition-colors cursor-pointer w-fit", isVertical ? "mt-3" : "mt-6")}
                               >
-                                <PlayCircle className="w-4 h-4 text-blue-500" />
+                                <PlayCircle className="w-4 h-4 text-lime-500" />
                                 <span style={textStyleObj}>Watch Video</span>
                               </button>
                             )}
@@ -915,7 +1125,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                               style={textStyleObj}
                             >
                               <span className={cn("inline-block w-2.5 h-2.5 rounded-full mt-3 mr-4 flex-shrink-0", !isCustom && style.accent, customSettings?.alignment === 'right' ? 'mr-0 ml-4' : 'ml-0 mr-4', customSettings?.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                              <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: point }} />
+                              <span className={cn(customSettings?.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
                             </motion.li>
                           ))}
                         </ul>
@@ -1009,10 +1219,10 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                             className="flex items-center justify-between p-4 rounded-xl border border-black/5 bg-white/60 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900 shadow-sm transition-all duration-150"
                           >
                             <div className="flex items-center gap-3 truncate pr-4">
-                              <ExternalLink className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                              <ExternalLink className="w-5 h-5 text-lime-500 flex-shrink-0" />
                               <span className="font-semibold text-sm truncate" style={textStyleObj}>{link.title}</span>
                             </div>
-                            <span className="text-xs text-blue-600 font-bold hover:underline flex-shrink-0 flex items-center gap-1">
+                            <span className="text-xs text-lime-700 font-bold hover:underline flex-shrink-0 flex items-center gap-1">
                               Visit Resource
                               <ChevronRight className="w-3.5 h-3.5" />
                             </span>
@@ -1029,7 +1239,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
             {/* Static Non-Overlapping Slide Footer inside the Slide Container */}
             <div className="w-full flex items-center justify-between border-t border-black/5 dark:border-white/5 pt-4 mt-6 text-xs font-semibold opacity-60 flex-shrink-0">
               <span className="truncate pr-4" style={textStyleObj}>
-                {isTitleSlide ? 'Interactive SlideCraft' : `Slide ${currentIndex + 1}: ${currentSlide.title}`}
+                {isTitleSlide ? 'Interactive Storyline' : `Slide ${currentIndex + 1}: ${currentSlide.title}`}
               </span>
               <span className="font-mono" style={textStyleObj}>
                 {currentIndex + 1} / {data.slides.length}
@@ -1041,32 +1251,32 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
       </div>
 
       {/* UnifiedFrosted Presenter Control Bar (Horizontal layout placed underneath slide box - NO OVERLAP) */}
-      <div className="w-full max-w-5xl mt-6 flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3.5 bg-black/85 dark:bg-black/90 backdrop-blur-md rounded-2xl shadow-xl z-50 transition-all">
+      <div className="w-full max-w-5xl mt-6 flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-3.5 bg-lime-950/95 border border-lime-800/40 backdrop-blur-md rounded-3xl shadow-xl z-50 transition-all">
         {/* Left segment: Slideshow Controls & Info */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-white/5 rounded-full p-1 border border-white/5">
+          <div className="flex items-center gap-1 bg-white/10 rounded-full p-1 border border-white/10">
             <button
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
               title="Previous Slide"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="text-xs font-mono font-bold text-white/90 px-3">
+            <span className="text-xs font-mono font-black text-lime-200 px-3">
               {currentIndex + 1} / {data.slides.length}
             </span>
             <button
               onClick={handleNext}
               disabled={currentIndex === data.slides.length - 1}
-              className="p-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
               title="Next Slide"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="hidden lg:block text-[11px] font-bold text-white/50 uppercase tracking-widest truncate max-w-[200px]">
+          <div className="hidden lg:block text-[11px] font-black text-lime-300/60 uppercase tracking-widest truncate max-w-[200px]">
             {data.title}
           </div>
         </div>
@@ -1076,7 +1286,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
           {onEdit && (
             <button
               onClick={onEdit}
-              className="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 hover:bg-blue-500 active:scale-95 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-blue-500/15"
+              className="px-4 py-2 rounded-full text-xs font-black bg-lime-400 hover:bg-lime-300 active:scale-95 text-lime-950 flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-lime-300/40"
               title="Edit Slide Content & Visuals"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -1086,27 +1296,36 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
 
           {isDownloading ? (
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-white/90 animate-pulse font-medium">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-lime-400" />
               <span>{downloadProgress || 'Processing...'}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <button
                 onClick={exportToPDF}
-                className="px-4 py-2 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 title="Download High-Res Presentation PDF"
               >
-                <Download className="w-3.5 h-3.5 text-blue-400" />
+                <Download className="w-3.5 h-3.5 text-lime-400" />
                 Download PDF
               </button>
               
               <button
                 onClick={exportToPPTX}
-                className="px-4 py-2 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                 title="Download Editable PowerPoint (PPTX)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
                 Download PPTX
+              </button>
+
+              <button
+                onClick={exportToMP4}
+                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                title="Download Presentation MP4 Video"
+              >
+                <Video className="w-3.5 h-3.5 text-rose-400" />
+                Download MP4
               </button>
             </div>
           )}
@@ -1115,7 +1334,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
 
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-lime-300/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
             title="Toggle Fullscreen Mode"
           >
             <Maximize className="w-4.5 h-4.5" />
@@ -1187,7 +1406,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                             style={textStyleObj}
                           >
                             <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
-                            <span dangerouslySetInnerHTML={{ __html: point }} />
+                            <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
                           </li>
                         ))}
                       </ul>
@@ -1211,7 +1430,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
                         style={textStyleObj}
                       >
                         <span className={cn("inline-block w-4 h-4 rounded-full mt-3.5 mr-6 flex-shrink-0", !isCustom && themeStyles[theme].accent)} style={accentStyleObj} />
-                        <span dangerouslySetInnerHTML={{ __html: point }} />
+                        <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
                       </li>
                     ))}
                   </ul>

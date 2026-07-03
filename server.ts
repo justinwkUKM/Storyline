@@ -1,13 +1,20 @@
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import multer from 'multer';
+import cookieParser from 'cookie-parser';
 import { PDFParse } from 'pdf-parse';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
+import { authMiddleware, requireAuth } from './src/server/auth';
+import { prisma } from './src/server/db';
+import { sendError } from './src/server/http';
+import { authRouter } from './src/server/routes/auth';
+import { decksRouter } from './src/server/routes/decks';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   // Add request logging middleware
   app.use((req, res, next) => {
@@ -17,9 +24,14 @@ async function startServer() {
 
   // Add body parser for JSON requests
   app.use(express.json());
+  app.use(cookieParser(process.env.SESSION_SECRET || 'dev-session-secret-change-me'));
+  app.use(authMiddleware);
 
   // Use multer memory storage
   const upload = multer({ storage: multer.memoryStorage() });
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/decks', decksRouter);
 
   // Add health endpoint
   app.get('/api/health', (req, res) => {
@@ -27,8 +39,17 @@ async function startServer() {
   });
 
   // Generate presentation endpoint
-  app.post('/api/generate', upload.single('pdf'), async (req, res) => {
+  app.post('/api/generate', requireAuth, upload.single('pdf'), async (req, res) => {
     try {
+      // Credit check
+      if (req.user!.credits < 1) {
+        const nextReset = new Date(req.user!.creditsResetAt);
+        nextReset.setMonth(nextReset.getMonth() + 1);
+        return res.status(403).json({
+          error: `You have run out of credits for this month. Your 100 credits will automatically renew on ${nextReset.toLocaleDateString()}.`
+        });
+      }
+
       if (!req.file) {
         return res.status(400).json({ error: 'No PDF file uploaded. Please select a valid PDF.' });
       }
@@ -261,6 +282,7 @@ ${textToAnalyze}
               ? slide.graphic.type 
               : 'metrics',
             title: slide.graphic.title || '',
+            style: slide.graphic.style ? String(slide.graphic.style) : undefined,
             elements: slide.graphic.elements.map((el: any) => ({
               label: el.label ? String(el.label) : 'Detail',
               value: el.value ? String(el.value) : undefined,
@@ -282,10 +304,23 @@ ${textToAnalyze}
         };
       });
 
+      // Deduct 1 credit from user on successful generation
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user!.id },
+        data: {
+          credits: {
+            decrement: 1
+          }
+        }
+      });
+
       presentationData.rawParsedText = textToAnalyze;
       presentationData.orientation = orientation;
 
-      res.json(presentationData);
+      res.json({
+        ...presentationData,
+        creditsRemaining: updatedUser.credits
+      });
     } catch (error: any) {
       console.error('Error generating presentation:', error);
       res.status(500).json({ error: 'An unexpected internal error occurred: ' + (error.message || 'Unknown error') });
@@ -308,12 +343,7 @@ ${textToAnalyze}
   }
 
   // Global JSON error handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('[UNHANDLED ERROR]', err);
-    res.status(err.status || 500).json({
-      error: err.message || 'An unexpected internal server error occurred.'
-    });
-  });
+  app.use(sendError);
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
