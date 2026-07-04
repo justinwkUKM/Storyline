@@ -8,7 +8,7 @@ export const decksRouter = Router();
 
 decksRouter.use(requireAuth);
 
-const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'custom']);
+const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'sunset', 'ocean', 'lavender', 'rose', 'custom']);
 
 function parseJsonField<T>(value: string | null): T | undefined {
   if (!value) return undefined;

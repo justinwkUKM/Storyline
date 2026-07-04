@@ -37,7 +37,10 @@ import {
   FileBadge2,
   Layers3,
   SquareDashedMousePointer,
-  ClipboardList
+  ClipboardList,
+  Wand2,
+  Loader2,
+  Undo2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,6 +70,10 @@ const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = 
   { id: 'modern', name: 'Modern Corporate', desc: 'Clean professional blue & slate theme', colors: 'bg-blue-600 text-slate-800' },
   { id: 'cosmic', name: 'Cosmic Slate', desc: 'Ambient futuristic dark mode styling', colors: 'bg-purple-600 text-slate-200 dark' },
   { id: 'minimal', name: 'High-Contrast Mono', desc: 'Swiss minimalist absolute dark & white', colors: 'bg-black text-black' },
+  { id: 'sunset', name: 'Sunset Editorial', desc: 'Warm amber, coral, and rose contrast', colors: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white' },
+  { id: 'ocean', name: 'Ocean Strategy', desc: 'Cool cyan, teal, and deep navy focus', colors: 'bg-gradient-to-br from-cyan-300 via-teal-500 to-blue-950 text-white' },
+  { id: 'lavender', name: 'Lavender Premium', desc: 'Soft violet surfaces with indigo accents', colors: 'bg-gradient-to-br from-violet-100 via-purple-300 to-indigo-500 text-indigo-950' },
+  { id: 'rose', name: 'Rose Editorial', desc: 'Pink, cream, and burgundy presentation tones', colors: 'bg-gradient-to-br from-rose-100 via-pink-300 to-rose-700 text-rose-950' },
   { id: 'custom', name: 'Custom Theme Builder', desc: 'Tailor colors, spacing, and layouts', colors: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white' }
 ];
 
@@ -119,6 +126,44 @@ interface GraphicPresetGroup {
 
 type InspectorTab = 'content' | 'visual' | 'interact' | 'theme';
 type GraphicCategory = 'all' | 'stats' | 'comparison' | 'process' | 'hierarchy' | 'pie';
+type AiEditTarget = 'title' | 'content' | 'speakerNotes' | 'graphic' | 'quiz' | 'links';
+
+type AiEditTargets = Record<AiEditTarget, boolean>;
+
+interface AiSlideEditPreview {
+  summary: string;
+  warnings?: string[];
+  updatedSlide: SlideContent;
+}
+
+const DEFAULT_AI_EDIT_TARGETS: AiEditTargets = {
+  title: true,
+  content: true,
+  speakerNotes: true,
+  graphic: true,
+  quiz: false,
+  links: false,
+};
+
+const AI_PROMPT_CHIPS = [
+  'Shorten to 3 bullets',
+  'Make executive-ready',
+  'Make this more visual',
+  'Add speaker notes',
+  'Turn into a process slide',
+  'Improve the graphic',
+  'Add a quiz',
+  'Simplify for students',
+];
+
+const AI_EDIT_TARGET_LABELS: Array<{ id: AiEditTarget; label: string }> = [
+  { id: 'title', label: 'Title' },
+  { id: 'content', label: 'Bullets' },
+  { id: 'speakerNotes', label: 'Notes' },
+  { id: 'graphic', label: 'Graphic' },
+  { id: 'quiz', label: 'Quiz' },
+  { id: 'links', label: 'Links' },
+];
 
 const GRAPHIC_PRESET_GROUPS: GraphicPresetGroup[] = [
   {
@@ -780,6 +825,12 @@ export function SlideEditor({
   const [graphicDrawerOpen, setGraphicDrawerOpen] = useState(false);
   const [graphicSearch, setGraphicSearch] = useState('');
   const [graphicCategory, setGraphicCategory] = useState<GraphicCategory>('all');
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [aiTargets, setAiTargets] = useState<AiEditTargets>(DEFAULT_AI_EDIT_TARGETS);
+  const [aiPreview, setAiPreview] = useState<AiSlideEditPreview | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiUndoSlide, setAiUndoSlide] = useState<{ slide: SlideContent; index: number } | null>(null);
   const autoSaveTimerRef = useRef<number | null>(null);
 
   const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
@@ -975,6 +1026,177 @@ export function SlideEditor({
     }
     updateSlideField(activeSlideIndex, 'graphic', createGraphicFromPreset(preset, activeSlide || undefined));
     setInspectorTab('visual');
+  };
+
+  const appendAiPromptChip = (prompt: string) => {
+    setAiInstruction((current) => {
+      if (!current.trim()) return prompt;
+      return `${current.trim()} ${prompt.charAt(0).toLowerCase()}${prompt.slice(1)}.`;
+    });
+  };
+
+  const toggleAiTarget = (target: AiEditTarget) => {
+    setAiTargets((current) => ({ ...current, [target]: !current[target] }));
+    setAiPreview(null);
+    setAiError(null);
+  };
+
+  const requestAiSlideEdit = async () => {
+    if (!activeSlide) return;
+    if (!aiInstruction.trim()) {
+      setAiError('Describe what AI should change on this slide.');
+      return;
+    }
+    if (!Object.values(aiTargets).some(Boolean)) {
+      setAiError('Select at least one slide area for AI to edit.');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+    setAiPreview(null);
+
+    try {
+      const response = await fetch('/api/ai/edit-slide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deckTitle: data.title,
+          slide: activeSlide,
+          slideIndex: activeSlideIndex,
+          totalSlides: data.slides.length,
+          previousSlideTitle: data.slides[activeSlideIndex - 1]?.title,
+          nextSlideTitle: data.slides[activeSlideIndex + 1]?.title,
+          rawParsedText: data.rawParsedText,
+          instruction: aiInstruction,
+          editTargets: aiTargets,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `AI edit failed with status ${response.status}`);
+      }
+
+      setAiPreview(payload as AiSlideEditPreview);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI edit failed. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const applyAiPreview = () => {
+    if (!aiPreview || !activeSlide) return;
+    const previousSlide = {
+      ...activeSlide,
+      content: [...activeSlide.content],
+      quiz: activeSlide.quiz ? { ...activeSlide.quiz, options: [...activeSlide.quiz.options] } : undefined,
+      links: activeSlide.links ? activeSlide.links.map((link) => ({ ...link })) : undefined,
+      graphic: activeSlide.graphic ? cloneGraphic(activeSlide.graphic) : undefined,
+    };
+    const nextSlide = {
+      ...aiPreview.updatedSlide,
+      id: activeSlide.id,
+      content: Array.isArray(aiPreview.updatedSlide.content) && aiPreview.updatedSlide.content.length > 0 ? aiPreview.updatedSlide.content : activeSlide.content,
+      speakerNotes: aiPreview.updatedSlide.speakerNotes || '',
+    };
+
+    commitDataChange((current) => {
+      const updatedSlides = [...current.slides];
+      updatedSlides[activeSlideIndex] = nextSlide;
+      return { ...current, slides: updatedSlides };
+    });
+    setAiUndoSlide({ slide: previousSlide, index: activeSlideIndex });
+    setAiPreview(null);
+    setAiError(null);
+  };
+
+  const undoAiEdit = () => {
+    if (!aiUndoSlide) return;
+    commitDataChange((current) => {
+      const updatedSlides = [...current.slides];
+      if (updatedSlides[aiUndoSlide.index]) {
+        updatedSlides[aiUndoSlide.index] = aiUndoSlide.slide;
+      }
+      return { ...current, slides: updatedSlides };
+    });
+    setActiveSlideIndex(aiUndoSlide.index);
+    setAiUndoSlide(null);
+  };
+
+  const stripPreviewHtml = (value: string) => value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+  const describeGraphic = (graphic?: SlideGraphic) => {
+    if (!graphic) return 'No graphic';
+    const title = graphic.title ? `${graphic.title} · ` : '';
+    return `${title}${graphic.type}${graphic.style ? ` / ${graphic.style}` : ''} · ${graphic.elements.length} nodes`;
+  };
+
+  const describeQuiz = (quiz?: InteractiveQuiz) => {
+    if (!quiz) return 'No quiz';
+    return `${quiz.question} · ${quiz.options.length} options`;
+  };
+
+  const describeLinks = (links?: InteractiveLink[]) => {
+    if (!links || links.length === 0) return 'No links';
+    return links.map((link) => link.title).join(', ');
+  };
+
+  const renderAiTextDiff = (label: string, beforeValue: string, afterValue: string, enabled: boolean) => {
+    if (!enabled) return null;
+    return (
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">{label}</div>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          <div className="rounded-xl bg-white p-2">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Before</div>
+            <p className="mt-1 text-xs font-semibold text-slate-600">{beforeValue || 'Empty'}</p>
+          </div>
+          <div className="rounded-xl border border-lime-100 bg-lime-50 p-2">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700">After</div>
+            <p className="mt-1 text-xs font-semibold text-lime-950">{afterValue || 'Empty'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAiBulletsDiff = () => {
+    if (!activeSlide || !aiPreview || !aiTargets.content) return null;
+    return (
+      <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Bullets</div>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          <div className="rounded-xl bg-white p-2">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Before</div>
+            <ul className="mt-1 space-y-1 text-xs font-semibold text-slate-600">
+              {activeSlide.content.map((point, idx) => <li key={idx}>• {stripPreviewHtml(point)}</li>)}
+            </ul>
+          </div>
+          <div className="rounded-xl border border-lime-100 bg-lime-50 p-2">
+            <div className="text-[9px] font-black uppercase tracking-[0.18em] text-lime-700">After</div>
+            <ul className="mt-1 space-y-1 text-xs font-semibold text-lime-950">
+              {aiPreview.updatedSlide.content.map((point, idx) => <li key={idx}>• {stripPreviewHtml(point)}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAiPreviewDiff = () => {
+    if (!activeSlide || !aiPreview) return null;
+    return (
+      <div className="space-y-2">
+        {renderAiTextDiff('Title', activeSlide.title, aiPreview.updatedSlide.title, aiTargets.title)}
+        {renderAiBulletsDiff()}
+        {renderAiTextDiff('Speaker notes', activeSlide.speakerNotes || '', aiPreview.updatedSlide.speakerNotes || '', aiTargets.speakerNotes)}
+        {renderAiTextDiff('Graphic', describeGraphic(activeSlide.graphic), describeGraphic(aiPreview.updatedSlide.graphic), aiTargets.graphic)}
+        {renderAiTextDiff('Quiz', describeQuiz(activeSlide.quiz), describeQuiz(aiPreview.updatedSlide.quiz), aiTargets.quiz)}
+        {renderAiTextDiff('Links', describeLinks(activeSlide.links), describeLinks(aiPreview.updatedSlide.links), aiTargets.links)}
+      </div>
+    );
   };
 
   const filteredGraphicGroups = GRAPHIC_PRESET_GROUPS.map((group) => ({
@@ -2358,6 +2580,127 @@ export function SlideEditor({
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-lg font-black text-slate-900 outline-none focus:border-lime-500"
                     placeholder="E.g. Fiscal Analysis Q2 2026"
                   />
+                </div>
+                <div className="rounded-[18px] border border-lime-200 bg-lime-50/50 p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">AI assistant</div>
+                      <div className="text-sm font-black text-lime-950">Edit current slide</div>
+                      <p className="mt-1 text-xs text-lime-900/60">Describe the change, preview it, then apply only when it looks right.</p>
+                    </div>
+                    <div className="h-9 w-9 rounded-2xl bg-lime-950 text-lime-50 flex items-center justify-center">
+                      <Wand2 className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={aiInstruction}
+                    onChange={(event) => {
+                      setAiInstruction(event.target.value);
+                      setAiPreview(null);
+                      setAiError(null);
+                    }}
+                    rows={4}
+                    className="w-full rounded-2xl border border-lime-200 bg-white px-3 py-3 text-xs font-semibold text-slate-800 outline-none focus:border-lime-500 resize-y"
+                    placeholder="Example: Make this slide more executive-ready, reduce it to 3 bullets, and improve the graphic."
+                  />
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_PROMPT_CHIPS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => appendAiPromptChip(prompt)}
+                        className="rounded-full border border-lime-200 bg-white px-2.5 py-1 text-[10px] font-black text-lime-900 hover:bg-lime-100"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">AI can edit</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AI_EDIT_TARGET_LABELS.map((target) => (
+                        <label key={target.id} className="flex items-center gap-2 rounded-xl border border-lime-100 bg-white px-2.5 py-2 text-[11px] font-black text-lime-950">
+                          <input
+                            type="checkbox"
+                            checked={aiTargets[target.id]}
+                            onChange={() => toggleAiTarget(target.id)}
+                            className="accent-lime-700"
+                          />
+                          {target.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {aiError && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {aiPreview && (
+                    <div className="rounded-2xl border border-lime-200 bg-white p-3 space-y-3">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Preview summary</div>
+                        <p className="mt-1 text-xs font-semibold text-slate-700">{aiPreview.summary}</p>
+                      </div>
+                      {renderAiPreviewDiff()}
+                      {aiPreview.warnings?.length ? (
+                        <ul className="space-y-1 rounded-xl bg-amber-50 p-2 text-[11px] font-semibold text-amber-800">
+                          {aiPreview.warnings.map((warning, idx) => <li key={idx}>• {warning}</li>)}
+                        </ul>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={applyAiPreview}
+                          className="rounded-full bg-lime-950 px-3 py-2 text-xs font-black text-lime-50 hover:bg-lime-900"
+                        >
+                          Apply changes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={requestAiSlideEdit}
+                          disabled={aiLoading}
+                          className="rounded-full border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-black text-lime-900 hover:bg-lime-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {aiLoading ? 'Regenerating...' : 'Regenerate'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiPreview(null)}
+                          className="rounded-full border border-lime-200 bg-white px-3 py-2 text-xs font-black text-lime-900 hover:bg-lime-50"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={requestAiSlideEdit}
+                      disabled={aiLoading || !activeSlide}
+                      className="inline-flex items-center gap-2 rounded-full bg-lime-950 px-4 py-2 text-xs font-black text-lime-50 hover:bg-lime-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      {aiLoading ? 'Thinking...' : 'Preview AI edit'}
+                    </button>
+                    {aiUndoSlide && (
+                      <button
+                        type="button"
+                        onClick={undoAiEdit}
+                        className="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-white px-4 py-2 text-xs font-black text-lime-900 hover:bg-lime-50"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        Undo AI edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-[18px] border border-slate-100 bg-white p-4">
                   <div className="flex items-center justify-between">

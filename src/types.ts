@@ -40,7 +40,7 @@ export interface PresentationData {
   orientation?: 'horizontal' | 'vertical';
 }
 
-export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'custom';
+export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'sunset' | 'ocean' | 'lavender' | 'rose' | 'custom';
 
 export interface CustomizationSettings {
   fontFamily: string;

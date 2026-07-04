@@ -26,7 +26,11 @@ interface UploaderProps {
     graphicStyle?: string, 
     tone?: string,
     slideCount?: string,
-    orientation?: string
+    orientation?: string,
+    presentationType?: string,
+    audience?: string,
+    narrativeStyle?: string,
+    focusPrompt?: string
   ) => void;
   isLoading: boolean;
   user: AuthUser;
@@ -37,6 +41,10 @@ const THEMES: { id: ThemeName; name: string; description: string; colors: string
   { id: 'modern', name: 'Modern', description: 'Clean and professional', colors: 'bg-blue-500 text-white' },
   { id: 'cosmic', name: 'Cosmic', description: 'Dark and elegant', colors: 'bg-slate-900 text-purple-400' },
   { id: 'minimal', name: 'Minimal', description: 'Black and white simplicity', colors: 'bg-white text-black border border-gray-200' },
+  { id: 'sunset', name: 'Sunset', description: 'Warm amber, coral, and editorial contrast', colors: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white' },
+  { id: 'ocean', name: 'Ocean', description: 'Cool cyan, teal, and deep navy focus', colors: 'bg-gradient-to-br from-cyan-300 via-teal-500 to-blue-950 text-white' },
+  { id: 'lavender', name: 'Lavender', description: 'Soft violet surfaces with premium indigo accents', colors: 'bg-gradient-to-br from-violet-100 via-purple-300 to-indigo-500 text-indigo-950' },
+  { id: 'rose', name: 'Rose', description: 'Editorial pink, cream, and burgundy tones', colors: 'bg-gradient-to-br from-rose-100 via-pink-300 to-rose-700 text-rose-950' },
   { id: 'custom', name: 'Custom', description: 'Fully personalized', colors: 'bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white' }
 ];
 
@@ -67,6 +75,24 @@ const GRAPHIC_STYLES = [
     name: 'Executive & Technical Tiers', 
     description: 'Structured multi-layered blocks, process flows, and formal comparison meters.',
     icon: Award
+  },
+  {
+    id: 'editorial_story',
+    name: 'Editorial Storyboard',
+    description: 'Magazine-like title cards, chapter pacing, pull quotes, and narrative section breaks.',
+    icon: BookOpen
+  },
+  {
+    id: 'data_report',
+    name: 'Data-Heavy Report',
+    description: 'Charts, benchmarks, KPI panels, and evidence-led analytical layouts.',
+    icon: Layers
+  },
+  {
+    id: 'workshop_canvas',
+    name: 'Workshop Canvas',
+    description: 'Facilitation-friendly boards, decision matrices, action plans, and audience prompts.',
+    icon: Sparkles
   }
 ];
 
@@ -88,7 +114,50 @@ const TONES = [
     name: 'Creative Storyteller', 
     description: 'Narrative-driven pacing, custom comparison metaphors, and engaging quiz experiences.',
     icon: Sparkles
+  },
+  {
+    id: 'sales',
+    name: 'Sales Pitch',
+    description: 'Persuasive, benefits-led, objection-aware language with clear calls to action.',
+    icon: TrendingUp
+  },
+  {
+    id: 'training',
+    name: 'Training Module',
+    description: 'Instructional pacing, learning objectives, checkpoints, and applied examples.',
+    icon: BookOpen
+  },
+  {
+    id: 'investor',
+    name: 'Investor Narrative',
+    description: 'Market-size framing, traction, risks, upside, and crisp financial storytelling.',
+    icon: Award
   }
+];
+
+const PRESENTATION_TYPES = [
+  { id: 'business_brief', name: 'Business Brief', desc: 'Decision-ready summary for stakeholders' },
+  { id: 'sales_pitch', name: 'Sales Pitch', desc: 'Problem, value, proof, and next step' },
+  { id: 'training_lesson', name: 'Training Lesson', desc: 'Learning objectives, examples, and checks' },
+  { id: 'research_report', name: 'Research Report', desc: 'Evidence-first findings and implications' },
+  { id: 'investor_update', name: 'Investor Update', desc: 'Performance, traction, risks, and outlook' },
+  { id: 'workshop', name: 'Workshop', desc: 'Facilitated discussion and action planning' }
+];
+
+const AUDIENCES = [
+  { id: 'general', name: 'General', desc: 'Accessible for mixed audiences' },
+  { id: 'executives', name: 'Executives', desc: 'Strategy, risks, and decisions' },
+  { id: 'technical', name: 'Technical', desc: 'Methods, systems, and tradeoffs' },
+  { id: 'students', name: 'Students', desc: 'Explanatory and teachable' },
+  { id: 'customers', name: 'Customers', desc: 'Benefits, proof, and clarity' }
+];
+
+const NARRATIVE_STYLES = [
+  { id: 'balanced', name: 'Balanced', desc: 'Clear summary with supporting detail' },
+  { id: 'problem_solution', name: 'Problem → Solution', desc: 'Pain, insight, answer, impact' },
+  { id: 'before_after', name: 'Before → After', desc: 'Contrast current state with future state' },
+  { id: 'playbook', name: 'Playbook', desc: 'Steps, roles, actions, and checkpoints' },
+  { id: 'deep_dive', name: 'Deep Dive', desc: 'More context and evidence per slide' }
 ];
 
 export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
@@ -99,6 +168,10 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [tone, setTone] = useState<string>('executive');
   const [slideCount, setSlideCount] = useState<string>('auto');
   const [orientation, setOrientation] = useState<string>('horizontal');
+  const [presentationType, setPresentationType] = useState<string>('business_brief');
+  const [audience, setAudience] = useState<string>('general');
+  const [narrativeStyle, setNarrativeStyle] = useState<string>('balanced');
+  const [focusPrompt, setFocusPrompt] = useState('');
 
   const isOutOfCredits = user.credits < 1;
 
@@ -119,7 +192,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
 
   const handleSubmit = () => {
     if (file && !isLoading) {
-      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation);
+      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation, presentationType, audience, narrativeStyle, focusPrompt);
     }
   };
 
@@ -505,6 +578,118 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
                 </button>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Presentation Type, Audience, Narrative Variation, and Focus Prompt */}
+      <div className="space-y-6 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm mb-10">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-5 h-5 text-rose-600" />
+              <h2 className="text-xl font-black text-lime-950">7. Presentation Focus</h2>
+            </div>
+            <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
+              Shape what Gemini emphasizes before it creates the deck. Pick a presentation type, audience, narrative variation, and optional custom prompt.
+            </p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
+            Optional direction
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Presentation Type</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              {PRESENTATION_TYPES.map((option) => {
+                const isSelected = presentationType === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setPresentationType(option.id)}
+                    className={cn(
+                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                      isSelected
+                        ? "border-rose-500 bg-rose-50/70 ring-1 ring-rose-400/25 text-rose-950"
+                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
+                    )}
+                  >
+                    <span className="block text-xs font-black">{option.name}</span>
+                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Audience</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              {AUDIENCES.map((option) => {
+                const isSelected = audience === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setAudience(option.id)}
+                    className={cn(
+                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                      isSelected
+                        ? "border-cyan-600 bg-cyan-50/70 ring-1 ring-cyan-400/25 text-cyan-950"
+                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
+                    )}
+                  >
+                    <span className="block text-xs font-black">{option.name}</span>
+                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Narrative Variation</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              {NARRATIVE_STYLES.map((option) => {
+                const isSelected = narrativeStyle === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setNarrativeStyle(option.id)}
+                    className={cn(
+                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                      isSelected
+                        ? "border-violet-600 bg-violet-50/70 ring-1 ring-violet-400/25 text-violet-950"
+                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
+                    )}
+                  >
+                    <span className="block text-xs font-black">{option.name}</span>
+                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
+            Custom focus prompt
+          </label>
+          <textarea
+            id="focus-prompt"
+            value={focusPrompt}
+            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
+            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
+            className="w-full min-h-28 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
+          />
+          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
+            <span>Used as extra generation guidance</span>
+            <span>{focusPrompt.length}/900</span>
           </div>
         </div>
       </div>
