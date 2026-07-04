@@ -69,8 +69,13 @@ export async function getActiveDeckSharePayload(deckId: string, origin?: string)
     return null;
   }
 
-  const token = decryptToken(share.tokenCiphertext, share.tokenIv, share.tokenTag);
-  return buildSharePayload(token, share.createdAt, share.updatedAt, origin);
+  try {
+    const token = decryptToken(share.tokenCiphertext, share.tokenIv, share.tokenTag);
+    return buildSharePayload(token, share.createdAt, share.updatedAt, origin);
+  } catch (error) {
+    console.warn('Failed to decrypt share token payload for deck', deckId, error);
+    return null;
+  }
 }
 
 export async function createOrRotateDeckShare(deckId: string, origin?: string) {
