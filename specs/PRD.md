@@ -18,8 +18,8 @@ Existing workflows usually force users to choose between speed and quality. Auto
 
 - Convert readable PDF content into a coherent presentation deck.
 - Generate slide content, speaker notes, diagrams, quizzes, links, and optional embedded video references.
-- Let users control slide count and presentation orientation before generation.
-- Provide user control before presentation through an editable blueprint workspace.
+- Let users control slide count, presentation orientation, presentation type, audience, narrative variation, and a custom focus prompt before generation.
+- Provide user control before presentation through an editable blueprint workspace with manual and prompt-based AI slide editing.
 - Allow slide bullets to include lightweight rich text formatting.
 - Support multiple visual themes and custom brand styling.
 - Present the deck as a polished animated HTML experience.
@@ -53,7 +53,7 @@ Existing workflows usually force users to choose between speed and quality. Auto
 
 ### 6.1 Generate a Presentation From a PDF
 
-An authenticated user uploads a PDF, selects a visual theme, chooses a graphic style, tone, slide count, and orientation, then generates a presentation. The system extracts readable text, asks Gemini to structure the content, validates the response, and displays an editable draft.
+An authenticated user uploads a PDF, selects a visual theme, chooses a graphic style, tone, presentation type, audience, narrative variation, optional focus prompt, slide count, and orientation, then generates a presentation. The system extracts readable text, asks Gemini to structure the content, validates the response, and displays an editable draft.
 
 ### 6.1.1 Discover and Enter the Product
 
@@ -93,27 +93,36 @@ The user saves generated or edited presentation data to their account, returns t
 4. The authenticated user lands on the saved deck library.
 5. The user opens an existing deck or starts a new presentation.
 6. The user uploads one PDF through drag-and-drop or file picker.
-7. The user selects a theme: Limefrost, Modern, Cosmic, Minimal, or Custom. Limefrost is selected by default.
+7. The user selects a theme: Limefrost, Modern, Cosmic, Minimal, Sunset, Ocean, Lavender, Rose, or Custom. Limefrost is selected by default.
 8. If Custom is selected, the user configures typography, alignment, spacing, and colors.
 9. The user selects a graphic style:
    - Modern Infographic
    - Bento Grid Layout
    - Executive and Technical Tiers
+   - Editorial Storyboard
+   - Data-Heavy Report
+   - Workshop Canvas
 10. The user selects a content tone:
    - Executive Summary
    - Academic Deep-Dive
    - Creative Storyteller
-11. The user chooses slide count: automatic or an exact target count.
-12. The user chooses orientation: horizontal or vertical.
-13. The user clicks Generate Presentation.
-14. The frontend sends the PDF and generation settings to `/api/generate`.
-15. The backend verifies the session, extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
-16. The editor opens with the generated deck and extracted source text.
-17. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings.
-18. The user saves the deck as a new saved deck or updates an existing saved deck.
-19. The user finalizes the deck.
-20. The presentation opens in a full-screen style viewer.
-21. The user presents, exports, returns to the library, or exits back to the upload flow.
+   - Sales Pitch
+   - Training Module
+   - Investor Narrative
+11. The user chooses a presentation type, target audience, and narrative variation.
+12. The user optionally adds a custom focus prompt for style, audience, or content emphasis.
+13. The user chooses slide count: automatic or an exact target count.
+14. The user chooses orientation: horizontal or vertical.
+15. The user clicks Generate Presentation.
+16. The frontend sends the PDF and generation settings to `/api/generate`.
+17. The backend verifies the session, extracts text, truncates very long source text, prompts Gemini, validates JSON, and returns a structured deck.
+18. The editor opens with the generated deck and extracted source text.
+19. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings manually or with the AI slide editing assistant.
+20. The user can prompt AI to update the current slide, preview the structured result, apply the result, regenerate or dismiss it, and undo the applied AI edit.
+21. The user saves the deck as a new saved deck or updates an existing saved deck.
+22. The user finalizes the deck.
+23. The presentation opens in a full-screen style viewer.
+24. The user presents, exports, returns to the library, or exits back to the upload flow.
 
 ## 8. Functional Requirements
 
@@ -196,7 +205,9 @@ The user saves generated or edited presentation data to their account, returns t
 - The user must be able to select content tone before generation.
 - The user must be able to select automatic slide count or request an exact slide count.
 - The user must be able to select horizontal or vertical presentation orientation.
-- The selected graphic style, tone, slide count, and orientation must influence the AI prompt or returned deck metadata.
+- The user must be able to select a presentation type, target audience, and narrative variation before generation.
+- The user must be able to add an optional custom focus prompt before generation.
+- The selected graphic style, tone, presentation type, audience, narrative variation, focus prompt, slide count, and orientation must influence the AI prompt or returned deck metadata.
 
 ### 8.6 Blueprint Editor
 
@@ -228,6 +239,18 @@ The user saves generated or edited presentation data to their account, returns t
 - The user must be able to update an existing saved deck from the editor.
 - The user must be able to save an existing deck as a new copy.
 - The UI must show save progress or save result feedback.
+
+### 8.6.1 AI Slide Editing Assistant
+
+- The editor must let users edit the current slide with a natural-language prompt.
+- The AI slide editor must support quick prompt chips for common changes such as shortening, executive rewriting, visual improvement, speaker notes, process conversion, graphic improvement, quiz creation, and student simplification.
+- The user must be able to select which slide fields AI may change: title, bullets, speaker notes, graphic, quiz, and links.
+- AI slide editing must show a before/after preview of the proposed update before applying it to the deck.
+- Applying an AI slide edit must preserve the original slide ID and use the existing autosave flow.
+- Users must be able to regenerate a proposed AI edit before applying it.
+- Users must be able to undo the most recently applied AI slide edit.
+- The backend must require authentication for AI slide editing.
+- The backend must validate AI slide edit responses, constrain graphic types to supported values, clamp percentages, sanitize bullet HTML, and return JSON errors for invalid requests or model failures.
 
 ### 8.7 Presentation Mode
 
@@ -542,7 +565,12 @@ Request:
   - `tone`: optional string, defaults to `executive`.
   - `slideCount`: optional string, defaults to `auto`; numeric values request an exact slide count.
   - `orientation`: optional string, defaults to `horizontal`; supported values are `horizontal` and `vertical`.
+  - `presentationType`: optional string, defaults to `business_brief`.
+  - `audience`: optional string, defaults to `general`.
+  - `narrativeStyle`: optional string, defaults to `balanced`.
+  - `focusPrompt`: optional string for custom style/content emphasis; capped server-side before prompting Gemini.
   - `customSettings`: optional JSON string, currently forwarded by frontend for future backend usage.
+
 
 Success response:
 
@@ -561,7 +589,15 @@ Error response:
 { "error": "User-facing error message" }
 ```
 
-### 11.4 Deck API
+### 11.4 `POST /api/ai/edit-slide`
+
+Authentication: required.
+
+Request body includes deck title, current slide, slide index, total slide count, neighboring slide titles, optional source text, user instruction, and edit target booleans.
+
+Success response includes a summary, optional warnings, and an updated `SlideContent` object for before/after preview, regeneration, and apply in the editor.
+
+### 11.5 Deck API
 
 All deck routes require authentication and operate only on the current user's decks.
 

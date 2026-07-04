@@ -11,6 +11,118 @@ import { prisma } from './src/server/db';
 import { sendError } from './src/server/http';
 import { authRouter } from './src/server/routes/auth';
 import { decksRouter } from './src/server/routes/decks';
+import { sanitizeRichTextHtml } from './src/lib/richText';
+
+const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
+
+function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: string) {
+  return {
+    id: fallbackId,
+    title: typeof slide?.title === 'string' && slide.title.trim() ? slide.title.trim() : fallbackTitle,
+    content: Array.isArray(slide?.content) && slide.content.length > 0
+      ? slide.content.map((point: any) => sanitizeRichTextHtml(String(point)))
+      : ['Key detailed point'],
+    speakerNotes: typeof slide?.speakerNotes === 'string' ? slide.speakerNotes : '',
+    graphic: slide?.graphic && typeof slide.graphic === 'object' && Array.isArray(slide.graphic.elements) ? {
+      type: GRAPHIC_TYPES.includes(slide.graphic.type) ? slide.graphic.type : 'metrics',
+      title: slide.graphic.title ? String(slide.graphic.title) : '',
+      style: slide.graphic.style ? String(slide.graphic.style) : undefined,
+      elements: slide.graphic.elements.length > 0
+        ? slide.graphic.elements.map((el: any) => ({
+          label: el?.label ? String(el.label) : 'Detail',
+          value: el?.value ? String(el.value) : undefined,
+          secondaryText: el?.secondaryText ? String(el.secondaryText) : undefined,
+          percentage: typeof el?.percentage === 'number' ? Math.min(100, Math.max(0, el.percentage)) : undefined,
+          icon: el?.icon ? String(el.icon) : undefined
+        }))
+        : [{ label: 'Key point', value: '100%', percentage: 100, icon: 'Target' }]
+    } : undefined,
+    quiz: slide?.quiz && typeof slide.quiz === 'object' && slide.quiz.question && Array.isArray(slide.quiz.options) && slide.quiz.options.length >= 2 ? {
+      question: String(slide.quiz.question),
+      options: slide.quiz.options.slice(0, 6).map((option: any) => String(option)),
+      correctAnswerIndex: typeof slide.quiz.correctAnswerIndex === 'number'
+        ? Math.min(Math.max(slide.quiz.correctAnswerIndex, 0), Math.min(slide.quiz.options.length - 1, 5))
+        : 0
+    } : undefined,
+    links: Array.isArray(slide?.links) ? slide.links.filter((link: any) => link && link.title && link.url).map((link: any) => ({
+      title: String(link.title),
+      url: String(link.url)
+    })) : undefined,
+    videoUrl: slide?.videoUrl ? String(slide.videoUrl) : undefined
+  };
+}
+
+function buildSlideResponseSchema() {
+  return {
+    type: Type.OBJECT,
+    properties: {
+      summary: { type: Type.STRING, description: 'A concise explanation of what changed and why.' },
+      warnings: {
+        type: Type.ARRAY,
+        description: 'Optional cautions if the request could only be partially completed.',
+        items: { type: Type.STRING }
+      },
+      updatedSlide: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          title: { type: Type.STRING },
+          content: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+          },
+          speakerNotes: { type: Type.STRING },
+          graphic: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, description: 'process, comparison, metrics, hierarchy, or pie' },
+              style: { type: Type.STRING },
+              title: { type: Type.STRING },
+              elements: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    label: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                    secondaryText: { type: Type.STRING },
+                    percentage: { type: Type.INTEGER },
+                    icon: { type: Type.STRING }
+                  },
+                  required: ['label']
+                }
+              }
+            },
+            required: ['type', 'elements']
+          },
+          quiz: {
+            type: Type.OBJECT,
+            properties: {
+              question: { type: Type.STRING },
+              options: { type: Type.ARRAY, items: { type: Type.STRING } },
+              correctAnswerIndex: { type: Type.INTEGER }
+            },
+            required: ['question', 'options', 'correctAnswerIndex']
+          },
+          links: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                url: { type: Type.STRING }
+              },
+              required: ['title', 'url']
+            }
+          },
+          videoUrl: { type: Type.STRING }
+        },
+        required: ['id', 'title', 'content', 'speakerNotes']
+      }
+    },
+    required: ['summary', 'updatedSlide']
+  };
+}
 
 async function startServer() {
   const app = express();
@@ -36,6 +148,134 @@ async function startServer() {
   // Add health endpoint
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  app.post('/api/ai/edit-slide', requireAuth, async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: 'GEMINI_API_KEY environment variable is not configured. Please add it to your settings.' });
+      }
+
+      const instruction = typeof req.body.instruction === 'string' ? req.body.instruction.trim().slice(0, 1000) : '';
+      const slide = req.body.slide;
+      if (!instruction) {
+        return res.status(400).json({ error: 'Tell AI what to change on this slide.' });
+      }
+      if (!slide || typeof slide !== 'object') {
+        return res.status(400).json({ error: 'Current slide data is required.' });
+      }
+
+      const editTargets = {
+        title: Boolean(req.body.editTargets?.title),
+        content: Boolean(req.body.editTargets?.content),
+        speakerNotes: Boolean(req.body.editTargets?.speakerNotes),
+        graphic: Boolean(req.body.editTargets?.graphic),
+        quiz: Boolean(req.body.editTargets?.quiz),
+        links: Boolean(req.body.editTargets?.links)
+      };
+
+      if (!Object.values(editTargets).some(Boolean)) {
+        return res.status(400).json({ error: 'Select at least one slide area for AI to edit.' });
+      }
+
+      const deckTitle = typeof req.body.deckTitle === 'string' && req.body.deckTitle.trim() ? req.body.deckTitle.trim() : 'Untitled Storyline';
+      const slideIndex = Number.isInteger(req.body.slideIndex) ? req.body.slideIndex : 0;
+      const totalSlides = Number.isInteger(req.body.totalSlides) ? req.body.totalSlides : 1;
+      const previousSlideTitle = typeof req.body.previousSlideTitle === 'string' ? req.body.previousSlideTitle : '';
+      const nextSlideTitle = typeof req.body.nextSlideTitle === 'string' ? req.body.nextSlideTitle : '';
+      const rawParsedText = typeof req.body.rawParsedText === 'string' ? req.body.rawParsedText.slice(0, 15000) : '';
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const prompt = `You are Storyline's AI slide editor. Edit ONLY the provided slide according to the user's instruction.
+
+Rules:
+- Preserve the original slide id exactly.
+- Stay faithful to the current slide, deck context, and source text. Do not invent unsupported facts.
+- Only modify fields enabled in editTargets. Keep disabled fields unchanged.
+- Keep bullet content concise, presentation-ready, and stored as strings.
+- Supported graphic types are process, comparison, metrics, hierarchy, and pie.
+- If creating or changing a graphic, provide useful labels, values, percentages, descriptions, and Lucide icon names.
+- If adding a quiz, include one clear question, 2-4 options, and a correctAnswerIndex.
+- Return JSON only using the requested schema.
+
+Deck title: ${deckTitle}
+Slide position: ${slideIndex + 1} of ${totalSlides}
+Previous slide title: ${previousSlideTitle || 'None'}
+Next slide title: ${nextSlideTitle || 'None'}
+Edit targets: ${JSON.stringify(editTargets)}
+User instruction: ${instruction}
+
+Current slide JSON:
+${JSON.stringify(slide, null, 2)}
+
+Source text excerpt for fact checking:
+${rawParsedText || 'No source text is available for this editing session.'}`;
+
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: buildSlideResponseSchema(),
+          },
+        });
+      } catch (geminiErr: any) {
+        console.error('Gemini slide edit failed:', geminiErr);
+        let errorMsg = 'The AI model failed to edit this slide. Please try again.';
+        if (geminiErr.message?.includes('API_KEY')) {
+          errorMsg = 'Invalid or missing GEMINI_API_KEY. Please verify your environment variables or key settings.';
+        } else if (geminiErr.status === 429) {
+          errorMsg = 'Rate limit exceeded for the AI model. Please wait a moment and try again.';
+        } else if (geminiErr.message?.includes('safety')) {
+          errorMsg = 'The slide edit was blocked by content safety filters. Try a different instruction.';
+        } else if (geminiErr.message) {
+          errorMsg = `AI slide edit error: ${geminiErr.message}`;
+        }
+        return res.status(500).json({ error: errorMsg });
+      }
+
+      const jsonStr = response.text?.trim() || '';
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (err) {
+        console.error('Failed to parse Gemini slide edit JSON:', err, jsonStr);
+        return res.status(500).json({ error: 'Failed to structure the AI slide edit.' });
+      }
+
+      const normalizedSlide = normalizeSlideContent(parsed.updatedSlide, String(slide.id || `slide-${slideIndex + 1}`), String(slide.title || `Slide ${slideIndex + 1}`));
+
+      const protectedSlide = {
+        ...slide,
+        ...(editTargets.title ? { title: normalizedSlide.title } : {}),
+        ...(editTargets.content ? { content: normalizedSlide.content } : {}),
+        ...(editTargets.speakerNotes ? { speakerNotes: normalizedSlide.speakerNotes } : {}),
+        ...(editTargets.graphic ? { graphic: normalizedSlide.graphic } : {}),
+        ...(editTargets.quiz ? { quiz: normalizedSlide.quiz } : {}),
+        ...(editTargets.links ? { links: normalizedSlide.links } : {}),
+        id: String(slide.id || `slide-${slideIndex + 1}`)
+      };
+
+      res.json({
+        summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : 'AI prepared an update for this slide.',
+        warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((warning: any) => String(warning)) : [],
+        updatedSlide: protectedSlide
+      });
+    } catch (error: any) {
+      console.error('Error editing slide with AI:', error);
+      res.status(500).json({ error: 'An unexpected internal error occurred: ' + (error.message || 'Unknown error') });
+    }
   });
 
   // Generate presentation endpoint
@@ -101,6 +341,10 @@ async function startServer() {
       const tone = req.body.tone || 'executive';
       const slideCount = req.body.slideCount || 'auto';
       const orientation = req.body.orientation || 'horizontal';
+      const presentationType = req.body.presentationType || 'business_brief';
+      const audience = req.body.audience || 'general';
+      const narrativeStyle = req.body.narrativeStyle || 'balanced';
+      const focusPrompt = typeof req.body.focusPrompt === 'string' ? req.body.focusPrompt.trim().slice(0, 900) : '';
 
       let styleGuidance = '';
       if (graphicStyle === 'modern_infographic') {
@@ -109,6 +353,12 @@ async function startServer() {
         styleGuidance = 'The visual elements MUST follow a "Modern Bento Grid" style. Choose graphic types like "metrics" (to create beautiful side-by-side bento metrics boards), "comparison", or modular data cards with clear numerical stats.';
       } else if (graphicStyle === 'executive_mono') {
         styleGuidance = 'The visual elements MUST follow a "High-Impact Technical / Corporate Executive" style. Choose graphic types like "hierarchy" (for structured layers/tiers) or "metrics" and "process". Use serious, data-driven labels and structured content mapping.';
+      } else if (graphicStyle === 'editorial_story') {
+        styleGuidance = 'The visual elements MUST follow an "Editorial Storyboard" style. Use magazine-like pacing, chapter-style section breaks, pull-quote moments, and visually strong title/transition slides with process, hierarchy, and comparison graphics.';
+      } else if (graphicStyle === 'data_report') {
+        styleGuidance = 'The visual elements MUST follow a "Data-Heavy Report" style. Prefer metrics dashboards, benchmark panels, comparison bars, percentage grids, trend indicators, and evidence-led labels. Every slide should make the data or proof easy to scan.';
+      } else if (graphicStyle === 'workshop_canvas') {
+        styleGuidance = 'The visual elements MUST follow a "Workshop Canvas" style. Use decision matrices, process boards, action-plan templates, priority stacks, and facilitation-friendly prompts that help an audience discuss and act.';
       }
 
       let toneGuidance = '';
@@ -118,7 +368,45 @@ async function startServer() {
         toneGuidance = 'The text content MUST be "Academic & Detailed". Bullet points should be rich with educational information, definitions, and conceptual context. Formulate thought-provoking multiple-choice quizzes.';
       } else if (tone === 'creative') {
         toneGuidance = 'The text content MUST be "Creative & Narrative". Tell a compelling story across the slides, using engaging metaphors, custom process stages, and fun quiz challenges.';
+      } else if (tone === 'sales') {
+        toneGuidance = 'The text content MUST be a persuasive "Sales Pitch". Lead with pains, benefits, proof points, objections, differentiation, and a clear call to action. Keep claims grounded in the source text.';
+      } else if (tone === 'training') {
+        toneGuidance = 'The text content MUST be a "Training Module". Add learning objectives, explain concepts progressively, include examples, and use quizzes to check understanding.';
+      } else if (tone === 'investor') {
+        toneGuidance = 'The text content MUST be an "Investor Narrative". Emphasize market context, traction, opportunity, risk, financial/operating signals, and forward-looking implications when supported by the source.';
       }
+
+      const presentationTypeGuidanceMap: Record<string, string> = {
+        business_brief: 'Create a business brief with an executive summary, prioritized insights, implications, decisions, and next steps.',
+        sales_pitch: 'Create a sales pitch with problem framing, value proposition, proof points, differentiation, objection handling, and a clear close.',
+        training_lesson: 'Create a training lesson with learning objectives, progressive explanation, examples, recap moments, and knowledge-check quizzes.',
+        research_report: 'Create a research report with methodology/context, key findings, evidence, interpretation, limitations, and recommendations.',
+        investor_update: 'Create an investor update with headline performance, traction, metrics, market context, risks, milestones, and outlook.',
+        workshop: 'Create a workshop deck with agenda, facilitation prompts, discussion boards, decision points, activities, and action planning.'
+      };
+
+      const audienceGuidanceMap: Record<string, string> = {
+        general: 'Write for a mixed general audience. Avoid unnecessary jargon and explain specialized terms briefly.',
+        executives: 'Write for executives. Emphasize strategic stakes, tradeoffs, risks, decisions, metrics, and concise takeaways.',
+        technical: 'Write for a technical audience. Preserve important methods, architecture, assumptions, dependencies, and implementation details.',
+        students: 'Write for students. Teach concepts step-by-step with definitions, examples, and comprehension checks.',
+        customers: 'Write for customers. Emphasize outcomes, benefits, proof, trust, and practical next steps.'
+      };
+
+      const narrativeGuidanceMap: Record<string, string> = {
+        balanced: 'Use a balanced narrative with clear summary slides and enough supporting detail to be credible.',
+        problem_solution: 'Use a problem-to-solution arc: current pain, root causes, solution, impact, and next actions.',
+        before_after: 'Use a before-to-after arc: current state, transition, future state, and measurable improvements.',
+        playbook: 'Use a playbook structure: principles, steps, owners, checkpoints, risks, and action items.',
+        deep_dive: 'Use a deep-dive structure with richer evidence, more nuance, and explicit assumptions or caveats.'
+      };
+
+      const presentationTypeGuidance = presentationTypeGuidanceMap[presentationType] || presentationTypeGuidanceMap.business_brief;
+      const audienceGuidance = audienceGuidanceMap[audience] || audienceGuidanceMap.general;
+      const narrativeGuidance = narrativeGuidanceMap[narrativeStyle] || narrativeGuidanceMap.balanced;
+      const focusGuidance = focusPrompt
+        ? `User's Custom Focus Prompt: Follow this additional user instruction while staying faithful to the source text: "${focusPrompt}"`
+        : "User's Custom Focus Prompt: No extra focus prompt was provided.";
 
       let slideCountGuidance = 'Generate an appropriate number of slides to summarize the key points (usually between 5 to 10 slides).';
       if (slideCount !== 'auto') {
@@ -136,6 +424,10 @@ Make sure there's an introductory slide, several content slides, and a conclusio
 Layout and Content Tone Expectations:
 - Style Guideline: ${styleGuidance}
 - Tone Guideline: ${toneGuidance}
+- Presentation Type: ${presentationTypeGuidance}
+- Target Audience: ${audienceGuidance}
+- Narrative Variation: ${narrativeGuidance}
+- ${focusGuidance}
 - Slide Count Requirement: ${slideCountGuidance}
 
 For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).

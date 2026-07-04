@@ -38,6 +38,10 @@ const themeStyles: Record<ThemeName, { bg: string; text: string; accent: string;
   limefrost: { bg: 'bg-lime-50', text: 'text-lime-900', accent: 'bg-lime-500', title: 'text-lime-950' },
   cosmic: { bg: 'bg-slate-950', text: 'text-slate-300', accent: 'bg-purple-600', title: 'text-white' },
   minimal: { bg: 'bg-white', text: 'text-black', accent: 'bg-black', title: 'text-black' },
+  sunset: { bg: 'bg-orange-50', text: 'text-orange-950', accent: 'bg-rose-500', title: 'text-orange-950' },
+  ocean: { bg: 'bg-cyan-50', text: 'text-slate-700', accent: 'bg-teal-500', title: 'text-slate-950' },
+  lavender: { bg: 'bg-violet-50', text: 'text-violet-900', accent: 'bg-violet-500', title: 'text-indigo-950' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-900', accent: 'bg-rose-600', title: 'text-rose-950' },
   custom: { bg: '', text: '', accent: '', title: '' } // Handled via style props
 };
 

@@ -137,7 +137,11 @@ export default function App() {
     graphicStyle: string = 'modern_infographic',
     tone: string = 'executive',
     slideCount: string = 'auto',
-    orientation: string = 'horizontal'
+    orientation: string = 'horizontal',
+    presentationType: string = 'business_brief',
+    audience: string = 'general',
+    narrativeStyle: string = 'balanced',
+    focusPrompt: string = ''
   ) => {
     setIsLoading(true);
     setError(null);
@@ -151,6 +155,12 @@ export default function App() {
     formData.append('tone', tone);
     formData.append('slideCount', slideCount);
     formData.append('orientation', orientation);
+    formData.append('presentationType', presentationType);
+    formData.append('audience', audience);
+    formData.append('narrativeStyle', narrativeStyle);
+    if (focusPrompt.trim()) {
+      formData.append('focusPrompt', focusPrompt.trim());
+    }
     if (settings) {
       formData.append('customSettings', JSON.stringify(settings));
     }
