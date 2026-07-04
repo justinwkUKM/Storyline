@@ -1075,6 +1075,9 @@ export function SlideEditor({
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('AI edit endpoint is unavailable. Restart the Storyline server and try again.');
+        }
         throw new Error(payload.error || `AI edit failed with status ${response.status}`);
       }
 
@@ -2107,38 +2110,43 @@ export function SlideEditor({
                 {data.slides.map((slide, idx) => {
                   const isActive = idx === activeSlideIndex;
                   return (
-                    <button
+                    <div
                       key={slide.id}
-                      onClick={() => setActiveSlide(idx)}
                       className={cn(
                         "w-full text-left rounded-[18px] border p-3 transition-all",
                         isActive ? "border-lime-700 bg-lime-50 ring-2 ring-lime-500/10" : "border-lime-100 bg-white hover:border-lime-200 hover:bg-lime-50/40"
                       )}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0", isActive ? "bg-lime-950 text-lime-50" : "bg-lime-100 text-lime-800")}>
-                          {idx + 1}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-black text-lime-950 truncate">{slide.title || '(Untitled Slide)'}</div>
-                            {isActive && <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-900">Active</span>}
+                      <button
+                        type="button"
+                        onClick={() => setActiveSlide(idx)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("h-8 w-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0", isActive ? "bg-lime-950 text-lime-50" : "bg-lime-100 text-lime-800")}>
+                            {idx + 1}
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-1.5">
-                            <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">{slide.content.length} bullets</span>
-                            {slide.graphic && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800">{slide.graphic.type}</span>}
-                            {slide.quiz && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Quiz</span>}
-                            {slide.links && slide.links.length > 0 && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800">Links</span>}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-black text-lime-950 truncate">{slide.title || '(Untitled Slide)'}</div>
+                              {isActive && <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-900">Active</span>}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                              <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">{slide.content.length} bullets</span>
+                              {slide.graphic && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-lime-100 text-lime-800">{slide.graphic.type}</span>}
+                              {slide.quiz && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Quiz</span>}
+                              {slide.links && slide.links.length > 0 && <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800">Links</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
                       <div className="mt-3 flex items-center justify-end gap-1.5">
                         <button onClick={(e) => handleMoveSlide(idx, 'up', e)} disabled={idx === 0} className="p-1.5 rounded-lg border border-lime-100 bg-white disabled:opacity-30" title="Move up"><ArrowUp className="w-3.5 h-3.5" /></button>
                         <button onClick={(e) => handleMoveSlide(idx, 'down', e)} disabled={idx === data.slides.length - 1} className="p-1.5 rounded-lg border border-lime-100 bg-white disabled:opacity-30" title="Move down"><ArrowDown className="w-3.5 h-3.5" /></button>
                         <button onClick={() => duplicateSlide(idx)} className="p-1.5 rounded-lg border border-lime-100 bg-white" title="Duplicate slide"><Copy className="w-3.5 h-3.5" /></button>
                         <button onClick={(e) => handleRemoveSlide(idx, e)} className="p-1.5 rounded-lg border border-lime-100 bg-white text-red-500" title="Delete slide"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
                 <button
