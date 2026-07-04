@@ -41,7 +41,23 @@ model Deck {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  share            DeckShare?
 
   @@index([userId])
   @@index([updatedAt])
+}
+
+model DeckShare {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  tokenCiphertext String
+  tokenIv    String
+  tokenTag   String
+  deckId     String   @unique
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deck       Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([revokedAt])
 }

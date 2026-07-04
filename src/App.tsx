@@ -9,6 +9,7 @@ import {
   CustomizationSettings,
   DeckSummary,
   PresentationData,
+  ShareLinkInfo,
   SavedDeck,
   ThemeName
 } from './types';
@@ -18,31 +19,18 @@ import { SlideEditor } from './components/SlideEditor';
 import { AuthScreen } from './components/AuthScreen';
 import { DeckLibrary } from './components/DeckLibrary';
 import { LandingPage } from './components/LandingPage';
+import { BrandLogo } from './components/BrandLogo';
+import { SiteFooter } from './components/SiteFooter';
+import { ShareLinkDialog } from './components/ShareLinkDialog';
+import { apiRequest } from './lib/api';
 import { AnimatePresence, motion } from 'motion/react';
-import { FileText, LogOut, Zap } from 'lucide-react';
-
-async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(options.headers || {}),
-    },
-  });
-  const contentType = response.headers.get('content-type');
-  const isJson = contentType && contentType.includes('application/json');
-  const payload = isJson ? await response.json().catch(() => ({})) : {};
-
-  if (!response.ok) {
-    throw new Error(payload.error || `Request failed with status ${response.status}`);
-  }
-  if (!isJson) {
-    throw new Error('Server returned an invalid response format.');
-  }
-  return payload as T;
-}
+import { LogOut, Zap } from 'lucide-react';
 
 export default function App() {
+  const shareToken = typeof window !== 'undefined'
+    ? window.location.pathname.match(/^\/share\/([^/?#]+)/)?.[1] || null
+    : null;
+
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -65,6 +53,16 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sharedPresentation, setSharedPresentation] = useState<PresentationData | null>(null);
+  const [sharedTheme, setSharedTheme] = useState<ThemeName>('limefrost');
+  const [sharedCustomSettings, setSharedCustomSettings] = useState<CustomizationSettings | undefined>();
+  const [shareLoading, setShareLoading] = useState(Boolean(shareToken));
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareDialogDeck, setShareDialogDeck] = useState<{ id: string; title: string } | null>(null);
+  const [shareDialogLoading, setShareDialogLoading] = useState(false);
+  const [shareDialogShare, setShareDialogShare] = useState<ShareLinkInfo | null>(null);
+  const [shareDialogError, setShareDialogError] = useState<string | null>(null);
+  const [shareDialogStatus, setShareDialogStatus] = useState<string | null>(null);
 
   const refreshDecks = async () => {
     if (!user) return;
@@ -81,11 +79,62 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (shareToken) {
+      setAuthLoading(false);
+      return;
+    }
+
     apiRequest<{ user: AuthUser }>('/api/auth/me')
       .then((data) => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setAuthLoading(false));
-  }, []);
+  }, [shareToken]);
+
+  useEffect(() => {
+    if (!shareToken) return;
+
+    const loadSharedDeck = async () => {
+      setShareLoading(true);
+      setShareError(null);
+      try {
+        const data = await apiRequest<{ deck: SavedDeck }>(`/api/share/${shareToken}`);
+        setSharedPresentation(data.deck.presentationData);
+        setSharedTheme(data.deck.theme);
+        setSharedCustomSettings(data.deck.customSettings);
+      } catch (err) {
+        setShareError(err instanceof Error ? err.message : 'Shared presentation unavailable.');
+      } finally {
+        setShareLoading(false);
+      }
+    };
+
+    void loadSharedDeck();
+  }, [shareToken]);
+
+  useEffect(() => {
+    if (!shareToken) return;
+
+    const robots = document.querySelector('meta[name="robots"]') || document.createElement('meta');
+    if (!robots.parentElement) {
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
+    }
+    const previousContent = robots.getAttribute('content');
+    robots.setAttribute('content', 'noindex,nofollow');
+    const previousTitle = document.title;
+    if (sharedPresentation?.title) {
+      document.title = `${sharedPresentation.title} - Storyline`;
+    } else {
+      document.title = 'Shared presentation - Storyline';
+    }
+
+    return () => {
+      if (previousContent !== null) {
+        robots.setAttribute('content', previousContent);
+      }
+      document.title = previousTitle;
+    };
+  }, [shareToken, sharedPresentation?.title]);
 
   useEffect(() => {
     if (user) {
@@ -313,6 +362,130 @@ export default function App() {
     }
   };
 
+  const copyTextToClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  };
+
+  const closeShareDialog = () => {
+    setShareDialogDeck(null);
+    setShareDialogShare(null);
+    setShareDialogError(null);
+    setShareDialogStatus(null);
+    setShareDialogLoading(false);
+  };
+
+  const openShareDialog = async (deckId: string, title: string) => {
+    setShareDialogDeck({ id: deckId, title });
+    setShareDialogShare(null);
+    setShareDialogError(null);
+    setShareDialogStatus(null);
+    setShareDialogLoading(true);
+
+    try {
+      const data = await apiRequest<{ share: ShareLinkInfo | null }>(`/api/decks/${deckId}/share`);
+      setShareDialogShare(data.share);
+    } catch (err) {
+      setShareDialogError(err instanceof Error ? err.message : 'Failed to load share link.');
+    } finally {
+      setShareDialogLoading(false);
+    }
+  };
+
+  const handleSharePrimaryAction = async () => {
+    if (!shareDialogDeck || shareDialogLoading) return;
+
+    setShareDialogError(null);
+    setShareDialogStatus(null);
+    setShareDialogLoading(true);
+
+    try {
+      const share = shareDialogShare
+        ? shareDialogShare
+        : (await apiRequest<{ share: ShareLinkInfo }>(`/api/decks/${shareDialogDeck.id}/share`, { method: 'POST' })).share;
+
+      setShareDialogShare(share);
+      await copyTextToClipboard(share.url);
+      setShareDialogStatus('Share link copied to clipboard.');
+      void refreshDecks();
+    } catch (err) {
+      setShareDialogError(err instanceof Error ? err.message : 'Failed to create or copy the share link.');
+    } finally {
+      setShareDialogLoading(false);
+    }
+  };
+
+  const handleShareRevoke = async () => {
+    if (!shareDialogDeck || shareDialogLoading || !shareDialogShare) return;
+
+    setShareDialogError(null);
+    setShareDialogStatus(null);
+    setShareDialogLoading(true);
+
+    try {
+      await apiRequest<{ ok: boolean }>(`/api/decks/${shareDialogDeck.id}/share`, { method: 'DELETE' });
+      setShareDialogShare(null);
+      setShareDialogStatus('Share link revoked.');
+      void refreshDecks();
+    } catch (err) {
+      setShareDialogError(err instanceof Error ? err.message : 'Failed to revoke the share link.');
+    } finally {
+      setShareDialogLoading(false);
+    }
+  };
+
+  if (shareToken) {
+    if (shareLoading) {
+      return (
+        <div className="min-h-screen bg-lime-50 flex items-center justify-center text-lime-900/70 font-semibold">
+          Loading shared presentation...
+        </div>
+      );
+    }
+
+    if (shareError || !sharedPresentation) {
+      return (
+        <div className="min-h-screen bg-lime-50 flex items-center justify-center px-6">
+          <div className="w-full max-w-md rounded-3xl border border-lime-200 bg-white/95 backdrop-blur p-8 shadow-xl shadow-lime-950/5 text-center">
+            <BrandLogo className="h-14 mx-auto max-w-[280px]" />
+            <h1 className="mt-6 text-3xl font-black text-lime-950">Shared presentation unavailable</h1>
+            <p className="mt-3 text-lime-900/70 font-medium">
+              {shareError || 'This share link is invalid or has been revoked.'}
+            </p>
+            <button
+              onClick={() => window.location.assign('/')}
+              className="mt-6 px-6 py-3 rounded-full bg-lime-950 text-lime-50 font-black hover:bg-lime-900 transition-colors"
+            >
+              Go home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <Presentation
+        data={sharedPresentation}
+        theme={sharedTheme}
+        customSettings={sharedCustomSettings}
+        readOnly
+        onClose={() => window.location.assign('/')}
+      />
+    );
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
@@ -338,14 +511,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-lime-50 flex flex-col items-center justify-center font-sans">
+    <div className="min-h-screen bg-lime-50 flex flex-col font-sans">
       {!presentation && !draftPresentation && (
         <header className="w-full bg-lime-50/90 backdrop-blur border-b border-lime-200 px-6 py-4 flex items-center justify-between">
           <button onClick={() => setShowLibrary(true)} className="flex items-center gap-3">
-            <div className="bg-lime-400 border border-lime-500/40 p-2.5 rounded-xl shadow-sm">
-              <FileText className="w-6 h-6 text-lime-950" />
-            </div>
-            <span className="text-xl font-black text-lime-950">Storyline</span>
+            <BrandLogo className="h-16 max-w-[320px] drop-shadow-[0_2px_10px_rgba(10,20,8,0.12)]" />
           </button>
           <div className="flex items-center gap-4">
             {/* Premium Credit Badge */}
@@ -414,6 +584,7 @@ export default function App() {
               savedDeckId={currentDeckId}
               saveStatus={saveStatus}
               onSave={saveDeck}
+              onShareDeck={currentDeckId ? () => void openShareDialog(currentDeckId, draftPresentation?.title || 'Shared Deck') : undefined}
               onFinalise={(finalData, finalTheme, finalSettings) => {
                 setTheme(finalTheme);
                 setCustomSettings(finalSettings);
@@ -442,6 +613,10 @@ export default function App() {
               onOpen={openDeck}
               onDuplicate={duplicateDeck}
               onPresent={presentDeck}
+              onShare={(id) => {
+                const deck = decks.find((item) => item.id === id);
+                void openShareDialog(id, deck?.title || 'Shared Deck');
+              }}
               onDelete={deleteDeck}
               onRefresh={refreshDecks}
             />
@@ -487,6 +662,20 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ShareLinkDialog
+        open={Boolean(shareDialogDeck)}
+        deckTitle={shareDialogDeck?.title || 'Shared Deck'}
+        share={shareDialogShare}
+        loading={shareDialogLoading}
+        status={shareDialogStatus}
+        error={shareDialogError}
+        onPrimaryAction={handleSharePrimaryAction}
+        onRevoke={handleShareRevoke}
+        onClose={closeShareDialog}
+      />
+
+      <SiteFooter className="mt-auto w-full" />
     </div>
   );
 }

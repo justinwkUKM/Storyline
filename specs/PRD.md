@@ -85,6 +85,12 @@ The user downloads a high-resolution PDF or editable PPTX file. Slides with quiz
 
 The user saves generated or edited presentation data to their account, returns to the deck library later, opens a saved deck, continues editing, presents it, exports it, or deletes it.
 
+### 6.7 Share a Presentation
+
+The owner of a saved deck can create an unlisted view-only share link, copy the link, reopen it later, and revoke it when the deck should no longer be publicly accessible.
+
+Shared links always resolve to the latest saved state of the deck. They do not create a frozen snapshot, and they never allow editing, saving, exporting, or other owner-only actions.
+
 ## 7. User Journey
 
 1. The user opens Storyline.
@@ -120,9 +126,10 @@ The user saves generated or edited presentation data to their account, returns t
 19. The user edits slide content, visuals, quizzes, links, video URLs, speaker notes, and theme settings manually or with the AI slide editing assistant.
 20. The user can prompt AI to update the current slide, preview the structured result, apply the result, regenerate or dismiss it, and undo the applied AI edit.
 21. The user saves the deck as a new saved deck or updates an existing saved deck.
-22. The user finalizes the deck.
-23. The presentation opens in a full-screen style viewer.
-24. The user presents, exports, returns to the library, or exits back to the upload flow.
+22. The user can create a share link for a saved deck, copy the URL, and later revoke access.
+23. The user finalizes the deck.
+24. The presentation opens in a full-screen style viewer.
+25. The user presents, exports, returns to the library, or exits back to the upload flow.
 
 ## 8. Functional Requirements
 
@@ -308,7 +315,8 @@ The user saves generated or edited presentation data to their account, returns t
 
 - Authenticated users must see a saved deck library before starting a new presentation.
 - The library must show saved deck title, created timestamp, and updated timestamp.
-- The library must support refresh, open, delete, and create-new actions.
+- The library must show whether a deck already has an active share link.
+- The library must support refresh, open, delete, create-new, present, and share actions.
 - The library must support a direct present action that launches the saved deck in presentation mode without opening the editor first.
 - Empty library state must guide the user to create a new deck.
 - Deleting a deck must remove it only from the current authenticated user's library.
@@ -318,6 +326,18 @@ The user saves generated or edited presentation data to their account, returns t
 - Save operations must remove `rawParsedText` before persistence.
 - Uploaded PDF buffers must not be stored.
 - Extracted source text must remain available in the current editor session after generation, but must not be persisted by default.
+
+### 8.13 Shareable Presentation Links
+
+- Only saved decks may be shared.
+- The owner must be able to create an unlisted share link for a saved deck, copy the URL, and revoke the link later.
+- The share URL must be built from the current origin so local development and production both work.
+- Share links must be public but unlisted and must not require login.
+- Share links must render the current saved deck state, not a historical snapshot.
+- Shared viewing must be read-only and must not expose owner controls such as edit, save, export, or delete.
+- The public viewer must still allow non-mutating behavior such as slide navigation, fullscreen, links, and embedded video playback.
+- Invalid or revoked tokens must return a 404 response.
+- Share pages must be marked `noindex` and `nofollow`.
 
 ### 8.12 Credit System
 
@@ -414,6 +434,7 @@ interface DeckSummary {
   title: string;
   updatedAt: string;
   createdAt: string;
+  hasShare?: boolean;
 }
 ```
 
@@ -427,7 +448,18 @@ interface SavedDeck extends DeckSummary {
 }
 ```
 
-### 9.9 Database Models
+### 9.9 ShareLinkInfo
+
+```ts
+interface ShareLinkInfo {
+  token: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### 9.10 Database Models
 
 #### User
 
@@ -455,6 +487,18 @@ interface SavedDeck extends DeckSummary {
 - `userId`: owning user.
 - `createdAt`: deck creation timestamp.
 - `updatedAt`: last saved timestamp.
+
+#### DeckShare
+
+- `id`: unique share record identifier.
+- `tokenHash`: SHA-256 hash of the opaque public share token.
+- `tokenCiphertext`: encrypted token material for reopening the share dialog.
+- `tokenIv`: initialization vector used for token encryption.
+- `tokenTag`: authentication tag for token encryption.
+- `deckId`: owning deck, unique and cascade-deleted with the deck.
+- `revokedAt`: revocation timestamp, if revoked.
+- `createdAt`: share creation timestamp.
+- `updatedAt`: share update timestamp.
 
 ## 10. Technical Requirements
 
@@ -612,7 +656,8 @@ Success response:
       "id": "deck-id",
       "title": "Deck title",
       "createdAt": "2026-07-03T00:00:00.000Z",
-      "updatedAt": "2026-07-03T00:00:00.000Z"
+      "updatedAt": "2026-07-03T00:00:00.000Z",
+      "hasShare": false
     }
   ]
 }
@@ -663,6 +708,66 @@ Success response:
 { "ok": true }
 ```
 
+#### `GET /api/decks/:id/share`
+
+Returns the current share link if one exists and is active, or `null` otherwise.
+
+Success response:
+
+```json
+{
+  "share": {
+    "token": "public-token",
+    "url": "https://app.example.com/share/public-token",
+    "createdAt": "2026-07-03T00:00:00.000Z",
+    "updatedAt": "2026-07-03T00:00:00.000Z"
+  }
+}
+```
+
+#### `POST /api/decks/:id/share`
+
+Creates or rotates the share link for the deck and returns the active link data.
+
+Success response:
+
+```json
+{
+  "share": {
+    "token": "public-token",
+    "url": "https://app.example.com/share/public-token",
+    "createdAt": "2026-07-03T00:00:00.000Z",
+    "updatedAt": "2026-07-03T00:00:00.000Z"
+  }
+}
+```
+
+#### `DELETE /api/decks/:id/share`
+
+Revokes the active share link for the deck if one exists.
+
+Success response:
+
+```json
+{ "ok": true }
+```
+
+### 11.6 `GET /api/share/:token`
+
+Public, unauthenticated route.
+
+Returns the current saved deck state for a valid active share token.
+
+Success response:
+
+```json
+{
+  "deck": "SavedDeck"
+}
+```
+
+Invalid, missing, or revoked tokens must return `404`.
+
 ## 12. Quality Attributes
 
 ### 12.1 Usability
@@ -697,6 +802,7 @@ Success response:
 - Uploaded files must be processed in memory.
 - External links must open with `noopener noreferrer`.
 - The app must not persist uploaded PDFs or extracted text by default.
+- Share links must resolve through a hash lookup and should only expose the saved deck data needed for read-only viewing.
 
 ### 12.5 Accessibility
 
@@ -719,6 +825,7 @@ Success response:
 - A user can request automatic or exact slide count before generation.
 - A user can generate horizontal or vertical decks.
 - A user can present with keyboard and on-screen controls.
+- A user can create a public view-only share link for any saved deck, copy it, revoke it, and re-share after revocation.
 - Slides can show generated diagrams, quizzes, links, video embeds, and speaker notes.
 - A user can export PDF, PPTX, and MP4/WebM video files.
 - A user starts with 100 credits, and gets renewed monthly. 1 credit is deducted per presentation generation.
@@ -733,6 +840,7 @@ Success response:
 - The app does not validate video URLs beyond accepting URL text.
 - The PPTX export uses simplified diagram rendering rather than preserving every HTML animation or layout detail.
 - Generated external links and video references depend on AI output quality and may need user review.
+- Share links are public but unlisted, so anyone with the URL can view the current saved presentation state.
 
 ## 15. Future Enhancements
 
@@ -740,10 +848,9 @@ Success response:
 - Support for `.docx`, `.txt`, and web URL sources.
 - Password reset and email verification.
 - Google OAuth or other social sign-in providers.
-- Team workspaces and deck sharing.
+- Team workspaces.
 - More export layout fidelity for PPTX.
 - Rich image/background generation per slide.
 - Model retry and regeneration controls per slide.
 - Per-slide preview thumbnails in the editor.
-- Shareable presentation links.
 - Accessibility audit and improved screen reader labeling.

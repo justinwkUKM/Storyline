@@ -64,10 +64,18 @@ export interface DeckSummary {
   title: string;
   updatedAt: string;
   createdAt: string;
+  hasShare?: boolean;
 }
 
 export interface SavedDeck extends DeckSummary {
   presentationData: PresentationData;
   theme: ThemeName;
   customSettings?: CustomizationSettings;
+}
+
+export interface ShareLinkInfo {
+  token: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
 }

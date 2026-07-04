@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, FileText, Loader2, LogIn, UserPlus } from 'lucide-react';
+import { ArrowLeft, Loader2, LogIn, UserPlus } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { BrandLogo } from './BrandLogo';
+import { SiteFooter } from './SiteFooter';
 
 interface AuthScreenProps {
   onSubmit: (mode: 'login' | 'register', email: string, password: string) => Promise<void>;
@@ -40,11 +42,8 @@ export function AuthScreen({ onSubmit, error, onBack }: AuthScreenProps) {
             Back
           </button>
         )}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="bg-lime-400 border border-lime-500/40 p-3 rounded-2xl shadow-sm">
-            <FileText className="w-8 h-8 text-lime-950" />
-          </div>
-          <span className="text-2xl font-black text-lime-950">Storyline</span>
+        <div className="flex items-center justify-center mb-8">
+          <BrandLogo className="h-11" />
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur border border-lime-200 rounded-3xl shadow-xl shadow-lime-950/5 p-8 space-y-6">
@@ -113,6 +112,8 @@ export function AuthScreen({ onSubmit, error, onBack }: AuthScreenProps) {
             </button>
           </div>
         </form>
+
+        <SiteFooter className="mt-10" />
       </div>
     </div>
   );

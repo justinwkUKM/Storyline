@@ -94,12 +94,14 @@ Required areas:
 - New presentation action.
 - Open and delete actions per deck.
 - Direct present action per deck for launching the saved presentation without opening the editor.
+- Share status and share action per deck for creating, copying, and revoking a public view-only link.
 
 Design guidance:
 
 - Treat the library as an operational dashboard, not a landing page.
 - Show deck title and last updated timestamp prominently.
 - Expose both edit and present paths in each deck card so the user can choose between refinement and immediate playback.
+- Surface share affordance as a secondary but visible action so owners can distribute a deck without opening it first.
 - Keep delete controls visually secondary and confirm before destructive actions.
 - Empty state should point directly to creating a new deck.
 - Loading states should be centered inside the library content area.
@@ -182,6 +184,28 @@ Design guidance:
 - Controls must not overlap the slide.
 - Keep the presenter bar compact and visually distinct.
 - Use tabs inside slides only when quiz or link content exists.
+- In shared view-only mode, remove owner chrome and keep only read-only slide navigation, fullscreen, and non-mutating slide interactions.
+- Shared links should preserve the same presentation styling and slide animations as the owner view.
+
+### 3.6 Public Shared Presentation
+
+Purpose: let anyone with the link view a saved deck without editing or authentication.
+
+Required areas:
+
+- Shared-deck loading state.
+- Invalid or revoked link state.
+- Read-only presentation surface.
+- Noindex metadata.
+- Return-home control.
+
+Design guidance:
+
+- Treat the shared view as a public playback surface, not a logged-in product shell.
+- Hide save, save as, export, edit, and delete controls entirely.
+- Keep the deck navigable and interactive for non-mutating content such as links and embedded video.
+- Show a clear unavailable state when the token is invalid or revoked.
+- Build the share URL from the current origin so local and production environments behave consistently.
 
 ## 4. Visual System
 
@@ -757,12 +781,16 @@ Rules:
 - Users should only see decks they own.
 - Deck delete actions must confirm intent.
 - Deck API responses should return summaries in list views and full presentation JSON only when opening a deck.
+- Share links are public but unlisted, belong to the owning deck, and must be revocable by the owner at any time.
+- The public share viewer must read from the saved deck state and remain strictly read-only.
 
 ### 12.3 Privacy
 
 - Treat uploaded PDFs and extracted source text as transient processing data.
 - Persist only the edited deck JSON, theme, and custom styling.
 - Avoid adding source text persistence unless the product explicitly introduces a user-facing opt-in.
+- Store only hashed share-token lookup data in the database and keep any retrievable token material encrypted at rest.
+- Mark public share pages `noindex` and `nofollow`.
 
 ## 13. Implementation Notes
 

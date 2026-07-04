@@ -31,6 +31,7 @@ interface PresentationProps {
   customSettings?: CustomizationSettings;
   onClose: () => void;
   onEdit?: () => void;
+  readOnly?: boolean;
 }
 
 const themeStyles: Record<ThemeName, { bg: string; text: string; accent: string; title: string }> = {
@@ -86,7 +87,7 @@ function replaceOklchAndOklab(cssText: string): string {
   let result = cssText;
 
   // Replace oklch
-  result = result.replace(/oklch\(\s*([^)]+)\)/g, (match, content) => {
+  result = result.replace(/oklch\(\s*([^)]+)\)/gi, (match, content) => {
     try {
       const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
       if (parts.length < 3) return 'rgb(120, 120, 120)';
@@ -119,7 +120,7 @@ function replaceOklchAndOklab(cssText: string): string {
       const [r, g, b] = oklchToRgb(l_val, c_val, h_val);
       const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
 
-      if (alpha_val === 1) {
+      if (alpha_val === 1 || isNaN(alpha_val)) {
         return `rgb(${r}, ${g}, ${b})`;
       } else {
         return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
@@ -131,7 +132,7 @@ function replaceOklchAndOklab(cssText: string): string {
   });
 
   // Replace oklab
-  result = result.replace(/oklab\(\s*([^)]+)\)/g, (match, content) => {
+  result = result.replace(/oklab\(\s*([^)]+)\)/gi, (match, content) => {
     try {
       const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
       if (parts.length < 3) return 'rgb(120, 120, 120)';
@@ -164,7 +165,7 @@ function replaceOklchAndOklab(cssText: string): string {
       const [r, g, b] = oklabToRgb(l_val, a_val, b_val);
       const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
 
-      if (alpha_val === 1) {
+      if (alpha_val === 1 || isNaN(alpha_val)) {
         return `rgb(${r}, ${g}, ${b})`;
       } else {
         return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
@@ -178,7 +179,38 @@ function replaceOklchAndOklab(cssText: string): string {
   return result;
 }
 
-export function Presentation({ data, theme, customSettings, onClose, onEdit }: PresentationProps) {
+function withComputedStyleConverter<T>(fn: () => Promise<T>): Promise<T> {
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = function (element, pseudoElt) {
+    const style = originalGetComputedStyle(element, pseudoElt);
+    return new Proxy(style, {
+      get(target, prop) {
+        if (prop === 'getPropertyValue') {
+          return function (propertyName: string) {
+            const originalValue = target.getPropertyValue(propertyName);
+            if (originalValue && (originalValue.toLowerCase().includes('oklch') || originalValue.toLowerCase().includes('oklab'))) {
+              return replaceOklchAndOklab(originalValue);
+            }
+            return originalValue;
+          };
+        }
+        const val = target[prop as any];
+        if (typeof val === 'string' && (val.toLowerCase().includes('oklch') || val.toLowerCase().includes('oklab'))) {
+          return replaceOklchAndOklab(val);
+        }
+        if (typeof val === 'function') {
+          return (...args: unknown[]) => (val as (...fnArgs: unknown[]) => unknown).apply(target, args);
+        }
+        return val;
+      }
+    });
+  };
+  return fn().finally(() => {
+    window.getComputedStyle = originalGetComputedStyle;
+  });
+}
+
+export function Presentation({ data, theme, customSettings, onClose, onEdit, readOnly = false }: PresentationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [direction, setDirection] = useState(0);
@@ -335,58 +367,18 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
       });
 
       let pageCount = 0;
-      for (let i = 0; i < data.slides.length; i++) {
-        // Render slide content
-        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
-        const contentEl = document.getElementById(`pdf-slide-content-${i}`);
-        if (contentEl) {
-          // Add a brief timeout to let everything stabilize
-          await new Promise(r => setTimeout(r, 120));
-          const canvas = await html2canvas(contentEl, {
-            width: pdfWidth,
-            height: pdfHeight,
-            scale: 1.5, // 1.5x scale offers gorgeous density without inflating PDF sizes
-            useCORS: true,
-            logging: false,
-            onclone: (clonedDoc) => {
-              // Replace inline style attributes containing oklch/oklab in clonedDoc
-              const allElements = clonedDoc.getElementsByTagName('*');
-              for (let j = 0; j < allElements.length; j++) {
-                const el = allElements[j] as HTMLElement;
-                const styleAttr = el.getAttribute?.('style');
-                if (styleAttr) {
-                  el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                }
-              }
-              // Also ensure style tags in clonedDoc are sanitized
-              const styles = clonedDoc.getElementsByTagName('style');
-              for (let j = 0; j < styles.length; j++) {
-                const s = styles[j];
-                if (s.innerHTML) {
-                  s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                }
-              }
-            }
-          });
-          const imgData = canvas.toDataURL('image/png');
-          
-          if (pageCount > 0) {
-            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
-          }
-          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-          pageCount++;
-        }
-
-        // Render dedicated quiz page if the slide contains a quiz
-        if (data.slides[i].quiz) {
-          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
-          const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
-          if (quizEl) {
+      await withComputedStyleConverter(async () => {
+        for (let i = 0; i < data.slides.length; i++) {
+          // Render slide content
+          setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+          const contentEl = document.getElementById(`pdf-slide-content-${i}`);
+          if (contentEl) {
+            // Add a brief timeout to let everything stabilize
             await new Promise(r => setTimeout(r, 120));
-            const canvas = await html2canvas(quizEl, {
+            const canvas = await html2canvas(contentEl, {
               width: pdfWidth,
               height: pdfHeight,
-              scale: 1.5,
+              scale: 1.5, // 1.5x scale offers gorgeous density without inflating PDF sizes
               useCORS: true,
               logging: false,
               onclone: (clonedDoc) => {
@@ -411,12 +403,54 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
             });
             const imgData = canvas.toDataURL('image/png');
             
-            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+            if (pageCount > 0) {
+              pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+            }
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pageCount++;
           }
+
+          // Render dedicated quiz page if the slide contains a quiz
+          if (data.slides[i].quiz) {
+            setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+            const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
+            if (quizEl) {
+              await new Promise(r => setTimeout(r, 120));
+              const canvas = await html2canvas(quizEl, {
+                width: pdfWidth,
+                height: pdfHeight,
+                scale: 1.5,
+                useCORS: true,
+                logging: false,
+                onclone: (clonedDoc) => {
+                  // Replace inline style attributes containing oklch/oklab in clonedDoc
+                  const allElements = clonedDoc.getElementsByTagName('*');
+                  for (let j = 0; j < allElements.length; j++) {
+                    const el = allElements[j] as HTMLElement;
+                    const styleAttr = el.getAttribute?.('style');
+                    if (styleAttr) {
+                      el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                    }
+                  }
+                  // Also ensure style tags in clonedDoc are sanitized
+                  const styles = clonedDoc.getElementsByTagName('style');
+                  for (let j = 0; j < styles.length; j++) {
+                    const s = styles[j];
+                    if (s.innerHTML) {
+                      s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                    }
+                  }
+                }
+              });
+              const imgData = canvas.toDataURL('image/png');
+              
+              pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+              pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+              pageCount++;
+            }
+          }
         }
-      }
+      });
 
       const fileName = `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_presentation.pdf`;
       pdf.save(fileName);
@@ -728,48 +762,16 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
       const slideCanvases: HTMLCanvasElement[] = [];
 
       // Step 1: Render all slides (and quiz pages if present) to canvases
-      for (let i = 0; i < data.slides.length; i++) {
-        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
-        const contentEl = document.getElementById(`pdf-slide-content-${i}`);
-        if (contentEl) {
-          await new Promise(r => setTimeout(r, 120));
-          const canvas = await html2canvas(contentEl, {
-            width: canvasWidth,
-            height: canvasHeight,
-            scale: 1, // Keep scale 1 to limit memory usage during recording
-            useCORS: true,
-            logging: false,
-            onclone: (clonedDoc) => {
-              const allElements = clonedDoc.getElementsByTagName('*');
-              for (let j = 0; j < allElements.length; j++) {
-                const el = allElements[j] as HTMLElement;
-                const styleAttr = el.getAttribute?.('style');
-                if (styleAttr) {
-                  el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                }
-              }
-              const styles = clonedDoc.getElementsByTagName('style');
-              for (let j = 0; j < styles.length; j++) {
-                const s = styles[j];
-                if (s.innerHTML) {
-                  s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                }
-              }
-            }
-          });
-          slideCanvases.push(canvas);
-        }
-
-        // Render dedicated quiz page as a slide in the video if present
-        if (data.slides[i].quiz) {
-          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
-          const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
-          if (quizEl) {
+      await withComputedStyleConverter(async () => {
+        for (let i = 0; i < data.slides.length; i++) {
+          setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+          const contentEl = document.getElementById(`pdf-slide-content-${i}`);
+          if (contentEl) {
             await new Promise(r => setTimeout(r, 120));
-            const canvas = await html2canvas(quizEl, {
+            const canvas = await html2canvas(contentEl, {
               width: canvasWidth,
               height: canvasHeight,
-              scale: 1,
+              scale: 1, // Keep scale 1 to limit memory usage during recording
               useCORS: true,
               logging: false,
               onclone: (clonedDoc) => {
@@ -792,8 +794,42 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
             });
             slideCanvases.push(canvas);
           }
+
+          // Render dedicated quiz page as a slide in the video if present
+          if (data.slides[i].quiz) {
+            setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+            const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
+            if (quizEl) {
+              await new Promise(r => setTimeout(r, 120));
+              const canvas = await html2canvas(quizEl, {
+                width: canvasWidth,
+                height: canvasHeight,
+                scale: 1,
+                useCORS: true,
+                logging: false,
+                onclone: (clonedDoc) => {
+                  const allElements = clonedDoc.getElementsByTagName('*');
+                  for (let j = 0; j < allElements.length; j++) {
+                    const el = allElements[j] as HTMLElement;
+                    const styleAttr = el.getAttribute?.('style');
+                    if (styleAttr) {
+                      el.setAttribute('style', replaceOklchAndOklab(styleAttr));
+                    }
+                  }
+                  const styles = clonedDoc.getElementsByTagName('style');
+                  for (let j = 0; j < styles.length; j++) {
+                    const s = styles[j];
+                    if (s.innerHTML) {
+                      s.innerHTML = replaceOklchAndOklab(s.innerHTML);
+                    }
+                  }
+                }
+              });
+              slideCanvases.push(canvas);
+            }
+          }
         }
-      }
+      });
 
       if (slideCanvases.length === 0) {
         throw new Error('No slides successfully rendered to video.');
@@ -1287,7 +1323,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
 
         {/* Center/Right segment: Dual Exporters & Secondary Controls */}
         <div className="flex items-center gap-3">
-          {onEdit && (
+          {!readOnly && onEdit && (
             <button
               onClick={onEdit}
               className="px-4 py-2 rounded-full text-xs font-black bg-lime-400 hover:bg-lime-300 active:scale-95 text-lime-950 flex items-center gap-1.5 transition-all cursor-pointer shadow-md border border-lime-300/40"
@@ -1305,32 +1341,36 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <button
-                onClick={exportToPDF}
-                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                title="Download High-Res Presentation PDF"
-              >
-                <Download className="w-3.5 h-3.5 text-lime-400" />
-                Download PDF
-              </button>
-              
-              <button
-                onClick={exportToPPTX}
-                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                title="Download Editable PowerPoint (PPTX)"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
-                Download PPTX
-              </button>
+              {!readOnly && (
+                <>
+                  <button
+                    onClick={exportToPDF}
+                    className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    title="Download High-Res Presentation PDF"
+                  >
+                    <Download className="w-3.5 h-3.5 text-lime-400" />
+                    Download PDF
+                  </button>
+                  
+                  <button
+                    onClick={exportToPPTX}
+                    className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    title="Download Editable PowerPoint (PPTX)"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
+                    Download PPTX
+                  </button>
 
-              <button
-                onClick={exportToMP4}
-                className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                title="Download Presentation MP4 Video"
-              >
-                <Video className="w-3.5 h-3.5 text-rose-400" />
-                Download MP4
-              </button>
+                  <button
+                    onClick={exportToMP4}
+                    className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    title="Download Presentation MP4 Video"
+                  >
+                    <Video className="w-3.5 h-3.5 text-rose-400" />
+                    Download MP4
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -1347,7 +1387,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
           <button
             onClick={onClose}
             className="p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
-            title="Exit Presentation"
+            title={readOnly ? 'Return home' : 'Exit Presentation'}
           >
             <X className="w-4.5 h-4.5" />
           </button>
@@ -1355,7 +1395,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit }: P
       </div>
 
       {/* Speaker Notes Overlay (Frosted slide-up hover panel) */}
-      {!isFullscreen && currentSlide.speakerNotes && (
+      {!readOnly && !isFullscreen && currentSlide.speakerNotes && (
         <div className="absolute bottom-6 left-6 max-w-sm group">
           <div className="bg-black/90 text-white/95 p-4 rounded-2xl text-xs opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity duration-300 backdrop-blur shadow-xl border border-white/10">
             <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px] flex items-center gap-1">

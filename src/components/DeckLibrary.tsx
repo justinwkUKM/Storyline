@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Copy, FileText, Loader2, PlayCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Coins, Copy, FileText, Loader2, PlayCircle, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react';
 import { AuthUser, DeckSummary } from '../types';
 
 interface DeckLibraryProps {
@@ -11,11 +11,12 @@ interface DeckLibraryProps {
   onOpen: (id: string) => void;
   onDuplicate: (id: string) => void;
   onPresent: (id: string) => void;
+  onShare: (id: string) => void;
   onDelete: (id: string) => void;
   onRefresh: () => void;
 }
 
-export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDuplicate, onPresent, onDelete, onRefresh }: DeckLibraryProps) {
+export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDuplicate, onPresent, onShare, onDelete, onRefresh }: DeckLibraryProps) {
   return (
     <div className="w-full max-w-6xl mx-auto px-6 py-12 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
@@ -92,32 +93,65 @@ export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDu
                 <p className="text-xs text-lime-900/50 mt-2.5 font-bold">
                   Updated {new Date(deck.updatedAt).toLocaleString()}
                 </p>
+                {deck.hasShare && (
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-lime-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-lime-800">
+                    <Share2 className="w-3 h-3" />
+                    Shared
+                  </div>
+                )}
               </button>
               <div className="flex items-center justify-between pt-4 border-t border-lime-100">
                 <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => onOpen(deck.id)} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onOpen(deck.id);
+                    }} 
                     className="px-4 py-1.5 rounded-full bg-lime-50 text-lime-800 hover:bg-lime-950 hover:text-lime-50 text-xs font-black transition-colors cursor-pointer"
                   >
                     Open Storyline
                   </button>
                   <button
-                    onClick={() => onDuplicate(deck.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onDuplicate(deck.id);
+                    }}
                     className="p-2 rounded-xl text-lime-700 hover:text-lime-950 hover:bg-lime-50 transition-colors cursor-pointer"
                     title="Duplicate deck"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => onPresent(deck.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onPresent(deck.id);
+                    }}
                     className="p-2 rounded-xl text-lime-700 hover:text-lime-950 hover:bg-lime-50 transition-colors cursor-pointer"
                     title="Play presentation"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                    </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onShare(deck.id);
+                    }}
+                    className="p-2 rounded-xl text-lime-700 hover:text-lime-950 hover:bg-lime-50 transition-colors cursor-pointer"
+                    title={deck.hasShare ? 'Copy share link' : 'Create share link'}
                   >
-                    <PlayCircle className="w-4 h-4" />
+                    <Share2 className="w-4 h-4" />
                   </button>
                 </div>
                 <button
-                  onClick={() => onDelete(deck.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onDelete(deck.id);
+                  }}
                   className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                   title="Delete deck"
                 >

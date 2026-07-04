@@ -22,6 +22,7 @@ import {
   ChevronUp, 
   RefreshCw,
   Sliders,
+  Share2,
   Type as FontIcon,
   Palette,
   Eye,
@@ -43,6 +44,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { apiRequest } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { HtmlBulletEditor } from './HtmlBulletEditor';
 import { InteractiveGraphic } from './InteractiveGraphic';
@@ -54,6 +56,7 @@ interface SlideEditorProps {
   savedDeckId?: string | null;
   saveStatus?: string;
   onSave?: (data: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings, saveAsNew?: boolean) => Promise<void>;
+  onShareDeck?: () => void;
   onFinalise: (finalData: PresentationData, theme: ThemeName, customSettings?: CustomizationSettings) => void;
   onCancel: () => void;
 }
@@ -800,6 +803,7 @@ export function SlideEditor({
   savedDeckId,
   saveStatus,
   onSave,
+  onShareDeck,
   onFinalise,
   onCancel
 }: SlideEditorProps) {
@@ -1057,9 +1061,8 @@ export function SlideEditor({
     setAiPreview(null);
 
     try {
-      const response = await fetch('/api/ai/edit-slide', {
+      const payload = await apiRequest<AiSlideEditPreview>('/api/ai/edit-slide', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deckTitle: data.title,
           slide: activeSlide,
@@ -1073,17 +1076,14 @@ export function SlideEditor({
         }),
       });
 
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('AI edit endpoint is unavailable. Restart the Storyline server and try again.');
-        }
-        throw new Error(payload.error || `AI edit failed with status ${response.status}`);
-      }
-
-      setAiPreview(payload as AiSlideEditPreview);
+      setAiPreview(payload);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI edit failed. Please try again.');
+      const message = err instanceof Error ? err.message : 'AI edit failed. Please try again.';
+      if (message.includes('404')) {
+        setAiError('AI edit endpoint is unavailable. Restart the Storyline server and try again.');
+      } else {
+        setAiError(message);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -2038,6 +2038,15 @@ export function SlideEditor({
               <FileText className="w-4 h-4" />
               Source
             </button>
+            {onSave && savedDeckId && onShareDeck && (
+              <button
+                onClick={onShareDeck}
+                className="px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-1.5 border border-lime-200 bg-white hover:bg-lime-50 text-lime-950 cursor-pointer transition-all"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
+            )}
             {onSave && savedDeckId && (
               <button
                 onClick={() => handleSaveClick(true)}

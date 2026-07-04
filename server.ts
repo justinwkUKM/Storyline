@@ -11,6 +11,7 @@ import { prisma } from './src/server/db';
 import { sendError } from './src/server/http';
 import { authRouter } from './src/server/routes/auth';
 import { decksRouter } from './src/server/routes/decks';
+import { shareRouter } from './src/server/routes/share';
 import { sanitizeRichTextHtml } from './src/lib/richText';
 
 const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
@@ -144,6 +145,7 @@ async function startServer() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/decks', decksRouter);
+  app.use('/api/share', shareRouter);
 
   // Add health endpoint
   app.get('/api/health', (req, res) => {

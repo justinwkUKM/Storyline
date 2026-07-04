@@ -5,7 +5,6 @@ import {
   BookOpen,
   Download,
   Edit3,
-  FileText,
   Layers,
   Palette,
   Presentation,
@@ -15,6 +14,8 @@ import {
   UploadCloud,
   Wand2,
 } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
+import { SiteFooter } from './SiteFooter';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -23,39 +24,39 @@ interface LandingPageProps {
 const workflowSteps = [
   {
     icon: UploadCloud,
-    title: 'Upload a readable PDF',
-    body: 'Start from reports, research, proposals, notes, or dense briefing documents.',
+    title: 'Drop in the source',
+    body: 'Start with the report, brief, notes, or research you already have.',
   },
   {
     icon: Wand2,
-    title: 'Generate the first storyline',
-    body: 'Gemini structures slide titles, bullets, speaker notes, visuals, links, quizzes, and video references.',
+    title: 'Get a clean first draft',
+    body: 'Storyline turns the material into a structured deck you can work with immediately.',
   },
   {
     icon: Edit3,
-    title: 'Refine the blueprint',
-    body: 'Review source text, reorder slides, edit rich bullets, adjust diagrams, and tune every detail before presenting.',
+    title: 'Fix only what matters',
+    body: 'Tighten the narrative, edit the copy, adjust visuals, and keep the details under control.',
   },
   {
     icon: Presentation,
-    title: 'Present or export',
-    body: 'Launch the animated viewer, download high-resolution PDF, or export an editable PowerPoint.',
+    title: 'Present with confidence',
+    body: 'Walk it through live, export a polished PDF, or hand it off as an editable PowerPoint.',
   },
 ];
 
 const highlights = [
-  ['Rich text bullets', 'Bold, italic, underline, colors, and HTML source mode for precise slide copy.'],
-  ['Interactive visuals', 'Process, comparison, metrics, hierarchy, and pie graphics generated as structured deck data.'],
-  ['Saved library', 'Authenticated users can save, reopen, update, copy, and delete deck JSON.'],
-  ['Custom styling', 'Choose Limefrost, Modern, Cosmic, Minimal, or build a custom theme.'],
-  ['Presenter controls', 'Keyboard navigation, fullscreen, speaker notes, quiz tabs, links, video, and slide counters.'],
-  ['Privacy-aware scope', 'Storyline stores deck JSON by default, not uploaded PDFs or raw extracted text.'],
+  ['Write faster', 'Clean bullets, better structure, and fewer rewrites before the deck is ready.'],
+  ['Make visuals clearer', 'Use the right chart, diagram, or layout without building it by hand.'],
+  ['Keep work saved', 'Return to decks later, update them, duplicate them, or delete them when you are done.'],
+  ['Match your brand', 'Switch between Limefrost, Modern, Cosmic, Minimal, or a custom look.'],
+  ['Present smoothly', 'Use fullscreen, speaker notes, quiz steps, links, and video in one flow.'],
+  ['Keep control', 'Your decks stay editable and the source stays close while you refine the result.'],
 ];
 
 const proofPoints = [
-  { value: 'PDF', label: 'source-first workflow' },
-  { value: 'JSON', label: 'editable deck data' },
-  { value: 'PDF + PPTX', label: 'export paths' },
+  { value: 'Minutes', label: 'to first draft' },
+  { value: 'Editable', label: 'from start to finish' },
+  { value: 'PDF + PPTX', label: 'ready to share' },
 ];
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
@@ -86,10 +87,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           transition={{ duration: 0.45 }}
           className="flex items-center gap-3"
         >
-          <div className="w-10 h-10 rounded-2xl bg-lime-400 border border-lime-500/40 flex items-center justify-center shadow-sm">
-            <FileText className="w-5 h-5 text-lime-950" />
-          </div>
-          <span className="text-xl font-black">Storyline</span>
+          <BrandLogo className="h-16 max-w-[320px]" />
         </motion.div>
         <motion.button
           initial={{ opacity: 0, y: reduceMotion ? 0 : -10 }}
@@ -102,7 +100,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </motion.button>
       </nav>
 
-      <section className="relative min-h-[calc(100svh-10rem)] px-6 pt-8 pb-20 flex items-center">
+      <section className="relative min-h-[60vh] px-6 pt-8 pb-8 flex items-center">
         <div className="absolute inset-0 pointer-events-none">
           <motion.div
             initial={{ opacity: 0, y: reduceMotion ? 0 : 60, rotate: reduceMotion ? -4 : -9, scale: 0.96 }}
@@ -175,7 +173,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <span className="text-sm font-black text-lime-950">Export-ready</span>
           </motion.div>
 
-          <div className="absolute left-0 bottom-6 w-full h-24 bg-lime-100/60 border-y border-lime-200 hidden md:block" />
+
         </div>
 
         <motion.div
@@ -186,27 +184,27 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         >
           <motion.div variants={enterUp} className="inline-flex items-center gap-2 rounded-full bg-white/70 border border-lime-200 px-4 py-2 text-sm font-bold text-lime-800 shadow-sm mb-8">
             <Sparkles className="w-4 h-4" />
-            AI presentation studio for dense documents
+            Built for people turning dense documents into usable decks
           </motion.div>
           <motion.h1 variants={enterUp} className="text-6xl sm:text-7xl lg:text-8xl font-black leading-[0.88] max-w-4xl">
             Turn PDFs into bold visual stories.
           </motion.h1>
           <motion.p variants={enterUp} className="mt-8 text-xl sm:text-2xl text-lime-900/75 leading-relaxed max-w-2xl font-medium">
-            Storyline transforms long documents into editable, high-impact decks with rich text, interactive visuals, saved projects, and export-ready polish.
+            Upload the source, get a clean first draft, refine the parts that matter, and present or export without rebuilding the deck from scratch.
           </motion.p>
           <motion.div variants={enterUp} className="mt-10 flex flex-col sm:flex-row gap-4">
             <button
               onClick={onGetStarted}
               className="px-7 py-4 rounded-full bg-lime-950 text-lime-50 hover:bg-lime-900 text-base font-black inline-flex items-center justify-center gap-2 shadow-xl shadow-lime-950/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              Start a storyline
+              Start from a PDF
               <ArrowRight className="w-5 h-5" />
             </button>
             <a
               href="#features"
               className="px-7 py-4 rounded-full bg-white/75 border border-lime-200 text-lime-950 hover:bg-white text-base font-black inline-flex items-center justify-center transition-colors"
             >
-              See highlights
+              See what you get
             </a>
           </motion.div>
           <motion.div variants={enterUp} className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
@@ -245,18 +243,23 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </motion.div>
       </section>
 
+      {/* Centered Huge Brand Logo Divider Section */}
+      <section className="w-full bg-transparent border-y border-lime-200/50 py-10 flex items-center justify-center overflow-hidden">
+        <BrandLogo className="h-20 sm:h-36 md:h-48 max-w-[90vw] md:max-w-4xl drop-shadow-[0_8px_32px_rgba(17,35,18,0.06)]" />
+      </section>
+
       <section id="features" className="bg-white border-t border-lime-100">
         <div className="max-w-7xl mx-auto px-6 py-18">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-lime-100 border border-lime-200 px-4 py-2 text-sm font-black text-lime-800 mb-6">
               <BookOpen className="w-4 h-4" />
-              Built around the real workflow
+              Built around how people actually work
             </div>
             <h2 className="text-4xl sm:text-5xl font-black leading-none text-lime-950">
-              Automation first. Control before anything ships.
+              Fast enough to start. Flexible enough to finish.
             </h2>
             <p className="mt-5 text-lg text-lime-900/70 font-medium leading-relaxed">
-              Storyline does not stop at a generated summary. It creates an editable deck blueprint, keeps source review close, and lets you finish the work in one place.
+              You get a deck that is already shaped for presentation, then you can tighten the story, change the visuals, and keep moving without losing control.
             </p>
           </div>
 
@@ -292,10 +295,10 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               Limefrost by default
             </div>
             <h2 className="text-4xl sm:text-5xl font-black leading-none">
-              A sharper home for every storyline.
+              A cleaner workspace when the deck has to land well.
             </h2>
             <p className="mt-5 text-lg text-lime-100/75 font-medium leading-relaxed">
-              The product defaults to a bright Limefrost system, but every deck can still shift into Modern, Cosmic, Minimal, or fully custom styling.
+              The interface stays bright, clear, and fast to scan, while still letting you switch into Modern, Cosmic, Minimal, or a custom look when the deck needs it.
             </p>
           </div>
 
@@ -320,9 +323,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-lime-100">
         <div className="max-w-7xl mx-auto px-6 py-18 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {[
-            { icon: ShieldCheck, title: 'Privacy-conscious by design', body: 'Uploaded PDFs stay memory-only in the current scope. Saved decks persist the structured presentation JSON.' },
-            { icon: Save, title: 'Pick up where you left off', body: 'Accounts unlock a saved deck library with open, update, save-as, refresh, and delete flows.' },
-            { icon: Download, title: 'Leave with usable files', body: 'Export a high-resolution PDF for sharing or an editable PPTX when the deck needs more polish.' },
+            { icon: ShieldCheck, title: 'Keep your source close', body: 'Your original PDF stays out of the way while the structured deck remains editable and easy to refine.' },
+            { icon: Save, title: 'Come back anytime', body: 'Save a deck, reopen it later, update it, duplicate it, or clean it out when the work is done.' },
+            { icon: Download, title: 'Leave with something usable', body: 'Export a polished PDF for sharing or an editable PPTX when the deck still needs more work.' },
           ].map((item, index) => {
             const Icon = item.icon;
             return (
@@ -347,21 +350,23 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div>
             <h2 className="text-4xl sm:text-5xl font-black leading-none text-lime-950">
-              Ready to shape your next deck?
+              Ready to turn the next PDF into something useful?
             </h2>
             <p className="mt-4 text-lg text-lime-900/70 font-medium">
-              Start with a PDF. Finish with an editable, saved, presentation-ready storyline.
+              Start with the source material. Finish with a deck people can follow and present.
             </p>
           </div>
           <button
             onClick={onGetStarted}
             className="px-7 py-4 rounded-full bg-lime-950 text-lime-50 hover:bg-lime-900 text-base font-black inline-flex items-center justify-center gap-2 shadow-xl shadow-lime-950/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Open Storyline
+            Start from a PDF
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </section>
+
+      <SiteFooter />
     </main>
   );
 }

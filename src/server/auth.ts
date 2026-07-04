@@ -1,8 +1,8 @@
-import crypto from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import { ApiError } from './http';
+import { createOpaqueToken, hashOpaqueToken } from './token';
 
 const SESSION_COOKIE = 'storyline_session';
 const SESSION_DAYS = 30;
@@ -24,10 +24,6 @@ declare global {
   }
 }
 
-function hashToken(token: string) {
-  return crypto.createHash('sha256').update(token).digest('hex');
-}
-
 function sessionExpiry() {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DAYS);
@@ -47,12 +43,12 @@ export async function verifyPassword(password: string, passwordHash: string) {
 }
 
 export async function createSession(res: Response, userId: string) {
-  const token = crypto.randomBytes(32).toString('base64url');
+  const token = createOpaqueToken();
   const expiresAt = sessionExpiry();
 
   await prisma.session.create({
     data: {
-      tokenHash: hashToken(token),
+      tokenHash: hashOpaqueToken(token),
       userId,
       expiresAt,
     },
@@ -94,7 +90,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     await prisma.session.deleteMany({ where: { expiresAt: { lt: now } } });
 
     const session = await prisma.session.findUnique({
-      where: { tokenHash: hashToken(token) },
+      where: { tokenHash: hashOpaqueToken(token) },
       include: { user: true },
     });
 

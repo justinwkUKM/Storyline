@@ -1,14 +1,23 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requireAuth } from '../auth';
 import { prisma } from '../db';
 import { ApiError, asyncHandler } from '../http';
 import { sanitizeRichTextHtml } from '../../lib/richText';
+import {
+  createOrRotateDeckShare,
+  getActiveDeckSharePayload,
+  revokeDeckShare,
+} from '../share';
 
 export const decksRouter = Router();
 
 decksRouter.use(requireAuth);
 
 const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'sunset', 'ocean', 'lavender', 'rose', 'custom']);
+
+function getRequestOrigin(req: Request) {
+  return req.get('origin') || `${req.protocol}://${req.get('host')}`;
+}
 
 function parseJsonField<T>(value: string | null): T | undefined {
   if (!value) return undefined;
@@ -50,7 +59,7 @@ function normalizeDeckPayload(body: any) {
   };
 }
 
-function serializeDeck(deck: {
+export function serializeDeck(deck: {
   id: string;
   title: string;
   presentationData: string;
@@ -58,6 +67,7 @@ function serializeDeck(deck: {
   customSettings: string | null;
   createdAt: Date;
   updatedAt: Date;
+  share?: { revokedAt: Date | null } | null;
 }) {
   return {
     id: deck.id,
@@ -67,6 +77,7 @@ function serializeDeck(deck: {
     customSettings: parseJsonField(deck.customSettings),
     createdAt: deck.createdAt.toISOString(),
     updatedAt: deck.updatedAt.toISOString(),
+    hasShare: Boolean(deck.share && !deck.share.revokedAt),
   };
 }
 
@@ -79,6 +90,11 @@ decksRouter.get('/', asyncHandler(async (req, res) => {
       title: true,
       createdAt: true,
       updatedAt: true,
+      share: {
+        select: {
+          revokedAt: true,
+        },
+      },
     },
   });
 
@@ -87,6 +103,7 @@ decksRouter.get('/', asyncHandler(async (req, res) => {
       ...deck,
       createdAt: deck.createdAt.toISOString(),
       updatedAt: deck.updatedAt.toISOString(),
+      hasShare: Boolean(deck.share && !deck.share.revokedAt),
     })),
   });
 }));
@@ -98,6 +115,13 @@ decksRouter.post('/', asyncHandler(async (req, res) => {
       ...payload,
       userId: req.user!.id,
     },
+    include: {
+      share: {
+        select: {
+          revokedAt: true,
+        },
+      },
+    },
   });
 
   res.status(201).json({ deck: serializeDeck(deck) });
@@ -108,6 +132,13 @@ decksRouter.get('/:id', asyncHandler(async (req, res) => {
     where: {
       id: req.params.id,
       userId: req.user!.id,
+    },
+    include: {
+      share: {
+        select: {
+          revokedAt: true,
+        },
+      },
     },
   });
 
@@ -135,6 +166,13 @@ decksRouter.put('/:id', asyncHandler(async (req, res) => {
   const deck = await prisma.deck.update({
     where: { id: existing.id },
     data: payload,
+    include: {
+      share: {
+        select: {
+          revokedAt: true,
+        },
+      },
+    },
   });
 
   res.json({ deck: serializeDeck(deck) });
@@ -154,5 +192,53 @@ decksRouter.delete('/:id', asyncHandler(async (req, res) => {
   }
 
   await prisma.deck.delete({ where: { id: existing.id } });
+  res.json({ ok: true });
+}));
+
+decksRouter.get('/:id/share', asyncHandler(async (req, res) => {
+  const deck = await prisma.deck.findFirst({
+    where: {
+      id: req.params.id,
+      userId: req.user!.id,
+    },
+  });
+
+  if (!deck) {
+    throw new ApiError(404, 'Deck not found.');
+  }
+
+  const share = await getActiveDeckSharePayload(deck.id, getRequestOrigin(req));
+  res.json({ share });
+}));
+
+decksRouter.post('/:id/share', asyncHandler(async (req, res) => {
+  const deck = await prisma.deck.findFirst({
+    where: {
+      id: req.params.id,
+      userId: req.user!.id,
+    },
+  });
+
+  if (!deck) {
+    throw new ApiError(404, 'Deck not found.');
+  }
+
+  const share = await createOrRotateDeckShare(deck.id, getRequestOrigin(req));
+  res.status(201).json({ share });
+}));
+
+decksRouter.delete('/:id/share', asyncHandler(async (req, res) => {
+  const deck = await prisma.deck.findFirst({
+    where: {
+      id: req.params.id,
+      userId: req.user!.id,
+    },
+  });
+
+  if (!deck) {
+    throw new ApiError(404, 'Deck not found.');
+  }
+
+  await revokeDeckShare(deck.id);
   res.json({ ok: true });
 }));
