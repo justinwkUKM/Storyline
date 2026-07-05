@@ -24,11 +24,11 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import pptxgen from 'pptxgenjs';
 import { sanitizeRichTextHtml, stripRichTextHtml } from '../lib/richText';
 import { THEMES, themeStyles } from '../lib/themes';
+import { captureSlideCanvas, waitForLayout } from '../lib/export';
 
 interface PresentationProps {
   data: PresentationData;
@@ -190,165 +190,6 @@ function getSlideDensity(
   return 'roomy';
 }
 
-function oklabToRgb(l_val: number, a_val: number, b_val: number): [number, number, number] {
-  const l_ = l_val + 0.3963377774 * a_val + 0.2158037573 * b_val;
-  const m_ = l_val - 0.1055613458 * a_val - 0.0638541728 * b_val;
-  const s_ = l_val - 0.0894841775 * a_val - 1.2914855480 * b_val;
-
-  const l_cube = l_ * l_ * l_;
-  const m_cube = m_ * m_ * m_;
-  const s_cube = s_ * s_ * s_;
-
-  const r_linear = +4.0767416621 * l_cube - 3.3077115913 * m_cube + 0.2309699292 * s_cube;
-  const g_linear = -1.2684380046 * l_cube + 2.6097574011 * m_cube - 0.3413193965 * s_cube;
-  const b_linear = -0.0041960863 * l_cube - 0.7034186147 * m_cube + 1.7076147010 * s_cube;
-
-  const r = r_linear <= 0.0031308 ? 12.92 * r_linear : 1.055 * Math.pow(r_linear, 1 / 2.4) - 0.055;
-  const g = g_linear <= 0.0031308 ? 12.92 * g_linear : 1.055 * Math.pow(g_linear, 1 / 2.4) - 0.055;
-  const b_val_ret = b_linear <= 0.0031308 ? 12.92 * b_linear : 1.055 * Math.pow(b_linear, 1 / 2.4) - 0.055;
-
-  return [
-    Math.max(0, Math.min(255, Math.round(r * 255))),
-    Math.max(0, Math.min(255, Math.round(g * 255))),
-    Math.max(0, Math.min(255, Math.round(b_val_ret * 255)))
-  ];
-}
-
-function oklchToRgb(l_val: number, c_val: number, h_val: number): [number, number, number] {
-  const h_rad = (h_val * Math.PI) / 180;
-  const a = c_val * Math.cos(h_rad);
-  const b = c_val * Math.sin(h_rad);
-  return oklabToRgb(l_val, a, b);
-}
-
-function replaceOklchAndOklab(cssText: string): string {
-  if (!cssText) return cssText;
-  let result = cssText;
-
-  // Replace oklch
-  result = result.replace(/oklch\(\s*([^)]+)\)/gi, (match, content) => {
-    try {
-      const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
-      if (parts.length < 3) return 'rgb(120, 120, 120)';
-
-      const l_str = parts[0];
-      const c_str = parts[1];
-      const h_str = parts[2];
-      
-      let alpha_str = '1';
-      const slashIndex = parts.indexOf('/');
-      if (slashIndex !== -1 && parts[slashIndex + 1]) {
-        alpha_str = parts[slashIndex + 1];
-      } else if (parts.length >= 4 && parts[3] !== '/') {
-        alpha_str = parts[3];
-      }
-
-      const parseVal = (str: string, scale = 1): number => {
-        const cleaned = str.replace(/%/g, '');
-        const val = parseFloat(cleaned);
-        if (str.includes('%')) {
-          return (val / 100) * scale;
-        }
-        return val;
-      };
-
-      const l_val = parseVal(l_str, 1);
-      const c_val = parseVal(c_str, 0.4);
-      const h_val = parseVal(h_str, 360);
-
-      const [r, g, b] = oklchToRgb(l_val, c_val, h_val);
-      const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
-
-      if (alpha_val === 1 || isNaN(alpha_val)) {
-        return `rgb(${r}, ${g}, ${b})`;
-      } else {
-        return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
-      }
-    } catch (e) {
-      console.error("Failed to convert oklch:", match, e);
-      return 'rgb(120, 120, 120)';
-    }
-  });
-
-  // Replace oklab
-  result = result.replace(/oklab\(\s*([^)]+)\)/gi, (match, content) => {
-    try {
-      const parts = content.replace(/\//g, ' / ').trim().split(/[\s,]+/);
-      if (parts.length < 3) return 'rgb(120, 120, 120)';
-
-      const l_str = parts[0];
-      const a_str = parts[1];
-      const b_str = parts[2];
-
-      let alpha_str = '1';
-      const slashIndex = parts.indexOf('/');
-      if (slashIndex !== -1 && parts[slashIndex + 1]) {
-        alpha_str = parts[slashIndex + 1];
-      } else if (parts.length >= 4 && parts[3] !== '/') {
-        alpha_str = parts[3];
-      }
-
-      const parseVal = (str: string, scale = 1): number => {
-        const cleaned = str.replace(/%/g, '');
-        const val = parseFloat(cleaned);
-        if (str.includes('%')) {
-          return (val / 100) * scale;
-        }
-        return val;
-      };
-
-      const l_val = parseVal(l_str, 1);
-      const a_val = parseVal(a_str, 0.4);
-      const b_val = parseVal(b_str, 0.4);
-
-      const [r, g, b] = oklabToRgb(l_val, a_val, b_val);
-      const alpha_val = alpha_str ? parseVal(alpha_str, 1) : 1;
-
-      if (alpha_val === 1 || isNaN(alpha_val)) {
-        return `rgb(${r}, ${g}, ${b})`;
-      } else {
-        return `rgba(${r}, ${g}, ${b}, ${alpha_val})`;
-      }
-    } catch (e) {
-      console.error("Failed to convert oklab:", match, e);
-      return 'rgb(120, 120, 120)';
-    }
-  });
-
-  return result;
-}
-
-function withComputedStyleConverter<T>(fn: () => Promise<T>): Promise<T> {
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = function (element, pseudoElt) {
-    const style = originalGetComputedStyle(element, pseudoElt);
-    return new Proxy(style, {
-      get(target, prop) {
-        if (prop === 'getPropertyValue') {
-          return function (propertyName: string) {
-            const originalValue = target.getPropertyValue(propertyName);
-            if (originalValue && (originalValue.toLowerCase().includes('oklch') || originalValue.toLowerCase().includes('oklab'))) {
-              return replaceOklchAndOklab(originalValue);
-            }
-            return originalValue;
-          };
-        }
-        const val = target[prop as any];
-        if (typeof val === 'string' && (val.toLowerCase().includes('oklch') || val.toLowerCase().includes('oklab'))) {
-          return replaceOklchAndOklab(val);
-        }
-        if (typeof val === 'function') {
-          return (...args: unknown[]) => (val as (...fnArgs: unknown[]) => unknown).apply(target, args);
-        }
-        return val;
-      }
-    });
-  };
-  return fn().finally(() => {
-    window.getComputedStyle = originalGetComputedStyle;
-  });
-}
-
 export function Presentation({ data, theme, customSettings, onClose, onEdit, onThemeChange, readOnly = false }: PresentationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -359,6 +200,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const [displayTheme, setDisplayTheme] = useState<ThemeName>(theme);
   const [displayCustomSettings, setDisplayCustomSettings] = useState<CustomizationSettings | undefined>(customSettings);
   const [densityBump, setDensityBump] = useState(0);
+  const [exportDensityBumps, setExportDensityBumps] = useState<Record<string, number>>({});
   const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const contentMeasureRef = useRef<HTMLDivElement | null>(null);
   
@@ -540,26 +382,74 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const zoomOut = () => setZoomIndex((current) => Math.max(0, current - 1));
   const zoomIn = () => setZoomIndex((current) => Math.min(ZOOM_STEPS.length - 1, current + 1));
   const resetZoom = () => setZoomIndex(2);
+  const clearExportDensityBumps = () => setExportDensityBumps({});
+  const getExportPageElement = (slideIndex: number, pageType: 'content' | 'quiz') =>
+    document.getElementById(`pdf-slide-${pageType}-${slideIndex}`) as HTMLElement | null;
+
+  const fitExportPage = async (slideIndex: number, pageType: 'content' | 'quiz') => {
+    const slideKey = `${pageType}-${slideIndex}`;
+    for (let attempt = 0; attempt < DENSITY_ORDER.length; attempt++) {
+      const element = getExportPageElement(slideIndex, pageType);
+      if (!element) return null;
+
+      await waitForLayout(element, 2);
+      const overflowAmount = element.scrollHeight - element.clientHeight;
+      if (overflowAmount <= 4) {
+        return element;
+      }
+
+      setExportDensityBumps((current) => ({
+        ...current,
+        [slideKey]: Math.min((current[slideKey] ?? 0) + 1, DENSITY_ORDER.length - 1)
+      }));
+    }
+
+    return getExportPageElement(slideIndex, pageType);
+  };
+
+  const captureExportPage = async (
+    slideIndex: number,
+    pageType: 'content' | 'quiz',
+    width: number,
+    height: number,
+    backgroundColor: string,
+    scale = 2
+  ) => {
+    const element = await fitExportPage(slideIndex, pageType);
+    if (!element) return null;
+    await waitForLayout(element, 2);
+    return captureSlideCanvas(element, {
+      width,
+      height,
+      scale,
+      backgroundColor
+    });
+  };
 
   // High-fidelity PDF Download
   const exportToPDF = async () => {
     setIsDownloading(true);
     setDownloadProgress('Preparing high-res PDF...');
-    const styleElements = Array.from(document.querySelectorAll('style')) as HTMLStyleElement[];
-    const originalStyleContents = new Map<HTMLStyleElement, string>();
 
     try {
-      // Temporarily sanitize active document style tags to avoid oklch / oklab issues with html2canvas
-      for (const styleEl of styleElements) {
-        if (styleEl.innerHTML) {
-          originalStyleContents.set(styleEl, styleEl.innerHTML);
-          styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
-        }
-      }
-
       const pdfWidth = isVertical ? 720 : 1280;
       const pdfHeight = isVertical ? 960 : 720;
       const pdfOrientation = isVertical ? 'portrait' : 'landscape';
+      const backgroundColor = isCustom
+        ? activeCustomSettings.backgroundColor
+        : displayTheme === 'cosmic'
+          ? '#0b0f19'
+          : displayTheme === 'limefrost'
+            ? '#f7fee7'
+            : displayTheme === 'sunset'
+              ? '#fff7ed'
+              : displayTheme === 'ocean'
+                ? '#ecfeff'
+                : displayTheme === 'lavender'
+                  ? '#f5f3ff'
+                  : displayTheme === 'rose'
+                    ? '#fff1f2'
+                    : '#ffffff';
 
       const pdf = new jsPDF({
         orientation: pdfOrientation,
@@ -568,104 +458,35 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
       });
 
       let pageCount = 0;
-      await withComputedStyleConverter(async () => {
-        for (let i = 0; i < data.slides.length; i++) {
-          // Render slide content
-          setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
-          const contentEl = document.getElementById(`pdf-slide-content-${i}`);
-          if (contentEl) {
-            // Add a brief timeout to let everything stabilize
-            await new Promise(r => setTimeout(r, 120));
-            const canvas = await html2canvas(contentEl, {
-              width: pdfWidth,
-              height: pdfHeight,
-              scale: 1.5, // 1.5x scale offers gorgeous density without inflating PDF sizes
-              useCORS: true,
-              logging: false,
-              onclone: (clonedDoc) => {
-                // Replace inline style attributes containing oklch/oklab in clonedDoc
-                const allElements = clonedDoc.getElementsByTagName('*');
-                for (let j = 0; j < allElements.length; j++) {
-                  const el = allElements[j] as HTMLElement;
-                  const styleAttr = el.getAttribute?.('style');
-                  if (styleAttr) {
-                    el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                  }
-                }
-                // Also ensure style tags in clonedDoc are sanitized
-                const styles = clonedDoc.getElementsByTagName('style');
-                for (let j = 0; j < styles.length; j++) {
-                  const s = styles[j];
-                  if (s.innerHTML) {
-                    s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                  }
-                }
-              }
-            });
-            const imgData = canvas.toDataURL('image/png');
-            
-            if (pageCount > 0) {
-              pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
-            }
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      for (let i = 0; i < data.slides.length; i++) {
+        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+        const contentCanvas = await captureExportPage(i, 'content', pdfWidth, pdfHeight, backgroundColor, 2);
+        if (contentCanvas) {
+          if (pageCount > 0) {
+            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+          }
+          pdf.addImage(contentCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight);
+          pageCount++;
+        }
+
+        if (data.slides[i].quiz) {
+          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+          const quizCanvas = await captureExportPage(i, 'quiz', pdfWidth, pdfHeight, backgroundColor, 2);
+          if (quizCanvas) {
+            pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
+            pdf.addImage(quizCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight);
             pageCount++;
           }
-
-          // Render dedicated quiz page if the slide contains a quiz
-          if (data.slides[i].quiz) {
-            setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
-            const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
-            if (quizEl) {
-              await new Promise(r => setTimeout(r, 120));
-              const canvas = await html2canvas(quizEl, {
-                width: pdfWidth,
-                height: pdfHeight,
-                scale: 1.5,
-                useCORS: true,
-                logging: false,
-                onclone: (clonedDoc) => {
-                  // Replace inline style attributes containing oklch/oklab in clonedDoc
-                  const allElements = clonedDoc.getElementsByTagName('*');
-                  for (let j = 0; j < allElements.length; j++) {
-                    const el = allElements[j] as HTMLElement;
-                    const styleAttr = el.getAttribute?.('style');
-                    if (styleAttr) {
-                      el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                    }
-                  }
-                  // Also ensure style tags in clonedDoc are sanitized
-                  const styles = clonedDoc.getElementsByTagName('style');
-                  for (let j = 0; j < styles.length; j++) {
-                    const s = styles[j];
-                    if (s.innerHTML) {
-                      s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                    }
-                  }
-                }
-              });
-              const imgData = canvas.toDataURL('image/png');
-              
-              pdf.addPage([pdfWidth, pdfHeight], pdfOrientation);
-              pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-              pageCount++;
-            }
-          }
         }
-      });
+      }
 
       const fileName = `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_presentation.pdf`;
       pdf.save(fileName);
     } catch (err) {
       console.error('Failed to export PDF:', err);
+      alert('Could not export PDF: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
-      // Restore original styles
-      for (const [styleEl, originalContent] of Array.from(originalStyleContents.entries())) {
-        try {
-          styleEl.innerHTML = originalContent;
-        } catch (e) {
-          console.error("Failed to restore style:", e);
-        }
-      }
+      clearExportDensityBumps();
       setIsDownloading(false);
       setDownloadProgress('');
     }
@@ -685,257 +506,101 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
         pptx.layout = 'LAYOUT_16x9';
       }
 
-      const primaryColorHex = isCustom ? activeCustomSettings.primaryColor : displayTheme === 'cosmic' ? '#7c3aed' : '#2563eb';
-      const textColorHex = isCustom ? activeCustomSettings.textColor : displayTheme === 'cosmic' ? '#ffffff' : '#1f2937';
-      const bgColorHex = isCustom ? activeCustomSettings.backgroundColor : displayTheme === 'cosmic' ? '#0b0f19' : displayTheme === 'limefrost' ? '#f7fee7' : '#ffffff';
+      const bgColorHex = isCustom
+        ? activeCustomSettings.backgroundColor
+        : displayTheme === 'cosmic'
+          ? '#0b0f19'
+          : displayTheme === 'limefrost'
+            ? '#f7fee7'
+            : displayTheme === 'sunset'
+              ? '#fff7ed'
+              : displayTheme === 'ocean'
+                ? '#ecfeff'
+                : displayTheme === 'lavender'
+                  ? '#f5f3ff'
+                  : displayTheme === 'rose'
+                    ? '#fff1f2'
+                    : '#ffffff';
+      const pptWidth = isVertical ? 7.5 : 13.333;
+      const pptHeight = isVertical ? 10 : 7.5;
 
-      data.slides.forEach((slide, sIdx) => {
-        // 1. Core Slide Content
+      for (let sIdx = 0; sIdx < data.slides.length; sIdx++) {
+        const slide = data.slides[sIdx];
         const pptSlide = pptx.addSlide();
         pptSlide.background = { fill: bgColorHex };
 
-        if (sIdx === 0) {
-          // Title Slide Layout
-          pptSlide.addText(slide.title, {
-            x: '10%',
-            y: isVertical ? '30%' : '35%',
-            w: '80%',
-            h: '20%',
-            fontSize: isVertical ? 36 : 44,
-            bold: true,
-            color: textColorHex,
-            align: 'center',
-            fontFace: 'Arial'
+        const contentCanvas = await captureExportPage(sIdx, 'content', isVertical ? 720 : 1280, isVertical ? 960 : 720, bgColorHex, 2);
+        if (contentCanvas) {
+          pptSlide.addImage({
+            data: contentCanvas.toDataURL('image/png'),
+            x: 0,
+            y: 0,
+            w: pptWidth,
+            h: pptHeight
           });
-
-          if (data.title !== slide.title) {
-            pptSlide.addText(data.title, {
-              x: '15%',
-              y: isVertical ? '52%' : '55%',
-              w: '70%',
-              h: '10%',
-              fontSize: 18,
-              color: textColorHex,
-              align: 'center',
-              fontFace: 'Arial'
-            });
-          }
-
-          pptSlide.addShape(pptx.ShapeType.rect, {
-            x: '45%',
-            y: isVertical ? '25%' : '30%',
-            w: '10%',
-            h: '1%',
-            fill: { color: primaryColorHex }
-          });
-        } else {
-          // Standard Slide Content
-          pptSlide.addText(slide.title, {
-            x: '5%',
-            y: isVertical ? '6%' : '8%',
-            w: '90%',
-            h: '10%',
-            fontSize: isVertical ? 24 : 32,
-            bold: true,
-            color: primaryColorHex,
-            fontFace: 'Arial'
-          });
-
-          const hasGraphic = !!slide.graphic;
-          const leftColWidth = (hasGraphic && !isVertical) ? '45%' : '90%';
-          const bulletH = (hasGraphic && isVertical) ? '34%' : '60%';
-          const bulletY = isVertical ? '16%' : '22%';
-
-          // Bullets text
-          const bulletObjects = slide.content.map(bullet => ({
-            text: stripHtml(bullet),
-            options: { bullet: true, fontSize: isVertical ? 14 : 16, color: textColorHex }
-          }));
-
-          if (bulletObjects.length > 0) {
-            pptSlide.addText(bulletObjects as any, {
-              x: '5%',
-              y: bulletY,
-              w: leftColWidth,
-              h: bulletH,
-              fontSize: isVertical ? 14 : 16,
-              color: textColorHex,
-              align: 'left',
-              fontFace: 'Arial',
-              valign: 'top',
-              lineSpacing: isVertical ? 18 : 24
-            });
-          }
-
-          // Render Graphics as visual blocks inside PowerPoint
-          if (slide.graphic) {
-            // Draw visual container box
-            const graphicX = isVertical ? '5%' : '54%';
-            const graphicY = isVertical ? '56%' : '22%';
-            const graphicW = isVertical ? '90%' : '41%';
-            const graphicH = isVertical ? '36%' : '60%';
-
-            pptSlide.addShape(pptx.ShapeType.roundRect, {
-              x: graphicX,
-              y: graphicY,
-              w: graphicW,
-              h: graphicH,
-              fill: { color: displayTheme === 'cosmic' ? '#131926' : '#f8fafc' },
-              line: { color: primaryColorHex, width: 1 }
-            });
-
-            // Container header
-            const graphicTitle = slide.graphic.title || 'Visual Graphic';
-            const gTitleX = isVertical ? '7%' : '56%';
-            const gTitleY = isVertical ? '58%' : '25%';
-            const gTitleW = isVertical ? '86%' : '37%';
-
-            pptSlide.addText(graphicTitle, {
-              x: gTitleX,
-              y: gTitleY,
-              w: gTitleW,
-              h: '5%',
-              fontSize: 12,
-              bold: true,
-              color: primaryColorHex,
-              fontFace: 'Arial'
-            });
-
-            // Draw graphic metrics / steps
-            const elementsToDraw = slide.graphic.elements.slice(0, 4);
-            elementsToDraw.forEach((el, elIdx) => {
-              const elementY = (isVertical ? 64 : 32) + (elIdx * (isVertical ? 6 : 12));
-
-              // Step tag
-              pptSlide.addShape(pptx.ShapeType.roundRect, {
-                x: isVertical ? '7%' : '56%',
-                y: `${elementY}%`,
-                w: '2.5%',
-                h: isVertical ? '2%' : '3%',
-                fill: { color: primaryColorHex }
-              });
-
-              // Element text label
-              pptSlide.addText(el.label, {
-                x: isVertical ? '11%' : '60%',
-                y: `${elementY - 0.5}%`,
-                w: isVertical ? '55%' : '24%',
-                h: '3%',
-                fontSize: 10,
-                bold: true,
-                color: textColorHex,
-                fontFace: 'Arial'
-              });
-
-              if (el.secondaryText) {
-                pptSlide.addText(el.secondaryText, {
-                  x: isVertical ? '11%' : '60%',
-                  y: `${elementY + 2.5}%`,
-                  w: isVertical ? '55%' : '24%',
-                  h: '3%',
-                  fontSize: 8,
-                  color: textColorHex,
-                  fontFace: 'Arial'
-                });
-              }
-
-              const valueText = el.value || (el.percentage !== undefined ? `${el.percentage}%` : '');
-              if (valueText) {
-                pptSlide.addText(valueText, {
-                  x: isVertical ? '75%' : '86%',
-                  y: `${elementY - 0.5}%`,
-                  w: isVertical ? '15%' : '7%',
-                  h: '3%',
-                  fontSize: 10,
-                  bold: true,
-                  color: primaryColorHex,
-                  align: 'right',
-                  fontFace: 'Arial'
-                });
-              }
-            });
-          }
         }
 
-        // Slide counter
-        pptSlide.addText(`${sIdx + 1} / ${data.slides.length}`, {
-          x: '85%',
-          y: '90%',
-          w: '10%',
-          h: '5%',
-          fontSize: 10,
-          color: textColorHex,
-          align: 'right',
-          fontFace: 'Arial'
-        });
-
-        // 2. Add Dedicated Quiz Slide in PPTX if present (so printed presentation holds it!)
-        if (slide.quiz) {
-          const quizSlide = pptx.addSlide();
-          quizSlide.background = { fill: bgColorHex };
-
-          // Title
-          quizSlide.addText(`${slide.title} — Quiz`, {
+        if (slide.links && slide.links.length > 0) {
+          const linksSlide = pptx.addSlide();
+          linksSlide.background = { fill: bgColorHex };
+          linksSlide.addText(`${slide.title} - Links`, {
             x: '5%',
             y: '8%',
             w: '90%',
-            h: '10%',
-            fontSize: 28,
+            h: '8%',
+            fontSize: 24,
             bold: true,
-            color: primaryColorHex,
+            color: isCustom ? activeCustomSettings.primaryColor : displayTheme === 'cosmic' ? '#7c3aed' : '#2563eb',
             fontFace: 'Arial'
           });
 
-          // Question Card Box
-          quizSlide.addShape(pptx.ShapeType.roundRect, {
-            x: '5%',
-            y: '22%',
-            w: '90%',
-            h: '60%',
-            fill: { color: displayTheme === 'cosmic' ? '#131926' : '#f8fafc' },
-            line: { color: '#e2e8f0', width: 1 }
-          });
-
-          // Question text
-          quizSlide.addText(`QUESTION:\n${slide.quiz.question}`, {
-            x: '8%',
-            y: '26%',
-            w: '84%',
-            h: '15%',
-            fontSize: 18,
-            bold: true,
-            color: textColorHex,
-            fontFace: 'Arial',
-            valign: 'middle'
-          });
-
-          // Options as list
-          const optionsTextObj = slide.quiz.options.map((opt, oIdx) => {
-            const isCorrect = oIdx === slide.quiz?.correctAnswerIndex;
-            return {
-              text: `[Option ${oIdx + 1}]  ${opt} ${isCorrect ? '  (✓ CORRECT ANSWER)' : ''}`,
-              options: { fontSize: 14, color: isCorrect ? '#10b981' : textColorHex, bold: isCorrect }
-            };
-          });
-
-          quizSlide.addText(optionsTextObj as any, {
-            x: '8%',
-            y: '45%',
-            w: '84%',
-            h: '32%',
-            fontSize: 14,
-            fontFace: 'Arial',
-            lineSpacing: 24,
-            valign: 'top'
+          slide.links.forEach((link, index) => {
+            linksSlide.addText([
+              {
+                text: `${index + 1}. ${link.title} `,
+                options: { bold: true, color: isCustom ? activeCustomSettings.textColor : '#1f2937' }
+              },
+              {
+                text: link.url,
+                options: {
+                  color: '#2563eb',
+                  hyperlink: { url: link.url }
+                }
+              }
+            ] as any, {
+              x: '6%',
+              y: `${18 + index * 10}%`,
+              w: '88%',
+              h: '8%',
+              fontSize: 14,
+              fontFace: 'Arial'
+            });
           });
         }
-      });
+
+        if (slide.quiz) {
+          const quizCanvas = await captureExportPage(sIdx, 'quiz', isVertical ? 720 : 1280, isVertical ? 960 : 720, bgColorHex, 2);
+          if (quizCanvas) {
+            const quizSlide = pptx.addSlide();
+            quizSlide.background = { fill: bgColorHex };
+            quizSlide.addImage({
+              data: quizCanvas.toDataURL('image/png'),
+              x: 0,
+              y: 0,
+              w: pptWidth,
+              h: pptHeight
+            });
+          }
+        }
+      }
 
       const fileName = `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_presentation.pptx`;
       await pptx.writeFile({ fileName });
     } catch (err) {
       console.error('Failed to export PPTX:', err);
+      alert('Could not export PPTX: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
+      clearExportDensityBumps();
       setIsDownloading(false);
       setDownloadProgress('');
     }
@@ -945,114 +610,56 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const exportToMP4 = async () => {
     setIsDownloading(true);
     setDownloadProgress('Preparing high-res slides for video...');
-    const styleElements = Array.from(document.querySelectorAll('style')) as HTMLStyleElement[];
-    const originalStyleContents = new Map<HTMLStyleElement, string>();
 
     try {
-      // Temporarily sanitize style tags to avoid oklch / oklab issues with html2canvas
-      for (const styleEl of styleElements) {
-        if (styleEl.innerHTML) {
-          originalStyleContents.set(styleEl, styleEl.innerHTML);
-          styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
-        }
-      }
-
       const canvasWidth = isVertical ? 720 : 1280;
       const canvasHeight = isVertical ? 960 : 720;
+      const backgroundColor = isCustom
+        ? activeCustomSettings.backgroundColor
+        : displayTheme === 'cosmic'
+          ? '#0b0f19'
+          : displayTheme === 'limefrost'
+            ? '#f7fee7'
+            : displayTheme === 'sunset'
+              ? '#fff7ed'
+              : displayTheme === 'ocean'
+                ? '#ecfeff'
+                : displayTheme === 'lavender'
+                  ? '#f5f3ff'
+                  : displayTheme === 'rose'
+                    ? '#fff1f2'
+                    : '#ffffff';
 
       const slideCanvases: HTMLCanvasElement[] = [];
 
-      // Step 1: Render all slides (and quiz pages if present) to canvases
-      await withComputedStyleConverter(async () => {
-        for (let i = 0; i < data.slides.length; i++) {
-          setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
-          const contentEl = document.getElementById(`pdf-slide-content-${i}`);
-          if (contentEl) {
-            await new Promise(r => setTimeout(r, 120));
-            const canvas = await html2canvas(contentEl, {
-              width: canvasWidth,
-              height: canvasHeight,
-              scale: 1, // Keep scale 1 to limit memory usage during recording
-              useCORS: true,
-              logging: false,
-              onclone: (clonedDoc) => {
-                const allElements = clonedDoc.getElementsByTagName('*');
-                for (let j = 0; j < allElements.length; j++) {
-                  const el = allElements[j] as HTMLElement;
-                  const styleAttr = el.getAttribute?.('style');
-                  if (styleAttr) {
-                    el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                  }
-                }
-                const styles = clonedDoc.getElementsByTagName('style');
-                for (let j = 0; j < styles.length; j++) {
-                  const s = styles[j];
-                  if (s.innerHTML) {
-                    s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                  }
-                }
-              }
-            });
-            slideCanvases.push(canvas);
-          }
+      for (let i = 0; i < data.slides.length; i++) {
+        setDownloadProgress(`Rendering slide ${i + 1} of ${data.slides.length}...`);
+        const contentCanvas = await captureExportPage(i, 'content', canvasWidth, canvasHeight, backgroundColor, 2);
+        if (contentCanvas) {
+          slideCanvases.push(contentCanvas);
+        }
 
-          // Render dedicated quiz page as a slide in the video if present
-          if (data.slides[i].quiz) {
-            setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
-            const quizEl = document.getElementById(`pdf-slide-quiz-${i}`);
-            if (quizEl) {
-              await new Promise(r => setTimeout(r, 120));
-              const canvas = await html2canvas(quizEl, {
-                width: canvasWidth,
-                height: canvasHeight,
-                scale: 1,
-                useCORS: true,
-                logging: false,
-                onclone: (clonedDoc) => {
-                  const allElements = clonedDoc.getElementsByTagName('*');
-                  for (let j = 0; j < allElements.length; j++) {
-                    const el = allElements[j] as HTMLElement;
-                    const styleAttr = el.getAttribute?.('style');
-                    if (styleAttr) {
-                      el.setAttribute('style', replaceOklchAndOklab(styleAttr));
-                    }
-                  }
-                  const styles = clonedDoc.getElementsByTagName('style');
-                  for (let j = 0; j < styles.length; j++) {
-                    const s = styles[j];
-                    if (s.innerHTML) {
-                      s.innerHTML = replaceOklchAndOklab(s.innerHTML);
-                    }
-                  }
-                }
-              });
-              slideCanvases.push(canvas);
-            }
+        if (data.slides[i].quiz) {
+          setDownloadProgress(`Rendering quiz for slide ${i + 1}...`);
+          const quizCanvas = await captureExportPage(i, 'quiz', canvasWidth, canvasHeight, backgroundColor, 2);
+          if (quizCanvas) {
+            slideCanvases.push(quizCanvas);
           }
         }
-      });
+      }
 
       if (slideCanvases.length === 0) {
         throw new Error('No slides successfully rendered to video.');
       }
 
-      setDownloadProgress('Recording slideshow video (0%)...');
-
-      // Step 2: Create master canvas and start MediaRecorder
-      const masterCanvas = document.createElement('canvas');
-      masterCanvas.width = canvasWidth;
-      masterCanvas.height = canvasHeight;
-      const ctx = masterCanvas.getContext('2d')!;
-
-      // Determine best matching mimeType support
-      const supportedMimeTypes = [
+      const selectedMimeTypes = [
         'video/mp4',
         'video/webm;codecs=vp9',
         'video/webm;codecs=vp8',
-        'video/webm',
+        'video/webm'
       ];
       let selectedMimeType = '';
-      for (const mimeType of supportedMimeTypes) {
+      for (const mimeType of selectedMimeTypes) {
         if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) {
           selectedMimeType = mimeType;
           break;
@@ -1062,6 +669,15 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
       if (!selectedMimeType) {
         throw new Error('This browser does not support video recording API.');
       }
+
+      const formatLabel = selectedMimeType.includes('mp4') ? 'MP4' : 'WebM';
+      setDownloadProgress(`Recording video (${formatLabel}) 0%...`);
+
+      // Step 2: Create master canvas and start MediaRecorder
+      const masterCanvas = document.createElement('canvas');
+      masterCanvas.width = canvasWidth;
+      masterCanvas.height = canvasHeight;
+      const ctx = masterCanvas.getContext('2d')!;
 
       const stream = masterCanvas.captureStream(30); // 30 fps
       const recorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
@@ -1073,9 +689,9 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
         }
       };
 
-      // Slide timing config: 3 seconds (3000ms) per slide
       const slideDuration = 3000;
       const totalDuration = slideCanvases.length * slideDuration;
+      const fadeDuration = 500;
 
       const recordingPromise = new Promise<void>((resolve, reject) => {
         recorder.onstop = () => {
@@ -1103,13 +719,14 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
 
       const startTime = performance.now();
 
-      // Step 3: Draw frames onto master canvas in a loop
+      // Step 3: Draw frames onto master canvas in a loop with simple crossfades
       await new Promise<void>((resolve, reject) => {
         const renderLoop = () => {
           const elapsed = performance.now() - startTime;
           if (elapsed >= totalDuration) {
             // Draw last frame one final time
             const lastFrame = slideCanvases[slideCanvases.length - 1];
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
             ctx.drawImage(lastFrame, 0, 0, canvasWidth, canvasHeight);
             recorder.stop();
             resolve();
@@ -1117,14 +734,36 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
           }
 
           const currentSlideIdx = Math.floor(elapsed / slideDuration);
+          const timeInSlide = elapsed - (currentSlideIdx * slideDuration);
           const currentFrame = slideCanvases[currentSlideIdx];
+          const previousFrame = currentSlideIdx > 0 ? slideCanvases[currentSlideIdx - 1] : null;
+          const nextFrame = currentSlideIdx < slideCanvases.length - 1 ? slideCanvases[currentSlideIdx + 1] : null;
+
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
           if (currentFrame) {
-            ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+            if (timeInSlide < fadeDuration && previousFrame) {
+              const alpha = timeInSlide / fadeDuration;
+              ctx.globalAlpha = 1 - alpha;
+              ctx.drawImage(previousFrame, 0, 0, canvasWidth, canvasHeight);
+              ctx.globalAlpha = alpha;
+              ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+              ctx.globalAlpha = 1;
+            } else if (timeInSlide > slideDuration - fadeDuration && nextFrame) {
+              const alpha = (timeInSlide - (slideDuration - fadeDuration)) / fadeDuration;
+              ctx.globalAlpha = 1 - alpha;
+              ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+              ctx.globalAlpha = alpha;
+              ctx.drawImage(nextFrame, 0, 0, canvasWidth, canvasHeight);
+              ctx.globalAlpha = 1;
+            } else {
+              ctx.globalAlpha = 1;
+              ctx.drawImage(currentFrame, 0, 0, canvasWidth, canvasHeight);
+            }
           }
 
           // Update progress
           const percentage = Math.min(100, Math.round((elapsed / totalDuration) * 100));
-          setDownloadProgress(`Recording video ${percentage}%...`);
+          setDownloadProgress(`Recording video (${formatLabel}) ${percentage}%...`);
 
           requestAnimationFrame(renderLoop);
         };
@@ -1135,17 +774,10 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
       await recordingPromise;
 
     } catch (err: any) {
-      console.error('Failed to export MP4:', err);
+      console.error('Failed to export video:', err);
       alert('Could not export video: ' + (err.message || 'Unknown error'));
     } finally {
-      // Restore original styles
-      for (const [styleEl, originalContent] of Array.from(originalStyleContents.entries())) {
-        try {
-          styleEl.innerHTML = originalContent;
-        } catch (e) {
-          console.error("Failed to restore style:", e);
-        }
-      }
+      clearExportDensityBumps();
       setIsDownloading(false);
       setDownloadProgress('');
     }
@@ -1623,10 +1255,10 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                   <button
                     onClick={exportToMP4}
                     className="px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                    title="Download Presentation MP4 Video"
+                    title="Download Presentation Video"
                   >
                     <Video className="w-3.5 h-3.5 text-rose-400" />
-                    Download MP4
+                    Download Video
                   </button>
                 </>
               )}
@@ -1671,33 +1303,58 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
 
       {/* ---------------- OFFSCREEN HIGH-RES EXPORT CONTAINER (HIDDEN FROM VIEW) ---------------- */}
       <div 
+        data-export-capture="true"
         className="absolute left-[-9999px] top-[-9999px] pointer-events-none overflow-hidden"
         style={{ width: isVertical ? '720px' : '1280px', height: isVertical ? '960px' : '720px' }}
       >
+        <style>{`
+          [data-export-capture="true"] .truncate {
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+          }
+          [data-export-capture="true"] .line-clamp-1,
+          [data-export-capture="true"] .line-clamp-2,
+          [data-export-capture="true"] .line-clamp-3 {
+            display: block !important;
+            overflow: visible !important;
+            -webkit-line-clamp: unset !important;
+            -webkit-box-orient: initial !important;
+          }
+          [data-export-capture="true"] [class*="text-[9px]"] {
+            font-size: 12px !important;
+          }
+          [data-export-capture="true"] [class*="text-[10px]"] {
+            font-size: 12px !important;
+          }
+          [data-export-capture="true"] [class*="text-[11px]"] {
+            font-size: 12px !important;
+          }
+        `}</style>
         {data.slides.map((slide, sIdx) => {
-          const exportDensity = getSlideDensity(slide, sIdx === 0, isVertical, 'content');
+          const contentKey = `content-${sIdx}`;
+          const contentBump = exportDensityBumps[contentKey] ?? 0;
+          const exportDensity = getDensityByIndex(getDensityIndex(getSlideDensity(slide, sIdx === 0, isVertical, 'content')) + contentBump);
           const exportIsTight = exportDensity === 'dense' || exportDensity === 'cramped';
           const exportIsCompact = exportDensity === 'compact';
-          const exportPadding = exportIsTight ? 'p-10' : exportIsCompact ? 'p-12' : 'p-16';
+          const exportPadding = exportIsTight ? 'p-8 md:p-10' : exportIsCompact ? 'p-10 md:p-12' : 'p-14 md:p-16';
           const exportTitleClass = exportIsTight
-            ? (isVertical ? 'text-2xl mb-3' : 'text-4xl mb-6')
+            ? (isVertical ? 'text-2xl mb-3' : 'text-4xl mb-5')
             : exportIsCompact
-              ? (isVertical ? 'text-3xl mb-4' : 'text-4xl mb-8')
-              : (isVertical ? 'text-3xl mb-4' : 'text-5xl mb-10');
+              ? (isVertical ? 'text-3xl mb-4' : 'text-[44px] mb-8')
+              : (isVertical ? 'text-4xl mb-5' : 'text-5xl mb-10');
           const exportBulletClass = exportIsTight
-            ? (isVertical ? 'text-sm' : 'text-lg')
-            : exportIsCompact
-              ? (isVertical ? 'text-base' : 'text-xl')
-              : (isVertical ? 'text-base' : 'text-xl');
-          const exportNoGraphicBulletClass = exportIsTight
-            ? (isVertical ? 'text-base' : 'text-xl')
+            ? (isVertical ? 'text-base' : 'text-lg')
             : exportIsCompact
               ? (isVertical ? 'text-lg' : 'text-xl')
+              : (isVertical ? 'text-xl' : 'text-[24px]');
+          const exportNoGraphicBulletClass = exportIsTight
+            ? (isVertical ? 'text-lg' : 'text-xl')
+            : exportIsCompact
+              ? (isVertical ? 'text-xl' : 'text-[22px]')
               : 'text-2xl';
-          const exportListSpacing = exportIsTight ? 'space-y-3' : exportIsCompact ? 'space-y-4' : 'space-y-6';
-          const exportGraphicMinHeight = exportIsTight
-            ? (isVertical ? 'min-h-[240px]' : 'min-h-[300px]')
-            : (isVertical ? 'min-h-[300px]' : 'min-h-[380px]');
+          const exportListSpacing = exportIsTight ? 'space-y-2.5' : exportIsCompact ? 'space-y-3.5' : 'space-y-5';
+          const exportGraphicHeight = isVertical ? 'h-[300px]' : 'h-[380px]';
 
           return (
           <React.Fragment key={sIdx}>
@@ -1717,58 +1374,76 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                 fontFamily: isCustom ? activeCustomSettings.fontFamily : undefined,
               }}
             >
-              <h2 
-                className={cn("font-extrabold", exportTitleClass, !isCustom && themeStyles[displayTheme].title)}
-                style={titleStyleObj}
-              >
-                {slide.title}
-              </h2>
-              <div className="flex-1 w-full flex min-h-0 items-center justify-between gap-6">
-                {slide.graphic ? (
-                  <div className={cn("grid gap-6 w-full items-center", isVertical ? "grid-cols-1 mt-2" : "grid-cols-12 gap-10")}>
-                    <div className={isVertical ? "col-span-1" : "col-span-5"}>
-                      <ul className={exportListSpacing}>
+              {sIdx === 0 ? (
+                <div className="flex-1 w-full flex flex-col items-center justify-center text-center min-h-0">
+                  <div className={cn("w-16 h-1.5 mb-6 rounded-full", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
+                  <h2
+                    className={cn("font-extrabold", isVertical ? "text-3xl md:text-4xl" : "text-5xl md:text-6xl", exportIsCompact && !isVertical && "text-[44px]", exportIsTight && !isVertical && "text-[38px]", !isCustom && themeStyles[displayTheme].title)}
+                    style={titleStyleObj}
+                  >
+                    {slide.title}
+                  </h2>
+                  <p className={cn("mt-5 max-w-3xl opacity-80", isVertical ? "text-sm md:text-base" : "text-lg md:text-xl", !isCustom && themeStyles[displayTheme].text)} style={textStyleObj}>
+                    {data.title !== slide.title ? data.title : 'Interactive Presentation Deck'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <h2
+                    className={cn("font-extrabold", exportTitleClass, !isCustom && themeStyles[displayTheme].title)}
+                    style={titleStyleObj}
+                  >
+                    {slide.title}
+                  </h2>
+                  <div className="flex-1 w-full flex min-h-0 items-center justify-between gap-6">
+                    {slide.graphic ? (
+                      <div className={cn("grid gap-6 w-full items-center", isVertical ? "grid-cols-1 mt-2" : "grid-cols-12 gap-10")}>
+                        <div className={isVertical ? "col-span-1" : "col-span-5"}>
+                          <ul className={exportListSpacing}>
+                            {slide.content.map((point, idx) => (
+                              <li
+                                key={idx}
+                                className={cn("flex leading-relaxed", exportBulletClass, !isCustom && themeStyles[displayTheme].text)}
+                                style={textStyleObj}
+                              >
+                                <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
+                                <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className={cn("bg-black/5 dark:bg-white/5 rounded-2xl p-6 border border-black/5 dark:border-white/5 flex items-center justify-center", isVertical ? "col-span-1" : "col-span-7", exportGraphicHeight)}>
+                          <InteractiveGraphic
+                            graphic={slide.graphic}
+                            accentClass={!isCustom ? themeStyles[displayTheme].accent : ''}
+                            accentStyleObj={accentStyleObj}
+                            isDarkTheme={displayTheme === 'cosmic'}
+                            isVerticalMode={isVertical}
+                            exportMode
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className={cn(exportListSpacing, "w-full")}>
                         {slide.content.map((point, idx) => (
                           <li
                             key={idx}
-                            className={cn("flex leading-relaxed", exportBulletClass, !isCustom && themeStyles[displayTheme].text)}
+                            className={cn("flex leading-relaxed", exportNoGraphicBulletClass, !isCustom && themeStyles[displayTheme].text)}
                             style={textStyleObj}
                           >
-                            <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
+                            <span className={cn("inline-block w-4 h-4 rounded-full mt-3.5 mr-6 flex-shrink-0", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
                             <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
                           </li>
                         ))}
                       </ul>
-                    </div>
-                    <div className={cn("bg-black/5 dark:bg-white/5 rounded-2xl p-6 border border-black/5 dark:border-white/5 flex items-center justify-center", isVertical ? "col-span-1" : "col-span-7", exportGraphicMinHeight)}>
-                      <InteractiveGraphic
-                        graphic={slide.graphic}
-                        accentClass={!isCustom ? themeStyles[displayTheme].accent : ''}
-                        accentStyleObj={accentStyleObj}
-                        isDarkTheme={displayTheme === 'cosmic'}
-                        isVerticalMode={isVertical}
-                      />
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <ul className={cn(exportListSpacing, "w-full")}>
-                    {slide.content.map((point, idx) => (
-                      <li
-                        key={idx}
-                        className={cn("flex leading-relaxed", exportNoGraphicBulletClass, !isCustom && themeStyles[displayTheme].text)}
-                        style={textStyleObj}
-                      >
-                        <span className={cn("inline-block w-4 h-4 rounded-full mt-3.5 mr-6 flex-shrink-0", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
-                        <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="w-full flex justify-between border-t border-black/5 dark:border-white/5 pt-4 text-sm font-semibold opacity-50">
-                <span style={textStyleObj}>{data.title}</span>
-                <span style={textStyleObj}>{sIdx + 1} / {data.slides.length}</span>
-              </div>
+                  <div className="w-full flex justify-between border-t border-black/5 dark:border-white/5 pt-4 text-sm font-semibold opacity-50">
+                    <span style={textStyleObj}>{data.title}</span>
+                    <span style={textStyleObj}>{sIdx + 1} / {data.slides.length}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Slide Quiz Page */}
@@ -1776,7 +1451,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
               <div
                 id={`pdf-slide-quiz-${sIdx}`}
                 className={cn(
-                  "p-16 flex flex-col justify-between relative bg-white",
+                  exportPadding,
+                  "flex flex-col justify-between relative bg-white",
                   isVertical ? "w-[720px] h-[960px]" : "w-[1280px] h-[720px]",
                   !isCustom && themeStyles[displayTheme].bg,
                   isCustom && activeCustomSettings.fontFamily
@@ -1792,7 +1468,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                   </span>
                 </div>
                 <h2 
-                  className={cn("font-extrabold my-8", isVertical ? "text-3xl my-4" : "text-5xl my-8", !isCustom && themeStyles[displayTheme].title)}
+                  className={cn("font-extrabold my-8", exportIsTight ? (isVertical ? "text-2xl my-3" : "text-4xl my-5") : isVertical ? "text-3xl my-4" : "text-5xl my-8", !isCustom && themeStyles[displayTheme].title)}
                   style={titleStyleObj}
                 >
                   {slide.title} — Quiz

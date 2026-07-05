@@ -10,6 +10,7 @@ interface InteractiveGraphicProps {
   accentStyleObj?: React.CSSProperties;
   isDarkTheme?: boolean;
   isVerticalMode?: boolean;
+  exportMode?: boolean;
 }
 
 export function InteractiveGraphic({ 
@@ -17,9 +18,17 @@ export function InteractiveGraphic({
   accentClass, 
   accentStyleObj, 
   isDarkTheme = false,
-  isVerticalMode = false 
+  isVerticalMode = false,
+  exportMode = false
 }: InteractiveGraphicProps) {
   const { type, title, style = '', elements = [] } = graphic;
+  const maybeTruncate = exportMode ? 'whitespace-normal break-words' : 'truncate';
+  const maybeLineClamp1 = exportMode ? 'whitespace-normal break-words' : 'line-clamp-1';
+  const maybeLineClamp2 = exportMode ? 'whitespace-normal break-words' : 'line-clamp-2';
+  const maybeTinyText = exportMode ? 'text-xs' : 'text-[9px]';
+  const maybeMicroText = exportMode ? 'text-xs' : 'text-[10px]';
+  const maybeSmallText = exportMode ? 'text-xs' : 'text-[11px]';
+  const maybeStepScroll = exportMode ? 'space-y-3.5' : 'space-y-3 max-h-[260px] overflow-y-auto pr-1';
 
   // Render a dynamic lucide icon safely
   const renderIcon = (iconName?: string, className = "w-6 h-6") => {
@@ -70,7 +79,7 @@ export function InteractiveGraphic({
                     />
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[10px]">
-                    <span className="font-bold truncate">{el.label}</span>
+                    <span className={cn("font-bold", maybeTruncate)}>{el.label}</span>
                     <span className={cn("opacity-70 shrink-0", isDark ? "text-slate-400" : "text-gray-500")}>{el.value || `${el.percentage || 60}%`}</span>
                   </div>
                 </div>
@@ -105,8 +114,8 @@ export function InteractiveGraphic({
                 <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center mb-2", isDark ? "bg-slate-800 text-purple-400" : "bg-lime-50 text-lime-700")}>
                   {el.icon ? renderIcon(el.icon, "w-4 h-4") : index + 1}
                 </div>
-                <div className="font-black text-xs truncate">{el.label}</div>
-                <p className={cn("text-[10px] mt-0.5 leading-snug line-clamp-2", isDark ? "text-slate-400" : "text-gray-500")}>
+                <div className={cn("font-black text-xs", maybeTruncate)}>{el.label}</div>
+                <p className={cn("mt-0.5 leading-snug", maybeLineClamp2, maybeMicroText, isDark ? "text-slate-400" : "text-gray-500")}>
                   {el.secondaryText}
                 </p>
               </motion.div>
@@ -125,7 +134,7 @@ export function InteractiveGraphic({
               {title}
             </h3>
           )}
-          <div className="space-y-3 w-full max-h-[260px] overflow-y-auto pr-1">
+          <div className={cn(maybeStepScroll, "w-full")}>
             {elements.map((el, index) => (
               <motion.div
                 key={index}
@@ -159,7 +168,7 @@ export function InteractiveGraphic({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h4 className="font-bold text-sm truncate">{el.label}</h4>
+                    <h4 className={cn("font-bold text-sm", maybeTruncate)}>{el.label}</h4>
                     {el.value && (
                       <span className={cn(
                         "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
@@ -170,7 +179,7 @@ export function InteractiveGraphic({
                     )}
                   </div>
                   {el.secondaryText && (
-                    <p className={cn("text-xs leading-normal mt-0.5 line-clamp-2 opacity-80", isDark ? "text-slate-400" : "text-gray-500")}>
+                    <p className={cn("leading-normal mt-0.5 opacity-80", maybeLineClamp2, maybeSmallText, isDark ? "text-slate-400" : "text-gray-500")}>
                       {el.secondaryText}
                     </p>
                   )}
