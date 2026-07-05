@@ -28,7 +28,7 @@ $args = @(
   "--timeout", "300",
   "--execution-environment", "gen1",
   "--service-account", $RuntimeServiceAccount,
-  "--set-env-vars", "NODE_ENV=production,FIREBASE_PROJECT_ID=$Project",
+  "--set-env-vars", "NODE_ENV=production`,FIREBASE_PROJECT_ID=$Project",
   "--set-secrets", "GEMINI_API_KEY=$GeminiSecret:latest,SESSION_SECRET=$SessionSecret:latest,SHARE_TOKEN_SECRET=$ShareSecret:latest"
 )
 
