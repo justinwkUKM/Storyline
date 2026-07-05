@@ -2089,8 +2089,8 @@ export function SlideEditor({
         </AnimatePresence>
 
         <div className={cn("px-4 md:px-6 py-5", showRawTextPanel ? "xl:pl-[min(38vw,420px)]" : "")}>
-          <div className="grid grid-cols-1 xl:grid-cols-[270px_minmax(0,1fr)_380px] gap-4 min-h-[calc(100vh-138px)]">
-            <aside className="order-1 rounded-[20px] border border-lime-200 bg-white/90 shadow-sm overflow-hidden flex flex-col">
+          <div className="grid grid-cols-1 xl:grid-cols-[240px_minmax(0,1fr)_320px] gap-4 min-h-[calc(100vh-138px)]">
+            <aside className="order-2 xl:order-1 rounded-[20px] border border-lime-200 bg-white/90 shadow-sm overflow-hidden flex flex-col">
               <div className="p-4 border-b border-lime-100 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Slides</div>
@@ -2156,7 +2156,129 @@ export function SlideEditor({
               </div>
             </aside>
 
-            <main className="order-3 xl:order-2 space-y-4">
+            <main className="order-1 xl:order-2 space-y-4">
+              <section className="rounded-[22px] border border-lime-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-lime-100 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">AI editing</div>
+                    <div className="text-sm font-black text-lime-950 truncate">Shape the active slide with AI</div>
+                  </div>
+                  <div className="h-9 w-9 rounded-2xl bg-lime-950 text-lime-50 flex items-center justify-center shrink-0">
+                    <Wand2 className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="p-4 md:p-5 space-y-4">
+                  <textarea
+                    value={aiInstruction}
+                    onChange={(event) => {
+                      setAiInstruction(event.target.value);
+                      setAiPreview(null);
+                      setAiError(null);
+                    }}
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-lime-500 resize-y"
+                    placeholder="Example: Make this slide more executive-ready, reduce it to 3 bullets, and improve the graphic."
+                  />
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {AI_PROMPT_CHIPS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => appendAiPromptChip(prompt)}
+                        className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black text-slate-700 hover:bg-slate-50"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">AI can edit</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AI_EDIT_TARGET_LABELS.map((target) => (
+                        <label key={target.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-black text-slate-900">
+                          <input
+                            type="checkbox"
+                            checked={aiTargets[target.id]}
+                            onChange={() => toggleAiTarget(target.id)}
+                            className="accent-lime-700"
+                          />
+                          {target.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {aiError && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {aiPreview && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Preview summary</div>
+                        <p className="mt-1 text-xs font-semibold text-slate-700">{aiPreview.summary}</p>
+                      </div>
+                      {renderAiPreviewDiff()}
+                      {aiPreview.warnings?.length ? (
+                        <ul className="space-y-1 rounded-xl bg-amber-50 p-2 text-[11px] font-semibold text-amber-800">
+                          {aiPreview.warnings.map((warning, idx) => <li key={idx}>• {warning}</li>)}
+                        </ul>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={applyAiPreview}
+                          className="rounded-full bg-lime-950 px-3 py-2 text-xs font-black text-lime-50 hover:bg-lime-900"
+                        >
+                          Apply changes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={requestAiSlideEdit}
+                          disabled={aiLoading}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {aiLoading ? 'Regenerating...' : 'Regenerate'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAiPreview(null)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-50"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={requestAiSlideEdit}
+                      disabled={aiLoading || !activeSlide}
+                      className="inline-flex items-center gap-2 rounded-full bg-lime-950 px-4 py-2 text-xs font-black text-lime-50 hover:bg-lime-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      {aiLoading ? 'Thinking...' : 'Preview AI edit'}
+                    </button>
+                    {aiUndoSlide && (
+                      <button
+                        type="button"
+                        onClick={undoAiEdit}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-900 hover:bg-slate-50"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                        Undo AI edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+
               <section className="rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
                 <div className="border-b border-lime-100 px-4 py-3 flex items-center justify-between">
                   <div>
@@ -2172,25 +2294,25 @@ export function SlideEditor({
                   </button>
                 </div>
                 <div className="p-4 md:p-6">
-                  <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-white to-lime-50 p-4 md:p-6 min-h-[520px] shadow-inner">
-                    <div className="mx-auto max-w-4xl">
+                  <div className="rounded-[22px] border border-slate-200 bg-white p-4 md:p-5 min-h-[460px]">
+                    <div className="mx-auto max-w-5xl">
                       <div className="rounded-[18px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Preview</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Preview</div>
                             <h2 className="text-xl font-black text-slate-950 truncate">{activeSlide?.title || 'Untitled Slide'}</h2>
                           </div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-full bg-lime-100 text-lime-800">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
                             {activeSlide?.graphic ? activeSlide.graphic.type : 'Text only'}
                           </div>
                         </div>
-                        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] p-5">
+                        <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr] p-5">
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Slide bullets</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Slide bullets</div>
                               <div className="space-y-2">
                                 {activeSlide?.content.map((point, idx) => (
-                                  <div key={idx} className="flex gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                                  <div key={idx} className="flex gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
                                     <div className="mt-1 h-2 w-2 rounded-full bg-lime-500 shrink-0" />
                                     <div className="text-sm leading-relaxed text-slate-800" dangerouslySetInnerHTML={{ __html: point }} />
                                   </div>
@@ -2199,7 +2321,7 @@ export function SlideEditor({
                             </div>
                             {activeSlide?.speakerNotes && (
                               <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700 mb-1">Speaker notes</div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1">Speaker notes</div>
                                 <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-wrap">{activeSlide.speakerNotes}</p>
                               </div>
                             )}
@@ -2212,10 +2334,10 @@ export function SlideEditor({
                                 isVerticalMode={false}
                               />
                             ) : (
-                              <div className="min-h-[320px] rounded-[18px] border border-dashed border-lime-200 bg-lime-50/40 flex flex-col items-center justify-center text-center p-6">
-                                <LayoutGrid className="w-10 h-10 text-lime-300 mb-3" />
-                                <div className="text-sm font-black text-lime-900">No graphic selected</div>
-                                <p className="mt-2 text-xs text-lime-900/60 max-w-[24rem]">Open the graphic library to choose a preset, then edit labels and values in the Visual tab.</p>
+                              <div className="min-h-[320px] rounded-[18px] border border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-center p-6">
+                                <LayoutGrid className="w-10 h-10 text-slate-300 mb-3" />
+                                <div className="text-sm font-black text-slate-900">No graphic selected</div>
+                                <p className="mt-2 text-xs text-slate-500 max-w-[24rem]">Open the graphic library to choose a preset, then edit labels and values in the Visual tab.</p>
                               </div>
                             )}
                           </div>
@@ -2563,7 +2685,7 @@ export function SlideEditor({
               </section>
             </main>
 
-            <aside className="order-2 xl:order-3 rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
+            <aside className="order-3 xl:order-3 rounded-[22px] border border-lime-200 bg-white/95 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-lime-100 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Deck settings</div>
@@ -2587,7 +2709,7 @@ export function SlideEditor({
                     placeholder="E.g. Fiscal Analysis Q2 2026"
                   />
                 </div>
-                <div className="rounded-[18px] border border-lime-200 bg-lime-50/50 p-4 space-y-4">
+                <div className="hidden rounded-[18px] border border-lime-200 bg-lime-50/50 p-4 space-y-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">AI assistant</div>

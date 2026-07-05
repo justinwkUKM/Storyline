@@ -17,10 +17,9 @@ import {
   Loader2,
   Edit3,
   Video,
+  MoreHorizontal,
   ZoomIn,
   ZoomOut,
-  RotateCcw,
-  Palette
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
@@ -196,6 +195,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const [direction, setDirection] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showVideo, setShowVideo] = useState(false);
+  const [showSecondaryMenu, setShowSecondaryMenu] = useState(false);
+  const [showSpeakerNotes, setShowSpeakerNotes] = useState(false);
   const [zoomIndex, setZoomIndex] = useState(2);
   const [displayTheme, setDisplayTheme] = useState<ThemeName>(theme);
   const [displayCustomSettings, setDisplayCustomSettings] = useState<CustomizationSettings | undefined>(customSettings);
@@ -210,6 +211,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   // Download states
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState('');
+  const secondaryMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setDisplayTheme(theme);
@@ -221,6 +223,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     setSelectedAnswer(null);
     setShowVideo(false);
     setActiveTab('content');
+    setShowSecondaryMenu(false);
+    setShowSpeakerNotes(false);
   }, [currentIndex]);
 
   const style = themeStyles[displayTheme];
@@ -275,6 +279,18 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!secondaryMenuRef.current) return;
+      if (!secondaryMenuRef.current.contains(event.target as Node)) {
+        setShowSecondaryMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
@@ -310,11 +326,14 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const isMobile = viewportSize.width < 768;
   const zoom = ZOOM_STEPS[zoomIndex];
   const aspectRatio = isVertical ? 3 / 4 : 16 / 9;
-  const chromeHeight = isFullscreen ? (isMobile ? 92 : 120) : (isMobile ? 92 : 136);
+  const chromeHeight = isFullscreen ? (isMobile ? 72 : 88) : (isMobile ? 88 : 112);
   const availableSlideWidth = Math.max(280, viewportSize.width - (isMobile ? 16 : 24));
   const availableSlideHeight = Math.max(280, viewportSize.height - chromeHeight);
   const baseSlideWidth = Math.min(availableSlideWidth, availableSlideHeight * aspectRatio);
-  const slideWidth = clamp(baseSlideWidth * zoom, Math.min(280, availableSlideWidth), availableSlideWidth);
+  const mobileZoomFill = isMobile ? 1.5 : 1;
+  const slideWidth = isMobile
+    ? clamp(baseSlideWidth * zoom * mobileZoomFill, availableSlideWidth, Math.max(availableSlideWidth, availableSlideWidth * 1.45))
+    : clamp(baseSlideWidth * zoom, Math.min(280, availableSlideWidth), availableSlideWidth);
   const baseDensity = useMemo(
     () => getSlideDensity(currentSlide, isTitleSlide, isVertical, activeTab),
     [activeTab, currentSlide, isTitleSlide, isVertical]
@@ -379,6 +398,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     setDisplayTheme(nextTheme);
     setDisplayCustomSettings(nextSettings);
     onThemeChange?.(nextTheme, nextSettings);
+    setShowSecondaryMenu(false);
   };
 
   const zoomOut = () => setZoomIndex((current) => Math.max(0, current - 1));
@@ -789,7 +809,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 p-2 sm:p-3 md:p-4 gap-2 sm:gap-3", 
+        "fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 p-0 sm:p-3 md:p-4 gap-0 sm:gap-3",
         !isCustom && style.bg, 
         isCustom && activeCustomSettings.fontFamily
       )}
@@ -824,15 +844,15 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
               opacity: { duration: 0.15 }
             }}
             className={cn(
-              "w-full rounded-3xl shadow-xl border overflow-hidden flex flex-col relative bg-white", 
+              "w-full rounded-[22px] shadow-sm border overflow-hidden flex flex-col relative bg-white",
               isVertical ? "aspect-[3/4]" : "aspect-video",
               densityClasses.slidePadding,
               !isCustom && style.bg, 
               isTitleSlide ? "justify-center items-center text-center" : getAlignmentClass()
             )}
             style={{
-               boxShadow: displayTheme === 'minimal' ? 'none' : '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-               borderColor: displayTheme === 'minimal' ? '#e5e7eb' : displayTheme === 'cosmic' ? '#334155' : '#f1f5f9',
+               boxShadow: '0 8px 30px rgba(15, 23, 42, 0.08)',
+               borderColor: displayTheme === 'cosmic' ? '#334155' : '#e2e8f0',
                ...containerStyle
             }}
           >
@@ -1119,7 +1139,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
             )}
 
             {/* Static Non-Overlapping Slide Footer inside the Slide Container */}
-            <div className={cn("w-full flex items-center justify-between border-t border-black/5 dark:border-white/5 text-xs font-semibold opacity-60 flex-shrink-0", densityClasses.footerTop)}>
+            <div className={cn("w-full flex items-center justify-between border-t border-black/5 dark:border-white/5 text-xs font-semibold opacity-60 flex-shrink-0", densityClasses.footerTop, isMobile && "hidden")}>
               <span className="truncate pr-4" style={textStyleObj}>
                 {isTitleSlide ? 'Interactive Storyline' : `Slide ${currentIndex + 1}: ${currentSlide.title}`}
               </span>
@@ -1132,182 +1152,182 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
         </AnimatePresence>
       </div>
 
-      {/* UnifiedFrosted Presenter Control Bar (Horizontal layout placed underneath slide box - NO OVERLAP) */}
       <div
+        ref={secondaryMenuRef}
         className={cn(
-          "w-full flex flex-col xl:flex-row items-center justify-between gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 sm:py-3 bg-lime-950/95 border border-lime-800/40 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-xl z-50 transition-all",
-          isFullscreen && "fixed bottom-2 left-1/2 -translate-x-1/2 max-w-[calc(100vw-1rem)] sm:max-w-6xl",
-          !isFullscreen && "max-w-6xl",
-          isMobile && "overflow-x-auto"
+          "w-full max-w-6xl relative flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white/92 px-3 py-2 shadow-sm backdrop-blur z-50",
+          (isFullscreen || isMobile) && "fixed bottom-2 left-2 right-2 max-w-none"
         )}
       >
-        {/* Left segment: Slideshow Controls & Info */}
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          <div className="flex items-center gap-1 bg-white/10 rounded-full p-1 border border-white/10">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-1 py-1">
             <button
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              title="Previous Slide"
+              className="p-2 rounded-full text-slate-700 hover:bg-white hover:text-slate-950 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              title="Previous slide"
             >
-              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-[10px] sm:text-xs font-mono font-black text-lime-200 px-2 sm:px-3">
+            <span className="min-w-16 px-2 text-center text-[11px] font-black tracking-[0.16em] text-slate-700">
               {currentIndex + 1} / {data.slides.length}
             </span>
             <button
               onClick={handleNext}
               disabled={currentIndex === data.slides.length - 1}
-              className="p-1.5 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              title="Next Slide"
+              className="p-2 rounded-full text-slate-700 hover:bg-white hover:text-slate-950 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+              title="Next slide"
             >
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="hidden xl:block text-[11px] font-black text-lime-300/60 uppercase tracking-widest truncate max-w-[200px]">
+          <span className="hidden xl:block max-w-[260px] truncate text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
             {data.title}
-          </div>
+          </span>
         </div>
 
-        {/* Center/Right segment: Dual Exporters & Secondary Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {!readOnly && onThemeChange && (
-            <label className="hidden lg:flex items-center gap-2 bg-white/10 border border-white/10 rounded-full pl-3 pr-2 py-1 text-lime-100">
-              <Palette className="w-3.5 h-3.5 text-lime-300" />
-              <select
-                value={displayTheme}
-                onChange={(event) => handleThemeSelect(event.target.value as ThemeName)}
-                className="bg-transparent text-xs font-black outline-none cursor-pointer max-w-[132px]"
-                title="Change presentation theme"
-              >
-                {THEMES.map((option) => (
-                  <option key={option.id} value={option.id} className="bg-lime-950 text-lime-50">
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <div className="flex items-center gap-1 bg-white/10 rounded-full p-1 border border-white/10">
-            <button
-              onClick={zoomOut}
-              disabled={zoomIndex === 0}
-              className="p-1 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              title="Zoom out"
-            >
-              <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              onClick={resetZoom}
-              className="min-w-12 px-2 py-1.5 rounded-full text-[10px] font-black text-lime-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
-              title="Reset zoom"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              onClick={zoomIn}
-              disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              className="p-1 rounded-full text-lime-100/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-              title="Zoom in"
-            >
-              <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-
-          <button
-            onClick={resetZoom}
-            className="hidden sm:inline-flex p-2 rounded-xl text-lime-300/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
-            title="Reset slide zoom"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-
-          {!readOnly && onEdit && (
-            <button
-              onClick={onEdit}
-              className="hidden lg:inline-flex px-4 py-2 rounded-full text-xs font-black bg-lime-400 hover:bg-lime-300 active:scale-95 text-lime-950 items-center gap-1.5 transition-all cursor-pointer shadow-md border border-lime-300/40"
-              title="Edit Slide Content & Visuals"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              Edit Slides
-            </button>
-          )}
-
+        <div className="flex items-center gap-2">
           {isDownloading ? (
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-white/90 animate-pulse font-medium">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-lime-400" />
-              <span>{downloadProgress || 'Processing...'}</span>
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="truncate max-w-[180px]">{downloadProgress || 'Processing...'}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              {!readOnly && (
-                <>
-                  <button
-                    onClick={exportToPDF}
-                    className="hidden xl:inline-flex px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                    title="Download High-Res Presentation PDF"
-                  >
-                    <Download className="w-3.5 h-3.5 text-lime-400" />
-                    Download PDF
-                  </button>
-                  
-                  <button
-                    onClick={exportToPPTX}
-                    className="hidden xl:inline-flex px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                    title="Download Editable PowerPoint (PPTX)"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-orange-400" />
-                    Download PPTX
-                  </button>
-
-                  <button
-                    onClick={exportToMP4}
-                    className="hidden xl:inline-flex px-4 py-2 rounded-full text-xs font-black bg-white/10 hover:bg-white/20 active:scale-95 text-lime-100 border border-white/5 items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                    title="Download Presentation Video"
-                  >
-                    <Video className="w-3.5 h-3.5 text-rose-400" />
-                    Download Video
-                  </button>
-                </>
-              )}
+            <div className="hidden md:flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-1 py-1">
+              <button onClick={zoomOut} disabled={zoomIndex === 0} className="p-2 rounded-full text-slate-700 hover:bg-white disabled:opacity-30" title="Zoom out">
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button onClick={resetZoom} className="min-w-16 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-900" title="Reset zoom">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button onClick={zoomIn} disabled={zoomIndex === ZOOM_STEPS.length - 1} className="p-2 rounded-full text-slate-700 hover:bg-white disabled:opacity-30" title="Zoom in">
+                <ZoomIn className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+          <button
+            onClick={() => setShowSecondaryMenu((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-50 transition-colors"
+            title="More presentation actions"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">More</span>
+          </button>
 
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl text-lime-300/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
-            title="Toggle Fullscreen Mode"
+            className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 transition-colors cursor-pointer"
+            title="Toggle fullscreen"
           >
-            <Maximize className="w-4.5 h-4.5" />
+            <Maximize className="w-4 h-4" />
           </button>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
-            title={readOnly ? 'Return home' : 'Exit Presentation'}
+            className="p-2 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+            title={readOnly ? 'Return home' : 'Exit presentation'}
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
+
+        {showSecondaryMenu && (
+          <div className="absolute bottom-[calc(100%+0.5rem)] right-0 left-0 sm:left-auto sm:w-[360px] rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10 p-3">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Presentation controls</div>
+                <div className="text-sm font-black text-slate-950 truncate">{data.title}</div>
+              </div>
+              <button onClick={() => setShowSecondaryMenu(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-500" title="Close menu">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              {!readOnly && onThemeChange && (
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Theme</span>
+                  <select
+                    value={displayTheme}
+                    onChange={(event) => handleThemeSelect(event.target.value as ThemeName)}
+                    className="bg-transparent text-xs font-black outline-none cursor-pointer text-slate-900"
+                    title="Change presentation theme"
+                  >
+                    {THEMES.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {!readOnly && onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                >
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Edit slides</span>
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              )}
+
+              {!readOnly && (
+                <div className="grid gap-2">
+                  <button
+                    onClick={exportToPDF}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PDF</span>
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={exportToPPTX}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PPTX</span>
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={exportToMP4}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download video</span>
+                    <Video className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {!readOnly && currentSlide.speakerNotes && (
+                <button
+                  onClick={() => setShowSpeakerNotes((current) => !current)}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                >
+                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">
+                    {showSpeakerNotes ? 'Hide notes' : 'Show notes'}
+                  </span>
+                  <Sparkles className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Speaker Notes Overlay (Frosted slide-up hover panel) */}
-      {!readOnly && !isFullscreen && currentSlide.speakerNotes && (
-        <div className="absolute bottom-6 left-6 max-w-sm group">
-          <div className="bg-black/90 text-white/95 p-4 rounded-2xl text-xs opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity duration-300 backdrop-blur shadow-xl border border-white/10">
-            <h4 className="font-bold text-white mb-1 uppercase tracking-wider text-[10px] flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
-              Presenter Notes
-            </h4>
-            <p className="leading-relaxed opacity-90">{currentSlide.speakerNotes}</p>
+      {!readOnly && showSpeakerNotes && currentSlide.speakerNotes && (
+        <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md rounded-2xl border border-slate-200 bg-white/96 shadow-xl shadow-slate-950/10 backdrop-blur p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Presenter notes</div>
+              <div className="text-sm font-black text-slate-950">Visible only to the presenter</div>
+            </div>
+            <button onClick={() => setShowSpeakerNotes(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-500" title="Close notes">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <div className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur border border-white/5 flex items-center justify-center cursor-help transition-all shadow-md group-hover:opacity-0">
-            <span className="text-white text-xs font-bold font-mono">?</span>
-          </div>
+          <p className="mt-3 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{currentSlide.speakerNotes}</p>
         </div>
       )}
 
