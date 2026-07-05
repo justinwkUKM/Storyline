@@ -9,7 +9,6 @@ services:
       FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64}
       SESSION_SECRET: ${SESSION_SECRET}
       SHARE_TOKEN_SECRET: ${SHARE_TOKEN_SECRET}
-      APP_URL: ${APP_URL:-http://localhost}
       PORT: "3000"
     expose:
       - "3000"

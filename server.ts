@@ -132,6 +132,9 @@ export async function createApp(options: CreateAppOptions = {}) {
   const app = express();
   const mountFrontend = options.mountFrontend ?? true;
 
+  // Cloud Run and other reverse proxies need this so secure cookies and origin-aware links work correctly.
+  app.set('trust proxy', 1);
+
   // Add request logging middleware
   app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.url} - IP: ${req.ip}`);

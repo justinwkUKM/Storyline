@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { Timestamp, getFirestore } from 'firebase-admin/firestore';
 
 export interface UserRecord {
@@ -76,13 +76,12 @@ function getFirebaseCredential() {
     return cert({ projectId, clientEmail, privateKey });
   }
 
-  return undefined;
+  return applicationDefault();
 }
 
 if (!getApps().length) {
-  const credential = getFirebaseCredential();
   initializeApp({
-    ...(credential ? { credential } : {}),
+    credential: getFirebaseCredential(),
     ...(process.env.FIREBASE_PROJECT_ID ? { projectId: process.env.FIREBASE_PROJECT_ID } : {}),
   });
 }

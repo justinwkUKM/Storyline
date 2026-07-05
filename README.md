@@ -63,17 +63,18 @@ VITE_FIREBASE_APP_ID=your_web_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 SESSION_SECRET=replace_with_a_long_random_secret
 SHARE_TOKEN_SECRET=optional_separate_share_link_secret
-APP_URL=https://your-vercel-domain.vercel.app
 PORT=3000
 ```
 
 > `SESSION_SECRET` is used to sign the Storyline session cookie. Use a strong unique value outside local development.
 
-> `FIREBASE_SERVICE_ACCOUNT_BASE64` is the recommended way to provide Firebase Admin credentials on Vercel because it avoids private-key newline escaping issues.
+> `FIREBASE_SERVICE_ACCOUNT_BASE64` is useful for local development or non-GCP hosts. Cloud Run production should use the runtime service account via Application Default Credentials.
 
-> `VITE_FIREBASE_*` values are browser-safe Firebase web app values. They initialize Firebase Analytics; protected app data still goes through the Vercel API and Firebase Admin.
+> `VITE_FIREBASE_*` values are browser-safe Firebase web app values. They initialize Firebase Analytics; protected app data still goes through the Cloud Run API and Firebase Admin.
 
 > `SHARE_TOKEN_SECRET` is optional. If omitted, share-link token encryption falls back to `SESSION_SECRET`.
+
+> For local Firestore access without a service account key, run `gcloud auth application-default login` after installing the Cloud SDK.
 
 ## Run Locally
 
@@ -107,15 +108,39 @@ npm run firebase:setup   # Verify Firebase Admin credentials and Firestore acces
 npm run clean            # Remove generated build artifacts
 ```
 
-## Deploy With Vercel and Firebase
+## Deploy With Cloud Run
 
-Storyline is configured for Vercel frontend hosting with `/api/*` handled by Vercel Node functions. Firestore stores users, sessions, decks, credits, and share links.
+Storyline is configured to run as a single public Cloud Run service with Firestore as the datastore. The app builds the frontend and backend into one container, and Firebase Admin uses the Cloud Run service account in production.
 
 1. Enable Cloud Firestore in Firebase.
-2. Create a Firebase service account and base64-encode the JSON file.
-3. Deploy Firestore rules and indexes from `firebase.json`.
-4. Set the required environment variables in Vercel.
-5. Deploy the project to Vercel with the default build command.
+2. Deploy Firestore rules and indexes from `firebase.json`.
+3. Install the Google Cloud CLI and authenticate with the `storyline-6cd69` project:
+
+```bash
+gcloud auth login
+gcloud config set project storyline-6cd69
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com firestore.googleapis.com
+```
+4. Create or choose a Cloud Run runtime service account with Firestore access and Secret Manager access.
+5. Create secrets for runtime-only values:
+
+```bash
+gcloud secrets create storyline-gemini-api-key --replication-policy=automatic
+gcloud secrets create storyline-session-secret --replication-policy=automatic
+gcloud secrets create storyline-share-token-secret --replication-policy=automatic
+```
+
+6. Add secret versions from your local shell values, then grant the Cloud Run service account `roles/secretmanager.secretAccessor` and `roles/datastore.user`.
+7. Store `NODE_ENV=production` and `FIREBASE_PROJECT_ID=storyline-6cd69` as runtime environment variables.
+8. Deploy the service with the smallest starter config: `512Mi` memory, `0.08` CPU, `min-instances=0`, `max-instances=2`, and `concurrency=1`.
+
+Example deploy command:
+
+```bash
+gcloud run deploy storyline --source . --region asia-southeast1 --project storyline-6cd69 --allow-unauthenticated --port 3000 --memory 512Mi --cpu 0.08 --concurrency 1 --min-instances 0 --max-instances 2 --timeout 300 --execution-environment gen1 --service-account storyline-cloud-run@storyline-6cd69.iam.gserviceaccount.com --set-env-vars NODE_ENV=production,FIREBASE_PROJECT_ID=storyline-6cd69 --set-secrets GEMINI_API_KEY=storyline-gemini-api-key:latest,SESSION_SECRET=storyline-session-secret:latest,SHARE_TOKEN_SECRET=storyline-share-token-secret:latest
+```
+
+The companion helper in [`scripts/deploy-cloudrun.ps1`](scripts/deploy-cloudrun.ps1) prints the same command for Windows terminals.
 
 Uploaded PDFs are parsed in memory and are not written to Firebase Storage.
 

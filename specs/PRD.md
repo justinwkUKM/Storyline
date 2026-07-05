@@ -516,6 +516,7 @@ interface ShareLinkInfo {
 - Session storage: opaque random session tokens stored hashed in Cloud Firestore.
 - Database SDK: Firebase Admin SDK.
 - Database: Cloud Firestore.
+- Deployment runtime: Google Cloud Run using a single container built from the repo Dockerfile.
 - Deployment datastore service: Firebase Cloud Firestore, with rules and indexes managed by Firebase config files.
 - TypeScript runtime for development: `tsx`.
 - PDF parsing: `pdf-parse`.
@@ -800,6 +801,7 @@ Invalid, missing, or revoked tokens must return `404`.
 - API keys must come from environment variables.
 - `SESSION_SECRET` must come from environment variables in production.
 - `SHARE_TOKEN_SECRET` should come from environment variables in production. If omitted, share-token encryption falls back to `SESSION_SECRET`.
+- Production on Cloud Run should use Application Default Credentials from the Cloud Run runtime service account rather than a pasted Firebase service-account key.
 - Session cookies must be signed, HTTP-only, SameSite Lax, and Secure in production.
 - Session tokens must be opaque random values, and only token hashes may be stored in the database.
 - Expired sessions must be deleted opportunistically during auth checks.
