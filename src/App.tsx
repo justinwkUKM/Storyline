@@ -558,6 +558,13 @@ export default function App() {
               data={presentation}
               theme={theme}
               customSettings={customSettings}
+              onThemeChange={(nextTheme, nextSettings) => {
+                setTheme(nextTheme);
+                setCustomSettings(nextSettings);
+                if (currentDeckId) {
+                  void saveDeck(presentation, nextTheme, nextSettings);
+                }
+              }}
               onClose={() => {
                 setPresentation(null);
                 setDraftPresentation(null);
