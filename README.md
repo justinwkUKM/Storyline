@@ -1,6 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="Storyline banner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
 
 # Storyline
 
@@ -28,7 +25,7 @@ Storyline is a full-stack web application for converting reports, papers, notes,
 - React 19 and Vite
 - TypeScript
 - Express
-- Prisma with SQLite
+- Firebase Admin SDK with Cloud Firestore
 - Gemini API via `@google/genai`
 - Tailwind CSS
 - `pdf-parse` for PDF text extraction
@@ -40,6 +37,7 @@ Storyline is a full-stack web application for converting reports, papers, notes,
 
 - Node.js 20+ recommended
 - npm
+- A Firebase project with Cloud Firestore enabled
 - A Gemini API key
 
 ## Environment Variables
@@ -54,12 +52,29 @@ Configure these values:
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key
-DATABASE_URL="file:./dev.db"
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_SERVICE_ACCOUNT_BASE64=base64_encoded_service_account_json
+VITE_FIREBASE_API_KEY=your_web_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_web_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 SESSION_SECRET=replace_with_a_long_random_secret
+SHARE_TOKEN_SECRET=optional_separate_share_link_secret
 PORT=3000
 ```
 
 > `SESSION_SECRET` is used to sign the Storyline session cookie. Use a strong unique value outside local development.
+
+> `FIREBASE_SERVICE_ACCOUNT_BASE64` is useful for local development or non-GCP hosts. Cloud Run production should use the runtime service account via Application Default Credentials.
+
+> `VITE_FIREBASE_*` values are browser-safe Firebase web app values. They initialize Firebase Analytics; protected app data still goes through the Cloud Run API and Firebase Admin.
+
+> `SHARE_TOKEN_SECRET` is optional. If omitted, share-link token encryption falls back to `SESSION_SECRET`.
+
+> For local Firestore access without a service account key, run `gcloud auth application-default login` after installing the Cloud SDK.
 
 ## Run Locally
 
@@ -67,18 +82,6 @@ Install dependencies:
 
 ```bash
 npm install
-```
-
-Generate the Prisma client:
-
-```bash
-npm run prisma:generate
-```
-
-Create or update the local SQLite database:
-
-```bash
-npm run prisma:migrate
 ```
 
 Start the development server:
@@ -101,11 +104,55 @@ npm run build            # Build the Vite frontend and bundled Node server
 npm run start            # Run the production server from dist/server.cjs
 npm run preview          # Start Vite preview
 npm run lint             # Type-check the project with TypeScript
-npm run prisma:generate  # Generate Prisma client
-npm run prisma:migrate   # Run Prisma migrations in development
-npm run prisma:push      # Push the Prisma schema to the database
+npm run firebase:setup   # Verify Firebase Admin credentials and Firestore access
 npm run clean            # Remove generated build artifacts
 ```
+
+## Deploy With Cloud Run
+
+Storyline is configured to run as a single public Cloud Run service with Firestore as the datastore. The app builds the frontend and backend into one container, and Firebase Admin uses the Cloud Run service account in production.
+
+1. Enable Cloud Firestore in Firebase.
+2. Deploy Firestore rules and indexes from `firebase.json`.
+3. Install the Google Cloud CLI and authenticate with the `storyline-6cd69` project:
+
+```bash
+gcloud auth login
+gcloud config set project storyline-6cd69
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com firestore.googleapis.com
+```
+4. Create or choose a Cloud Run runtime service account with Firestore access and Secret Manager access.
+5. Create secrets for runtime-only values:
+
+```bash
+gcloud secrets create storyline-gemini-api-key --replication-policy=automatic
+gcloud secrets create storyline-session-secret --replication-policy=automatic
+gcloud secrets create storyline-share-token-secret --replication-policy=automatic
+```
+
+6. Add secret versions from your local shell values, then grant the Cloud Run service account `roles/secretmanager.secretAccessor` and `roles/datastore.user`.
+7. Store `NODE_ENV=production` and `FIREBASE_PROJECT_ID=storyline-6cd69` as runtime environment variables.
+8. Deploy the service with the smallest starter config: `512Mi` memory, `0.08` CPU, `min-instances=0`, `max-instances=2`, and `concurrency=1`.
+
+Example deploy command:
+
+```bash
+gcloud run deploy storyline --source . --region asia-southeast1 --project storyline-6cd69 --allow-unauthenticated --port 3000 --memory 512Mi --cpu 0.08 --concurrency 1 --min-instances 0 --max-instances 2 --timeout 300 --execution-environment gen1 --service-account storyline-cloud-run@storyline-6cd69.iam.gserviceaccount.com --set-env-vars NODE_ENV=production,FIREBASE_PROJECT_ID=storyline-6cd69 --set-secrets GEMINI_API_KEY=storyline-gemini-api-key:latest,SESSION_SECRET=storyline-session-secret:latest,SHARE_TOKEN_SECRET=storyline-share-token-secret:latest
+```
+
+The companion helper in [`scripts/deploy-cloudrun.ps1`](scripts/deploy-cloudrun.ps1) prints the same command for Windows terminals.
+
+Uploaded PDFs are parsed in memory and are not written to Firebase Storage.
+
+## Share Links and Storage
+
+Share links do not require Firebase Storage. A share link is an unlisted, public URL that points to the latest saved deck JSON in Firestore.
+
+When a deck owner creates a link, the API generates an opaque random token, stores only its SHA-256 hash for lookup, and stores an encrypted copy of the token so the owner can reopen and copy the same link later. The public route `/share/:token` calls `/api/share/:token`, looks up the active token hash in Firestore, and returns the current saved deck in read-only mode.
+
+Revoking a link sets `revokedAt` on the Firestore share record. Invalid, revoked, or unknown tokens return a not-found response. Shared pages are marked `noindex,nofollow`, and viewers cannot edit, save, delete, or export the owner deck.
+
+The only required Firebase setup for sharing is Cloud Firestore plus the deployed rules and indexes in `firebase.json`. No source PDFs, extracted raw text, generated PDFs, PPTX files, or videos are stored in Firebase Storage by default.
 
 ## App Workflow
 

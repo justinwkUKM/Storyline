@@ -1,6 +1,12 @@
 import { Router, type Request } from 'express';
 import { requireAuth } from '../auth';
-import { prisma } from '../db';
+import {
+  createDeckForUser,
+  deleteDeckForUser,
+  getDeckByIdForUser,
+  listDecksForUser,
+  updateDeckForUser,
+} from '../db';
 import { ApiError, asyncHandler } from '../http';
 import { sanitizeRichTextHtml } from '../../lib/richText';
 import {
@@ -82,25 +88,12 @@ export function serializeDeck(deck: {
 }
 
 decksRouter.get('/', asyncHandler(async (req, res) => {
-  const decks = await prisma.deck.findMany({
-    where: { userId: req.user!.id },
-    orderBy: { updatedAt: 'desc' },
-    select: {
-      id: true,
-      title: true,
-      createdAt: true,
-      updatedAt: true,
-      share: {
-        select: {
-          revokedAt: true,
-        },
-      },
-    },
-  });
+  const decks = await listDecksForUser(req.user!.id);
 
   res.json({
     decks: decks.map((deck) => ({
-      ...deck,
+      id: deck.id,
+      title: deck.title,
       createdAt: deck.createdAt.toISOString(),
       updatedAt: deck.updatedAt.toISOString(),
       hasShare: Boolean(deck.share && !deck.share.revokedAt),
@@ -110,37 +103,13 @@ decksRouter.get('/', asyncHandler(async (req, res) => {
 
 decksRouter.post('/', asyncHandler(async (req, res) => {
   const payload = normalizeDeckPayload(req.body);
-  const deck = await prisma.deck.create({
-    data: {
-      ...payload,
-      userId: req.user!.id,
-    },
-    include: {
-      share: {
-        select: {
-          revokedAt: true,
-        },
-      },
-    },
-  });
+  const deck = await createDeckForUser(req.user!.id, payload);
 
   res.status(201).json({ deck: serializeDeck(deck) });
 }));
 
 decksRouter.get('/:id', asyncHandler(async (req, res) => {
-  const deck = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-    include: {
-      share: {
-        select: {
-          revokedAt: true,
-        },
-      },
-    },
-  });
+  const deck = await getDeckByIdForUser(req.params.id, req.user!.id);
 
   if (!deck) {
     throw new ApiError(404, 'Deck not found.');
@@ -150,58 +119,27 @@ decksRouter.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 decksRouter.put('/:id', asyncHandler(async (req, res) => {
-  const existing = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-    select: { id: true },
-  });
+  const payload = normalizeDeckPayload(req.body);
+  const deck = await updateDeckForUser(req.params.id, req.user!.id, payload);
 
-  if (!existing) {
+  if (!deck) {
     throw new ApiError(404, 'Deck not found.');
   }
-
-  const payload = normalizeDeckPayload(req.body);
-  const deck = await prisma.deck.update({
-    where: { id: existing.id },
-    data: payload,
-    include: {
-      share: {
-        select: {
-          revokedAt: true,
-        },
-      },
-    },
-  });
 
   res.json({ deck: serializeDeck(deck) });
 }));
 
 decksRouter.delete('/:id', asyncHandler(async (req, res) => {
-  const existing = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-    select: { id: true },
-  });
-
-  if (!existing) {
+  const deleted = await deleteDeckForUser(req.params.id, req.user!.id);
+  if (!deleted) {
     throw new ApiError(404, 'Deck not found.');
   }
 
-  await prisma.deck.delete({ where: { id: existing.id } });
   res.json({ ok: true });
 }));
 
 decksRouter.get('/:id/share', asyncHandler(async (req, res) => {
-  const deck = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-  });
+  const deck = await getDeckByIdForUser(req.params.id, req.user!.id);
 
   if (!deck) {
     throw new ApiError(404, 'Deck not found.');
@@ -212,12 +150,7 @@ decksRouter.get('/:id/share', asyncHandler(async (req, res) => {
 }));
 
 decksRouter.post('/:id/share', asyncHandler(async (req, res) => {
-  const deck = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-  });
+  const deck = await getDeckByIdForUser(req.params.id, req.user!.id);
 
   if (!deck) {
     throw new ApiError(404, 'Deck not found.');
@@ -228,12 +161,7 @@ decksRouter.post('/:id/share', asyncHandler(async (req, res) => {
 }));
 
 decksRouter.delete('/:id/share', asyncHandler(async (req, res) => {
-  const deck = await prisma.deck.findFirst({
-    where: {
-      id: req.params.id,
-      userId: req.user!.id,
-    },
-  });
+  const deck = await getDeckByIdForUser(req.params.id, req.user!.id);
 
   if (!deck) {
     throw new ApiError(404, 'Deck not found.');

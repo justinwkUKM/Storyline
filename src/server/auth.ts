@@ -1,6 +1,12 @@
 import type { NextFunction, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { prisma } from './db';
+import {
+  createSessionRecord,
+  deleteExpiredSessions,
+  deleteSessionRecord,
+  getSessionWithUser,
+  resetUserCredits,
+} from './db';
 import { ApiError } from './http';
 import { createOpaqueToken, hashOpaqueToken } from './token';
 
@@ -44,15 +50,10 @@ export async function verifyPassword(password: string, passwordHash: string) {
 
 export async function createSession(res: Response, userId: string) {
   const token = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(token);
   const expiresAt = sessionExpiry();
 
-  await prisma.session.create({
-    data: {
-      tokenHash: hashOpaqueToken(token),
-      userId,
-      expiresAt,
-    },
-  });
+  await createSessionRecord(tokenHash, userId, expiresAt);
 
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -66,7 +67,7 @@ export async function createSession(res: Response, userId: string) {
 
 export async function destroyCurrentSession(req: Request, res: Response) {
   if (req.sessionId) {
-    await prisma.session.deleteMany({ where: { id: req.sessionId } });
+    await deleteSessionRecord(req.sessionId);
   }
 
   res.clearCookie(SESSION_COOKIE, {
@@ -87,12 +88,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     }
 
     const now = new Date();
-    await prisma.session.deleteMany({ where: { expiresAt: { lt: now } } });
+    await deleteExpiredSessions(now);
 
-    const session = await prisma.session.findUnique({
-      where: { tokenHash: hashOpaqueToken(token) },
-      include: { user: true },
-    });
+    const session = await getSessionWithUser(hashOpaqueToken(token));
 
     if (!session || session.expiresAt <= now) {
       await destroyCurrentSession(req, res);
@@ -116,13 +114,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       const cycleStart = new Date(newReset);
       cycleStart.setMonth(cycleStart.getMonth() - 1);
 
-      const updatedUser = await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          credits: 100,
-          creditsResetAt: cycleStart,
-        },
-      });
+      const updatedUser = await resetUserCredits(session.user.id, cycleStart);
 
       userCredits = updatedUser.credits;
       userCreditsResetAt = updatedUser.creditsResetAt;

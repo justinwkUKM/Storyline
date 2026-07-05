@@ -48,6 +48,7 @@ import { apiRequest } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { HtmlBulletEditor } from './HtmlBulletEditor';
 import { InteractiveGraphic } from './InteractiveGraphic';
+import { THEMES } from '../lib/themes';
 
 interface SlideEditorProps {
   initialData: PresentationData;
@@ -66,18 +67,6 @@ const FONTS = [
   { id: 'font-mono', name: 'JetBrains Mono' },
   { id: 'font-serif', name: 'Lora (Editorial Serif)' },
   { id: 'font-display', name: 'Space Grotesk' }
-];
-
-const THEMES: { id: ThemeName; name: string; desc: string; colors: string }[] = [
-  { id: 'limefrost', name: 'Lime Frost', desc: 'Fresh minty lime and dark green tones', colors: 'bg-lime-500 text-lime-900' },
-  { id: 'modern', name: 'Modern Corporate', desc: 'Clean professional blue & slate theme', colors: 'bg-blue-600 text-slate-800' },
-  { id: 'cosmic', name: 'Cosmic Slate', desc: 'Ambient futuristic dark mode styling', colors: 'bg-purple-600 text-slate-200 dark' },
-  { id: 'minimal', name: 'High-Contrast Mono', desc: 'Swiss minimalist absolute dark & white', colors: 'bg-black text-black' },
-  { id: 'sunset', name: 'Sunset Editorial', desc: 'Warm amber, coral, and rose contrast', colors: 'bg-gradient-to-br from-amber-300 via-orange-400 to-rose-500 text-white' },
-  { id: 'ocean', name: 'Ocean Strategy', desc: 'Cool cyan, teal, and deep navy focus', colors: 'bg-gradient-to-br from-cyan-300 via-teal-500 to-blue-950 text-white' },
-  { id: 'lavender', name: 'Lavender Premium', desc: 'Soft violet surfaces with indigo accents', colors: 'bg-gradient-to-br from-violet-100 via-purple-300 to-indigo-500 text-indigo-950' },
-  { id: 'rose', name: 'Rose Editorial', desc: 'Pink, cream, and burgundy presentation tones', colors: 'bg-gradient-to-br from-rose-100 via-pink-300 to-rose-700 text-rose-950' },
-  { id: 'custom', name: 'Custom Theme Builder', desc: 'Tailor colors, spacing, and layouts', colors: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white' }
 ];
 
 type GraphicType = 'process' | 'comparison' | 'metrics' | 'hierarchy' | 'pie';
