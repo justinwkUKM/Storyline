@@ -43,7 +43,7 @@ export function AuthScreen({ onSubmit, error, onBack }: AuthScreenProps) {
           </button>
         )}
         <div className="flex items-center justify-center mb-8">
-          <BrandLogo className="h-11" />
+          <BrandLogo className="h-16 sm:h-20 max-w-[78vw] sm:max-w-[320px]" />
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur border border-lime-200 rounded-3xl shadow-xl shadow-lime-950/5 p-8 space-y-6">
