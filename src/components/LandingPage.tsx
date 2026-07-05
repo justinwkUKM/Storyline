@@ -56,7 +56,7 @@ const highlights = [
 const proofPoints = [
   { value: 'Minutes', label: 'to first draft' },
   { value: 'Editable', label: 'from start to finish' },
-  { value: 'PDF + PPTX', label: 'ready to share' },
+  { value: 'PDF + PPTX', label: 'exports ready' },
 ];
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
@@ -134,7 +134,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   <div className="text-xs font-black uppercase text-lime-700 mb-4">Generated Deck</div>
                   <div className="text-4xl font-black leading-none text-lime-950">Climate Risk Briefing</div>
                   <div className="mt-6 space-y-3">
-                    {['Signals from source PDF', 'Impact narrative', 'Board-ready actions'].map((label, index) => (
+                    {['Signals from source', 'Impact narrative', 'Board-ready actions'].map((label, index) => (
                       <motion.div
                         key={label}
                         variants={enterUp}
@@ -187,17 +187,17 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             Built for people turning dense documents into usable decks
           </motion.div>
           <motion.h1 variants={enterUp} className="text-6xl sm:text-7xl lg:text-8xl font-black leading-[0.88] max-w-4xl">
-            Turn PDFs into bold visual stories.
+            Turn sources into bold visual stories.
           </motion.h1>
           <motion.p variants={enterUp} className="mt-8 text-xl sm:text-2xl text-lime-900/75 leading-relaxed max-w-2xl font-medium">
-            Upload the source, get a clean first draft, refine the parts that matter, and present or export without rebuilding the deck from scratch.
+            Start from a PDF, pasted text, or a public webpage. Get a clean first draft, refine the parts that matter, and present or export without rebuilding the deck from scratch.
           </motion.p>
           <motion.div variants={enterUp} className="mt-10 flex flex-col sm:flex-row gap-4">
             <button
               onClick={onGetStarted}
               className="px-7 py-4 rounded-full bg-lime-950 text-lime-50 hover:bg-lime-900 text-base font-black inline-flex items-center justify-center gap-2 shadow-xl shadow-lime-950/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              Start from a PDF
+              Start a Storyline
               <ArrowRight className="w-5 h-5" />
             </button>
             <a
@@ -231,7 +231,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 <div className="text-xs font-black uppercase text-lime-700 mb-3">Generated Deck</div>
                 <div className="text-3xl font-black leading-none text-lime-950">Climate Risk Briefing</div>
                 <div className="mt-5 space-y-2">
-                  {['Signals from source PDF', 'Impact narrative', 'Board-ready actions'].map((label) => (
+                  {['Signals from source', 'Impact narrative', 'Board-ready actions'].map((label) => (
                     <div key={label} className="rounded-xl bg-white border border-lime-200 px-3 py-3 text-xs font-bold text-lime-900">
                       {label}
                     </div>
@@ -323,7 +323,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="bg-lime-100">
         <div className="max-w-7xl mx-auto px-6 py-18 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {[
-            { icon: ShieldCheck, title: 'Keep your source close', body: 'Your original PDF stays out of the way while the structured deck remains editable and easy to refine.' },
+            { icon: ShieldCheck, title: 'Keep your source close', body: 'Original source material stays transient while the structured deck remains editable and easy to refine.' },
             { icon: Save, title: 'Come back anytime', body: 'Save a deck, reopen it later, update it, duplicate it, or clean it out when the work is done.' },
             { icon: Download, title: 'Leave with something usable', body: 'Export a polished PDF for sharing or an editable PPTX when the deck still needs more work.' },
           ].map((item, index) => {
@@ -350,7 +350,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div>
             <h2 className="text-4xl sm:text-5xl font-black leading-none text-lime-950">
-              Ready to turn the next PDF into something useful?
+              Ready to turn the next source into something useful?
             </h2>
             <p className="mt-4 text-lg text-lime-900/70 font-medium">
               Start with the source material. Finish with a deck people can follow and present.
@@ -360,7 +360,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             onClick={onGetStarted}
             className="px-7 py-4 rounded-full bg-lime-950 text-lime-50 hover:bg-lime-900 text-base font-black inline-flex items-center justify-center gap-2 shadow-xl shadow-lime-950/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            Start from a PDF
+            Start a Storyline
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

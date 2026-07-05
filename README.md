@@ -1,9 +1,9 @@
 
 # Storyline
 
-Turn text-based PDFs into bold, editable visual stories with Gemini AI.
+Turn PDFs, pasted text, and public webpages into bold, editable visual stories with Gemini AI.
 
-Storyline is a full-stack web application for converting reports, papers, notes, and whitepapers into polished presentation decks. Users can upload a readable PDF, choose a deck style, generate a structured slide draft with Gemini, edit the result, save it to their account, present it interactively, and export it for sharing.
+Storyline is a full-stack web application for converting reports, papers, notes, whitepapers, and public webpages into polished presentation decks. Users can provide a source, choose a deck style, generate a structured slide draft with Gemini, edit the result, save it to their account, present it interactively, and export it for sharing.
 
 ## Core Features
 
@@ -11,14 +11,15 @@ Storyline is a full-stack web application for converting reports, papers, notes,
 - **Email/password authentication** with signed session cookies and protected API routes.
 - **Saved deck library** for opening, duplicating, presenting, refreshing, and deleting decks.
 - **Monthly credit system** with 100 credits per user, lazy monthly renewal, and 1 credit deducted per successful generation.
-- **PDF upload workflow** with drag-and-drop, file browsing, single-file validation, and memory-only PDF processing.
-- **Gemini-powered deck generation** from extracted PDF text, including slide titles, bullets, speaker notes, graphics, quizzes, links, and optional embedded video references.
+- **Source input workflow** with PDF upload, pasted raw text, and public webpage URL modes.
+- **Memory-only file processing** with private normalized source text saved for owner-only AI context.
+- **Gemini-powered deck generation** from normalized source text, including slide titles, bullets, speaker notes, graphics, quizzes, links, and optional embedded video references.
 - **Configurable generation settings** for theme, custom theme settings, graphic style, content tone, presentation type, audience, narrative variation, custom focus prompt, slide count, and orientation.
 - **Blueprint editor** for adjusting deck title, slide content, rich text bullets, notes, links, quizzes, videos, and visual graphics before presenting.
-- **AI slide editing assistant** for prompt-based current-slide rewrites with target controls, before/after preview, regenerate, apply, and undo.
+- **AI slide editing assistant** for prompt-based current-slide rewrites and source-grounded new slide drafts with preview, regenerate, apply, and undo.
 - **Interactive presentation mode** with keyboard navigation, fullscreen support, speaker notes, quizzes, links, videos, and animated slides.
 - **Export options** for high-resolution PDF, editable PowerPoint (`.pptx`), and browser-supported slideshow video (`.mp4` or `.webm`).
-- **Privacy-conscious persistence** that stores generated deck JSON by default, not uploaded PDF files or raw extracted source text.
+- **Private source context persistence** that stores normalized source text with the owner deck for later AI editing, without storing original PDFs or exposing source context in public share links.
 
 ## Tech Stack
 
@@ -142,7 +143,7 @@ gcloud run deploy storyline --source . --region asia-southeast1 --project storyl
 
 The companion helper in [`scripts/deploy-cloudrun.ps1`](scripts/deploy-cloudrun.ps1) prints the same command for Windows terminals.
 
-Uploaded PDFs are parsed in memory and are not written to Firebase Storage.
+Uploaded PDFs and original source files are not written to Firebase Storage. Storyline stores normalized source text privately in Firestore with the owner deck so AI edits and new-slide drafts still have context after reload.
 
 ## Share Links and Storage
 
@@ -152,25 +153,26 @@ When a deck owner creates a link, the API generates an opaque random token, stor
 
 Revoking a link sets `revokedAt` on the Firestore share record. Invalid, revoked, or unknown tokens return a not-found response. Shared pages are marked `noindex,nofollow`, and viewers cannot edit, save, delete, or export the owner deck.
 
-The only required Firebase setup for sharing is Cloud Firestore plus the deployed rules and indexes in `firebase.json`. No source PDFs, extracted raw text, generated PDFs, PPTX files, or videos are stored in Firebase Storage by default.
+The only required Firebase setup for sharing is Cloud Firestore plus the deployed rules and indexes in `firebase.json`. No source PDFs, generated PDFs, PPTX files, or videos are stored in Firebase Storage by default. Public share responses omit the private saved source context.
 
 ## App Workflow
 
 1. A visitor lands on the Storyline marketing page.
 2. The visitor registers or signs in.
 3. The authenticated user opens the saved deck library.
-4. The user starts a new Storyline and uploads a text-based PDF.
+4. The user starts a new Storyline and provides a source: PDF, pasted text, or public webpage URL.
 5. The user selects theme, graphic style, tone, presentation type, audience, narrative variation, optional focus prompt, slide count, and orientation.
-6. Storyline extracts readable text from the PDF and asks Gemini to generate a structured deck.
+6. Storyline normalizes the source into readable text and asks Gemini to generate a structured deck.
 7. The generated deck opens in the blueprint editor for review and refinement.
-8. The user can manually edit fields or ask the AI assistant to rewrite the current slide from a prompt, compare before/after results, regenerate, and apply or undo it.
+8. The user can manually edit fields, ask AI to rewrite the current slide, or draft a new source-grounded slide from a topic.
 9. The user saves, updates, duplicates, presents, or exports the deck.
 
 ## Notes and Limitations
 
-- Uploaded PDFs are parsed in memory and are not persisted by default.
-- Scanned image-only PDFs require OCR before upload because Storyline currently extracts selectable text only.
-- Saved decks intentionally omit `rawParsedText` so extracted source text remains session-scoped by default.
+- Original PDFs and source files are processed in memory and are not persisted by default; normalized source text is stored privately with the deck for owner-only AI context.
+- Scanned image-only PDFs require OCR before upload because Storyline extracts selectable text only.
+- Webpage URL generation supports public HTML pages only. Private, local, login-only, unsupported, or empty pages return a clear JSON error.
+- Saved deck presentation JSON intentionally omits `rawParsedText`; private source context is stored separately and reattached only for authenticated owners.
 - PPTX export focuses on editability and simplified visual blocks rather than preserving every animated HTML detail.
 - Video export depends on browser support for `MediaRecorder` and available MP4/WebM codecs.
 

@@ -128,6 +128,12 @@ interface AiSlideEditPreview {
   updatedSlide: SlideContent;
 }
 
+interface AiCreateSlidePreview {
+  summary: string;
+  warnings?: string[];
+  slide: SlideContent;
+}
+
 const DEFAULT_AI_EDIT_TARGETS: AiEditTargets = {
   title: true,
   content: true,
@@ -360,7 +366,7 @@ const GRAPHIC_PRESET_GROUPS: GraphicPresetGroup[] = [
           title: 'Timeline Flow',
           style: 'timeline',
           elements: [
-            { label: 'Discover', value: '01', secondaryText: 'Read the source PDF', icon: 'BookOpen' },
+            { label: 'Discover', value: '01', secondaryText: 'Read the source material', icon: 'BookOpen' },
             { label: 'Structure', value: '02', secondaryText: 'Build the deck outline', icon: 'LayoutGrid' },
             { label: 'Refine', value: '03', secondaryText: 'Edit the storyline', icon: 'Sliders' },
             { label: 'Present', value: '04', secondaryText: 'Play the final deck', icon: 'Presentation' }
@@ -824,6 +830,10 @@ export function SlideEditor({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiUndoSlide, setAiUndoSlide] = useState<{ slide: SlideContent; index: number } | null>(null);
+  const [aiNewSlideInstruction, setAiNewSlideInstruction] = useState('');
+  const [aiNewSlidePreview, setAiNewSlidePreview] = useState<AiCreateSlidePreview | null>(null);
+  const [aiNewSlideError, setAiNewSlideError] = useState<string | null>(null);
+  const [aiNewSlideLoading, setAiNewSlideLoading] = useState(false);
   const autoSaveTimerRef = useRef<number | null>(null);
 
   const activeSlide = data.slides[activeSlideIndex] || data.slides[0];
@@ -1115,6 +1125,58 @@ export function SlideEditor({
     });
     setActiveSlideIndex(aiUndoSlide.index);
     setAiUndoSlide(null);
+  };
+
+  const requestAiNewSlide = async () => {
+    if (!aiNewSlideInstruction.trim()) {
+      setAiNewSlideError('Describe the topic for the new slide.');
+      return;
+    }
+
+    setAiNewSlideLoading(true);
+    setAiNewSlideError(null);
+    setAiNewSlidePreview(null);
+
+    try {
+      const payload = await apiRequest<AiCreateSlidePreview>('/api/ai/create-slide', {
+        method: 'POST',
+        body: JSON.stringify({
+          deckTitle: data.title,
+          instruction: aiNewSlideInstruction,
+          existingSlideTitles: data.slides.map((slide) => slide.title),
+          insertionIndex: activeSlideIndex + 1,
+          rawParsedText: data.rawParsedText,
+        }),
+      });
+
+      setAiNewSlidePreview(payload);
+    } catch (err) {
+      setAiNewSlideError(err instanceof Error ? err.message : 'AI slide creation failed. Please try again.');
+    } finally {
+      setAiNewSlideLoading(false);
+    }
+  };
+
+  const applyAiNewSlide = () => {
+    if (!aiNewSlidePreview) return;
+    const insertIndex = Math.min(activeSlideIndex + 1, data.slides.length);
+    const newSlide = {
+      ...aiNewSlidePreview.slide,
+      id: `slide-ai-${Date.now()}`,
+      content: Array.isArray(aiNewSlidePreview.slide.content) && aiNewSlidePreview.slide.content.length > 0
+        ? aiNewSlidePreview.slide.content
+        : ['Key point'],
+      speakerNotes: aiNewSlidePreview.slide.speakerNotes || '',
+    };
+    commitDataChange((current) => {
+      const updatedSlides = [...current.slides];
+      updatedSlides.splice(insertIndex, 0, newSlide);
+      return { ...current, slides: updatedSlides };
+    });
+    setActiveSlideIndex(insertIndex);
+    setAiNewSlidePreview(null);
+    setAiNewSlideInstruction('');
+    setAiNewSlideError(null);
   };
 
   const stripPreviewHtml = (value: string) => value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
@@ -2081,7 +2143,7 @@ export function SlideEditor({
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 text-xs leading-relaxed whitespace-pre-wrap text-slate-700">
-                  {data.rawParsedText || 'No parsed text returned from this file.'}
+                  {data.rawParsedText || 'No source text returned for this session.'}
                 </div>
               </div>
             </motion.aside>
@@ -2275,6 +2337,81 @@ export function SlideEditor({
                         Undo AI edit
                       </button>
                     )}
+                  </div>
+
+                  <div className="rounded-2xl border border-lime-100 bg-lime-50/40 p-3 space-y-3">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Add slide with AI</div>
+                      <p className="mt-1 text-xs font-semibold text-lime-900/65">Draft a new slide from the saved source context and insert it after the active slide.</p>
+                    </div>
+                    <textarea
+                      value={aiNewSlideInstruction}
+                      onChange={(event) => {
+                        setAiNewSlideInstruction(event.target.value);
+                        setAiNewSlidePreview(null);
+                        setAiNewSlideError(null);
+                      }}
+                      rows={3}
+                      className="w-full rounded-2xl border border-lime-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-lime-500 resize-y"
+                      placeholder="Example: Add a slide about implementation risks using the original source."
+                    />
+                    {aiNewSlideError && (
+                      <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                        {aiNewSlideError}
+                      </div>
+                    )}
+                    {aiNewSlidePreview && (
+                      <div className="rounded-2xl border border-lime-200 bg-white p-3 space-y-3">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">New slide preview</div>
+                          <p className="mt-1 text-xs font-semibold text-slate-700">{aiNewSlidePreview.summary}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <h4 className="text-sm font-black text-slate-950">{aiNewSlidePreview.slide.title}</h4>
+                          <ul className="mt-2 space-y-1 text-xs font-semibold text-slate-700">
+                            {aiNewSlidePreview.slide.content.map((point, idx) => <li key={idx}>- {stripPreviewHtml(point)}</li>)}
+                          </ul>
+                        </div>
+                        {aiNewSlidePreview.warnings?.length ? (
+                          <ul className="space-y-1 rounded-xl bg-amber-50 p-2 text-[11px] font-semibold text-amber-800">
+                            {aiNewSlidePreview.warnings.map((warning, idx) => <li key={idx}>- {warning}</li>)}
+                          </ul>
+                        ) : null}
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={applyAiNewSlide}
+                            className="rounded-full bg-lime-950 px-3 py-2 text-xs font-black text-lime-50 hover:bg-lime-900"
+                          >
+                            Insert slide
+                          </button>
+                          <button
+                            type="button"
+                            onClick={requestAiNewSlide}
+                            disabled={aiNewSlideLoading}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {aiNewSlideLoading ? 'Regenerating...' : 'Regenerate'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAiNewSlidePreview(null)}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-50"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={requestAiNewSlide}
+                      disabled={aiNewSlideLoading || !aiNewSlideInstruction.trim()}
+                      className="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-white px-4 py-2 text-xs font-black text-lime-950 hover:bg-lime-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {aiNewSlideLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ListPlus className="w-3.5 h-3.5" />}
+                      {aiNewSlideLoading ? 'Drafting...' : 'Preview new slide'}
+                    </button>
                   </div>
                 </div>
               </section>

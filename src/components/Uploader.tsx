@@ -2,7 +2,9 @@ import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { 
   UploadCloud, 
-  File, 
+  File as FileIcon,
+  FileText,
+  Link as LinkIcon,
   Loader2, 
   Settings, 
   LayoutGrid, 
@@ -14,13 +16,13 @@ import {
   Layers,
   Monitor
 } from 'lucide-react';
-import { ThemeName, CustomizationSettings, AuthUser } from '../types';
+import { ThemeName, CustomizationSettings, AuthUser, GenerationSource } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface UploaderProps {
   onGenerate: (
-    file: File, 
+    source: GenerationSource,
     theme: ThemeName, 
     customSettings?: CustomizationSettings, 
     graphicStyle?: string, 
@@ -35,6 +37,8 @@ interface UploaderProps {
   isLoading: boolean;
   user: AuthUser;
 }
+
+type SourceMode = GenerationSource['sourceType'];
 
 const THEMES: { id: ThemeName; name: string; description: string; colors: string }[] = [
   { id: 'limefrost', name: 'Limefrost', description: 'Fresh, bold, and signature Storyline', colors: 'bg-lime-400 text-lime-950' },
@@ -161,7 +165,10 @@ const NARRATIVE_STYLES = [
 ];
 
 export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
+  const [sourceMode, setSourceMode] = useState<SourceMode>('pdf');
   const [file, setFile] = useState<File | null>(null);
+  const [sourceText, setSourceText] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
   const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
@@ -174,6 +181,12 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [focusPrompt, setFocusPrompt] = useState('');
 
   const isOutOfCredits = user.credits < 1;
+  const hasSource =
+    sourceMode === 'pdf'
+      ? Boolean(file)
+      : sourceMode === 'text'
+      ? sourceText.trim().length > 0
+      : sourceUrl.trim().length > 0;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -191,9 +204,16 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   } as any);
 
   const handleSubmit = () => {
-    if (file && !isLoading) {
-      onGenerate(file, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation, presentationType, audience, narrativeStyle, focusPrompt);
-    }
+    if (!hasSource || isLoading) return;
+
+    const source: GenerationSource =
+      sourceMode === 'pdf'
+        ? { sourceType: 'pdf', file: file! }
+        : sourceMode === 'text'
+        ? { sourceType: 'text', sourceText: sourceText.trim() }
+        : { sourceType: 'url', sourceUrl: sourceUrl.trim() };
+
+    onGenerate(source, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation, presentationType, audience, narrativeStyle, focusPrompt);
   };
 
   const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
@@ -221,52 +241,114 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
 
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-black text-lime-950 mb-4 tracking-tight">
-          Turn PDFs into Storylines
+          Turn sources into Storylines
         </h1>
         <p className="text-lg text-lime-900/70 max-w-2xl mx-auto font-semibold">
-          Upload a document, choose a style, and shape a bold, editable presentation.
+          Start with a PDF, pasted text, or a public webpage, then shape a bold, editable presentation.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* File Upload */}
+        {/* Source Input */}
         <div className="space-y-4 lg:col-span-1">
           <h2 className="text-xl font-black text-lime-950 flex items-center gap-2">
-            1. Upload PDF
+            1. Add Source
           </h2>
-          <div
-            {...getRootProps()}
-            className={cn(
-              "border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center h-72 cursor-pointer transition-all duration-300 shadow-sm",
-              isOutOfCredits
-                ? "border-red-200 bg-red-50/15 cursor-not-allowed opacity-60"
-                : isDragActive 
-                ? "border-lime-500 bg-lime-50/55" 
-                : "border-lime-200 bg-white/70 hover:bg-lime-50/20 hover:border-lime-400",
-              file && !isOutOfCredits && "border-emerald-400 bg-emerald-50/20 hover:border-emerald-500 hover:bg-emerald-50/30"
-            )}
-          >
-            <input {...getInputProps()} />
-            {isOutOfCredits ? (
-              <div className="flex flex-col items-center text-red-900/50 p-4 text-center">
-                <UploadCloud className="w-12 h-12 mb-4 text-red-400/80" />
-                <p className="font-black text-sm text-red-950">Generation Locked</p>
-                <p className="text-xs font-bold mt-2 text-red-900/60">0 credits remaining for this cycle</p>
-              </div>
-            ) : file ? (
-              <div className="flex flex-col items-center text-emerald-800 w-full max-w-full overflow-hidden">
-                <File className="w-12 h-12 mb-4 text-emerald-600 animate-bounce flex-shrink-0" />
-                <p className="font-black text-center text-sm line-clamp-2 px-4 break-all w-full leading-snug">{file.name}</p>
-                <p className="text-xs font-bold opacity-75 mt-2 flex-shrink-0">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center text-lime-900/60">
-                <UploadCloud className="w-12 h-12 mb-4 text-lime-600/80" />
-                <p className="font-black text-center text-sm text-lime-950">Drag & drop your PDF here</p>
-                <p className="text-xs font-bold mt-2 text-lime-900/50">or click to browse files</p>
-              </div>
-            )}
+          <div className="grid grid-cols-3 gap-2 rounded-2xl border border-lime-200 bg-white/80 p-1.5">
+            {[
+              { id: 'pdf' as const, label: 'PDF', icon: FileIcon },
+              { id: 'text' as const, label: 'Text', icon: FileText },
+              { id: 'url' as const, label: 'Web', icon: LinkIcon },
+            ].map((mode) => {
+              const Icon = mode.icon;
+              const isSelected = sourceMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setSourceMode(mode.id)}
+                  disabled={isOutOfCredits}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-black transition-all",
+                    isSelected ? "bg-lime-950 text-lime-50 shadow-sm" : "text-lime-900/65 hover:bg-lime-50"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {mode.label}
+                </button>
+              );
+            })}
           </div>
+          {sourceMode === 'pdf' && (
+            <div
+              {...getRootProps()}
+              className={cn(
+                "border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center h-72 cursor-pointer transition-all duration-300 shadow-sm",
+                isOutOfCredits
+                  ? "border-red-200 bg-red-50/15 cursor-not-allowed opacity-60"
+                  : isDragActive
+                  ? "border-lime-500 bg-lime-50/55"
+                  : "border-lime-200 bg-white/70 hover:bg-lime-50/20 hover:border-lime-400",
+                file && !isOutOfCredits && "border-emerald-400 bg-emerald-50/20 hover:border-emerald-500 hover:bg-emerald-50/30"
+              )}
+            >
+              <input {...getInputProps()} />
+              {isOutOfCredits ? (
+                <div className="flex flex-col items-center text-red-900/50 p-4 text-center">
+                  <UploadCloud className="w-12 h-12 mb-4 text-red-400/80" />
+                  <p className="font-black text-sm text-red-950">Generation Locked</p>
+                  <p className="text-xs font-bold mt-2 text-red-900/60">0 credits remaining for this cycle</p>
+                </div>
+              ) : file ? (
+                <div className="flex flex-col items-center text-emerald-800 w-full max-w-full overflow-hidden">
+                  <FileIcon className="w-12 h-12 mb-4 text-emerald-600 animate-bounce flex-shrink-0" />
+                  <p className="font-black text-center text-sm line-clamp-2 px-4 break-all w-full leading-snug">{file.name}</p>
+                  <p className="text-xs font-bold opacity-75 mt-2 flex-shrink-0">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center text-lime-900/60">
+                  <UploadCloud className="w-12 h-12 mb-4 text-lime-600/80" />
+                  <p className="font-black text-center text-sm text-lime-950">Drag & drop your PDF here</p>
+                  <p className="text-xs font-bold mt-2 text-lime-900/50">or click to browse files</p>
+                </div>
+              )}
+            </div>
+          )}
+          {sourceMode === 'text' && (
+            <div className="h-72 rounded-3xl border border-lime-200 bg-white/80 p-4 shadow-sm">
+              <textarea
+                value={sourceText}
+                onChange={(event) => setSourceText(event.target.value)}
+                disabled={isOutOfCredits}
+                placeholder="Paste notes, meeting transcripts, article text, research excerpts, or a rough brief."
+                className="h-full w-full resize-none rounded-2xl border border-lime-100 bg-lime-50/30 p-4 text-sm font-semibold leading-relaxed text-lime-950 outline-none transition-all placeholder:text-lime-900/35 focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 disabled:opacity-60"
+              />
+            </div>
+          )}
+          {sourceMode === 'url' && (
+            <div className="h-72 rounded-3xl border border-lime-200 bg-white/80 p-5 shadow-sm flex flex-col justify-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-lime-100 border border-lime-200 flex items-center justify-center">
+                <LinkIcon className="h-6 w-6 text-lime-800" />
+              </div>
+              <div>
+                <label htmlFor="source-url" className="text-xs font-black uppercase tracking-wider text-lime-950">
+                  Public webpage URL
+                </label>
+                <input
+                  id="source-url"
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(event) => setSourceUrl(event.target.value)}
+                  disabled={isOutOfCredits}
+                  placeholder="https://example.com/article"
+                  className="mt-2 w-full rounded-2xl border border-lime-200 bg-lime-50/30 px-4 py-3 text-sm font-bold text-lime-950 outline-none transition-all placeholder:text-lime-900/35 focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 disabled:opacity-60"
+                />
+              </div>
+              <p className="text-xs font-semibold leading-relaxed text-lime-900/55">
+                Works with public HTML pages. Private, local, login-only, or empty pages will return a clear error.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Theme Selection */}
@@ -697,10 +779,10 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
       <div className="flex justify-center mt-6">
         <button
           onClick={handleSubmit}
-          disabled={!file || isLoading || isOutOfCredits}
+          disabled={!hasSource || isLoading || isOutOfCredits}
           className={cn(
             "px-10 py-4 rounded-full font-black text-lg text-lime-50 shadow-xl transition-all flex items-center justify-center min-w-[240px] cursor-pointer",
-            !file || isLoading || isOutOfCredits
+            !hasSource || isLoading || isOutOfCredits
               ? "bg-gray-400 cursor-not-allowed shadow-none" 
               : "bg-lime-950 hover:bg-lime-900 hover:scale-[1.02] active:scale-[0.98] shadow-lime-950/15"
           )}

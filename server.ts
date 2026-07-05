@@ -3,6 +3,8 @@ import express from 'express';
 import path from 'path';
 import multer from 'multer';
 import cookieParser from 'cookie-parser';
+import { lookup } from 'dns/promises';
+import { isIP } from 'net';
 import { PDFParse } from 'pdf-parse';
 import { GoogleGenAI, Type } from '@google/genai';
 import { authMiddleware, requireAuth } from './src/server/auth';
@@ -14,6 +16,266 @@ import { shareRouter } from './src/server/routes/share';
 import { sanitizeRichTextHtml } from './src/lib/richText';
 
 const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
+const MAX_TEXT_LENGTH = 120000;
+const MIN_SOURCE_TEXT_LENGTH = 40;
+const URL_FETCH_TIMEOUT_MS = 12000;
+
+interface NormalizedGenerationSource {
+  type: 'pdf' | 'text' | 'url';
+  text: string;
+  label: string;
+  title?: string;
+}
+
+class SourceInputError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = 'SourceInputError';
+    this.status = status;
+  }
+}
+
+function capSourceText(text: string) {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim();
+  if (normalized.length <= MAX_TEXT_LENGTH) {
+    return normalized;
+  }
+  console.warn(`Source text length (${normalized.length}) exceeds threshold. Truncating to ${MAX_TEXT_LENGTH} chars.`);
+  return `${normalized.slice(0, MAX_TEXT_LENGTH)}\n... [Remaining source text truncated to fit model context limit]`;
+}
+
+function ensureUsefulSourceText(text: string, emptyMessage: string) {
+  const capped = capSourceText(text);
+  if (!capped || capped.replace(/\s/g, '').length < MIN_SOURCE_TEXT_LENGTH) {
+    throw new SourceInputError(emptyMessage);
+  }
+  return capped;
+}
+
+async function extractPdfText(file?: Express.Multer.File): Promise<NormalizedGenerationSource> {
+  if (!file) {
+    throw new SourceInputError('No PDF file uploaded. Please select a valid PDF.');
+  }
+
+  let pdfData;
+  try {
+    const parser = new PDFParse({ data: file.buffer });
+    pdfData = await parser.getText();
+  } catch (err: any) {
+    console.error('Error parsing PDF:', err);
+    throw new SourceInputError('Could not parse the PDF file. The file may be corrupt or encrypted. Details: ' + (err.message || 'Unknown error'));
+  }
+
+  const text = ensureUsefulSourceText(
+    pdfData?.text || '',
+    'No readable text could be extracted from this PDF. This usually occurs if the document contains only scanned images, is encrypted, or is password-protected. Please upload a text-based or OCR-processed PDF document.'
+  );
+
+  return {
+    type: 'pdf',
+    text,
+    label: file.originalname || 'Uploaded PDF',
+    title: file.originalname
+  };
+}
+
+function extractRawText(sourceText: unknown): NormalizedGenerationSource {
+  if (typeof sourceText !== 'string') {
+    throw new SourceInputError('Paste source text before generating a presentation.');
+  }
+
+  const text = ensureUsefulSourceText(
+    sourceText,
+    'The pasted text is empty or too short to create a useful presentation. Add more source material and try again.'
+  );
+
+  return {
+    type: 'text',
+    text,
+    label: 'Pasted text'
+  };
+}
+
+function decodeHtmlEntities(value: string) {
+  const named: Record<string, string> = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+    nbsp: ' '
+  };
+
+  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const key = String(entity).toLowerCase();
+    if (key[0] === '#') {
+      const isHex = key[1] === 'x';
+      const codePoint = Number.parseInt(key.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+    }
+    return named[key] || match;
+  });
+}
+
+function stripHtmlToText(html: string) {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const title = titleMatch ? decodeHtmlEntities(titleMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : undefined;
+  const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const contentHtml = articleMatch?.[1] || mainMatch?.[1] || bodyMatch?.[1] || html;
+  const text = decodeHtmlEntities(
+    contentHtml
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+      .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, ' ')
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/<(br|p|div|section|article|main|li|h[1-6])\b[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s+/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
+
+  return { title, text };
+}
+
+function isPrivateIpAddress(address: string) {
+  const ipVersion = isIP(address);
+  if (ipVersion === 4) {
+    const [a, b] = address.split('.').map((part) => Number(part));
+    return (
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a === 0
+    );
+  }
+  if (ipVersion === 6) {
+    const normalized = address.toLowerCase();
+    return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:');
+  }
+  return false;
+}
+
+async function assertPublicUrl(rawUrl: unknown) {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
+    throw new SourceInputError('Enter a public webpage URL before generating a presentation.');
+  }
+
+  let url: URL;
+  try {
+    url = new URL(rawUrl.trim());
+  } catch {
+    throw new SourceInputError('Enter a valid webpage URL that starts with http:// or https://.');
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new SourceInputError('Only public http:// or https:// webpage URLs are supported.');
+  }
+
+  const hostname = url.hostname.toLowerCase();
+  if (hostname === 'localhost' || hostname.endsWith('.localhost') || isPrivateIpAddress(hostname)) {
+    throw new SourceInputError('Local or private network URLs are not supported. Use a public webpage URL.');
+  }
+
+  let addresses;
+  try {
+    addresses = await lookup(hostname, { all: true });
+  } catch {
+    throw new SourceInputError('Could not resolve that webpage URL. Check the address and try again.');
+  }
+
+  if (addresses.some((entry) => isPrivateIpAddress(entry.address))) {
+    throw new SourceInputError('Private network URLs are not supported. Use a public webpage URL.');
+  }
+
+  return url;
+}
+
+async function extractUrlText(sourceUrl: unknown): Promise<NormalizedGenerationSource> {
+  let url = await assertPublicUrl(sourceUrl);
+  let response: Response | null = null;
+
+  for (let redirectCount = 0; redirectCount < 5; redirectCount += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+    try {
+      response = await fetch(url.toString(), {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'StorylineBot/1.0 (+https://waqasobeidy.com)'
+        }
+      });
+    } catch (err: any) {
+      throw new SourceInputError(err?.name === 'AbortError'
+        ? 'The webpage took too long to respond. Try a different public page.'
+        : 'Could not fetch that webpage. It may block automated access or require login.');
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      break;
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      throw new SourceInputError('That webpage redirects without a readable destination. Try another public page.');
+    }
+    url = await assertPublicUrl(new URL(location, url).toString());
+    response = null;
+  }
+
+  if (!response) {
+    throw new SourceInputError('That webpage redirects too many times. Try another public page.');
+  }
+
+  if (!response.ok) {
+    throw new SourceInputError(`Could not fetch that webpage. The server returned ${response.status}.`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType && !contentType.toLowerCase().includes('text/html')) {
+    throw new SourceInputError('That URL does not look like a public HTML webpage. Try an article or page with readable text.');
+  }
+
+  const html = await response.text();
+  const { title, text: extractedText } = stripHtmlToText(html);
+  const text = ensureUsefulSourceText(
+    extractedText,
+    'No readable text could be extracted from that webpage. Try a page with article-style text or paste the content directly.'
+  );
+
+  return {
+    type: 'url',
+    text,
+    label: url.toString(),
+    title: title || url.hostname
+  };
+}
+
+async function normalizeGenerationSource(req: express.Request): Promise<NormalizedGenerationSource> {
+  const sourceType = typeof req.body.sourceType === 'string' ? req.body.sourceType : 'pdf';
+  if (sourceType === 'pdf') {
+    return extractPdfText(req.file);
+  }
+  if (sourceType === 'text') {
+    return extractRawText(req.body.sourceText);
+  }
+  if (sourceType === 'url') {
+    return extractUrlText(req.body.sourceUrl);
+  }
+  throw new SourceInputError('Unsupported source type. Choose PDF, text, or webpage URL.');
+}
 
 function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: string) {
   return {
@@ -121,6 +383,18 @@ function buildSlideResponseSchema() {
       }
     },
     required: ['summary', 'updatedSlide']
+  };
+}
+
+function buildCreateSlideResponseSchema() {
+  const schema = buildSlideResponseSchema();
+  return {
+    ...schema,
+    properties: {
+      ...schema.properties,
+      slide: schema.properties.updatedSlide,
+    },
+    required: ['summary', 'slide'],
   };
 }
 
@@ -286,6 +560,107 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
     }
   });
 
+  app.post('/api/ai/create-slide', requireAuth, async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: 'GEMINI_API_KEY environment variable is not configured. Please add it to your settings.' });
+      }
+
+      const instruction = typeof req.body.instruction === 'string' ? req.body.instruction.trim().slice(0, 1000) : '';
+      if (!instruction) {
+        return res.status(400).json({ error: 'Describe the topic for the new slide.' });
+      }
+
+      const deckTitle = typeof req.body.deckTitle === 'string' && req.body.deckTitle.trim() ? req.body.deckTitle.trim() : 'Untitled Storyline';
+      const insertionIndex = Number.isInteger(req.body.insertionIndex) ? Math.max(0, req.body.insertionIndex) : 0;
+      const existingSlideTitles = Array.isArray(req.body.existingSlideTitles)
+        ? req.body.existingSlideTitles.slice(0, 40).map((title: any) => String(title || '').slice(0, 160)).filter(Boolean)
+        : [];
+      const rawParsedText = typeof req.body.rawParsedText === 'string' ? req.body.rawParsedText.slice(0, 20000) : '';
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const prompt = `You are Storyline's AI slide creator. Create exactly ONE new slide for an existing deck.
+
+Rules:
+- Use the user's requested topic and stay faithful to the source text. Do not invent unsupported facts.
+- Fit the new slide into the existing deck structure and avoid duplicating existing slide titles.
+- Keep bullet content concise, presentation-ready, and stored as strings.
+- Include speaker notes that help the presenter explain the slide.
+- Include one useful graphic using type process, comparison, metrics, hierarchy, or pie.
+- If adding a quiz or links is useful, include them; otherwise omit them.
+- Return JSON only using the requested schema.
+
+Deck title: ${deckTitle}
+Insert after slide position: ${insertionIndex}
+Existing slide titles:
+${existingSlideTitles.length ? existingSlideTitles.map((title, index) => `${index + 1}. ${title}`).join('\n') : 'None'}
+
+User requested topic/instruction:
+${instruction}
+
+Source text excerpt for context:
+${rawParsedText || 'No source text is available for this editing session.'}`;
+
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: buildCreateSlideResponseSchema(),
+          },
+        });
+      } catch (geminiErr: any) {
+        console.error('Gemini create slide failed:', geminiErr);
+        let errorMsg = 'The AI model failed to create a slide. Please try again.';
+        if (geminiErr.message?.includes('API_KEY')) {
+          errorMsg = 'Invalid or missing GEMINI_API_KEY. Please verify your environment variables or key settings.';
+        } else if (geminiErr.status === 429) {
+          errorMsg = 'Rate limit exceeded for the AI model. Please wait a moment and try again.';
+        } else if (geminiErr.message?.includes('safety')) {
+          errorMsg = 'The slide request was blocked by content safety filters. Try a different topic.';
+        } else if (geminiErr.message) {
+          errorMsg = `AI slide creation error: ${geminiErr.message}`;
+        }
+        return res.status(500).json({ error: errorMsg });
+      }
+
+      const jsonStr = response.text?.trim() || '';
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (err) {
+        console.error('Failed to parse Gemini create slide JSON:', err, jsonStr);
+        return res.status(500).json({ error: 'Failed to structure the AI-created slide.' });
+      }
+
+      const normalizedSlide = normalizeSlideContent(
+        parsed.slide,
+        `slide-ai-${Date.now()}`,
+        instruction.length > 80 ? `${instruction.slice(0, 77)}...` : instruction
+      );
+
+      res.json({
+        summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : 'AI drafted a new slide.',
+        warnings: Array.isArray(parsed.warnings) ? parsed.warnings.map((warning: any) => String(warning)) : [],
+        slide: normalizedSlide,
+      });
+    } catch (error: any) {
+      console.error('Error creating slide with AI:', error);
+      res.status(500).json({ error: 'An unexpected internal error occurred: ' + (error.message || 'Unknown error') });
+    }
+  });
+
   // Generate presentation endpoint
   app.post('/api/generate', requireAuth, upload.single('pdf'), async (req, res) => {
     try {
@@ -298,36 +673,8 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
         });
       }
 
-      if (!req.file) {
-        return res.status(400).json({ error: 'No PDF file uploaded. Please select a valid PDF.' });
-      }
-
-      // Parse the PDF with robust error checking
-      let pdfData;
-      try {
-        const parser = new PDFParse({ data: req.file.buffer });
-        pdfData = await parser.getText();
-      } catch (err: any) {
-        console.error('Error parsing PDF:', err);
-        return res.status(400).json({ 
-          error: 'Could not parse the PDF file. The file may be corrupt or encrypted. Details: ' + (err.message || 'Unknown error') 
-        });
-      }
-
-      const text = pdfData?.text;
-      if (!text || text.trim() === '') {
-        return res.status(400).json({ 
-          error: 'No readable text could be extracted from this PDF. This usually occurs if the document contains only scanned images (no selectable text), is encrypted, or is password-protected. Please upload a text-based or OCR-processed PDF document.' 
-        });
-      }
-
-      // Truncate extremely long text to prevent prompt window overflow, rate-limit issues, or timeouts.
-      const MAX_TEXT_LENGTH = 120000; // approx 25,000 to 30,000 words, plenty for a high-quality deck
-      let textToAnalyze = text;
-      if (text.length > MAX_TEXT_LENGTH) {
-        console.warn(`Extracted text length (${text.length}) exceeds threshold. Truncating to ${MAX_TEXT_LENGTH} chars.`);
-        textToAnalyze = text.slice(0, MAX_TEXT_LENGTH) + '\n... [Remaining document text truncated to fit model context limit]';
-      }
+      const source = await normalizeGenerationSource(req);
+      const textToAnalyze = source.text;
 
       // Initialize Gemini
       const apiKey = process.env.GEMINI_API_KEY;
@@ -425,9 +772,13 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
       }
 
       // Call Gemini to structure the presentation
-      const prompt = `Please create a professional presentation slide deck based on the following text extracted from a PDF. 
+      const prompt = `Please create a professional presentation slide deck based on the following source text.
 First, identify and extract the most critical points and concepts. Use these to create a focused and professional summary that will serve as the primary content for the slides.
 Make sure there's an introductory slide, several content slides, and a conclusion slide.
+
+Source type: ${source.type}
+Source label: ${source.label}
+Source title: ${source.title || 'Not provided'}
 
 Layout and Content Tone Expectations:
 - Style Guideline: ${styleGuidance}
@@ -541,13 +892,13 @@ ${textToAnalyze}
         });
       } catch (geminiErr: any) {
         console.error('Gemini API call failed:', geminiErr);
-        let errorMsg = 'The AI model failed to analyze the PDF. Please try again.';
+        let errorMsg = 'The AI model failed to analyze the source. Please try again.';
         if (geminiErr.message?.includes('API_KEY')) {
           errorMsg = 'Invalid or missing GEMINI_API_KEY. Please verify your environment variables or key settings.';
         } else if (geminiErr.status === 429) {
           errorMsg = 'Rate limit exceeded for the AI model. Please wait a moment and try again.';
         } else if (geminiErr.message?.includes('safety')) {
-          errorMsg = 'The PDF content was flagged by content safety filters. Please try another document.';
+          errorMsg = 'The source content was flagged by content safety filters. Please try different material.';
         } else if (geminiErr.message) {
           errorMsg = `AI generation error: ${geminiErr.message}`;
         }
@@ -568,7 +919,7 @@ ${textToAnalyze}
         presentationData.title = 'Extracted Presentation';
       }
       if (!Array.isArray(presentationData.slides) || presentationData.slides.length === 0) {
-        return res.status(500).json({ error: 'AI failed to generate any slides from this document. Please try again with a different document.' });
+        return res.status(500).json({ error: 'AI failed to generate any slides from this source. Please try again with different material.' });
       }
 
       presentationData.slides = presentationData.slides.map((slide: any, index: number) => {
@@ -608,6 +959,12 @@ ${textToAnalyze}
       const updatedUser = await decrementUserCredits(req.user!.id);
 
       presentationData.rawParsedText = textToAnalyze;
+      presentationData.sourceContext = {
+        sourceType: source.type,
+        label: source.label,
+        ...(source.title ? { title: source.title } : {}),
+        text: textToAnalyze,
+      };
       presentationData.orientation = orientation;
 
       res.json({
@@ -616,6 +973,9 @@ ${textToAnalyze}
       });
     } catch (error: any) {
       console.error('Error generating presentation:', error);
+      if (error instanceof SourceInputError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       res.status(500).json({ error: 'An unexpected internal error occurred: ' + (error.message || 'Unknown error') });
     }
   });

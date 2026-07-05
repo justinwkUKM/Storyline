@@ -2,7 +2,7 @@
 
 ## 1. Design Intent
 
-Storyline should feel like a bold, focused presentation production tool with a polished marketing entry point. The product interface must help users move quickly through a dense workflow: upload a document, configure generation, inspect the AI result, refine the deck, present, and export.
+Storyline should feel like a bold, focused presentation production tool with a polished marketing entry point. The product interface must help users move quickly through a dense workflow: provide source material, configure generation, inspect the AI result, refine the deck, present, and export.
 
 The brand direction is Limefrost by default: pale lime fields, sharp deep-green text, black-green primary actions, confident type, and restrained Apple-like product polish. Visual polish should come from spacing, typography, motion, clear states, and strong slide composition rather than generic decoration.
 
@@ -22,7 +22,7 @@ This is a work tool. Screens may contain many controls, but grouping, hierarchy,
 
 ### 2.4 Storyline Before Sign-In
 
-Unauthenticated visitors should understand the product before they hit the auth form. The landing page must make the Storyline name, PDF-to-deck promise, and primary call to action obvious in the first viewport.
+Unauthenticated visitors should understand the product before they hit the auth form. The landing page must make the Storyline name, source-to-deck promise, and primary call to action obvious in the first viewport.
 
 ### 2.5 Clear Mode Changes
 
@@ -42,7 +42,7 @@ Required areas:
 
 - Storyline brand mark and name.
 - One direct sign-in action in the top navigation.
-- Large first-viewport headline naming the PDF-to-visual-story outcome.
+- Large first-viewport headline naming the source-to-visual-story outcome.
 - Supporting copy that mentions editable decks, saved projects, and export.
 - Primary call to action into auth.
 - Secondary feature anchor.
@@ -108,13 +108,16 @@ Design guidance:
 
 ### 3.3 Upload and Configure Screen
 
-Purpose: collect source file and generation preferences.
+Purpose: collect source material and generation preferences.
 
 Required areas:
 
 - Product identity.
 - Credit status indicator and cycle renewal warnings.
+- Source picker with PDF upload, pasted text, and public webpage URL modes.
 - PDF upload dropzone (automatically locked/disabled when credits are depleted).
+- Text input area for raw pasted source text.
+- URL input for public webpage sources.
 - Theme selection.
 - Custom theme editor when Custom is selected.
 - Graphic style selection.
@@ -130,7 +133,7 @@ Design guidance:
 - Use a centered, constrained workspace.
 - Use numbered sections to make the setup flow obvious.
 - Keep the Generate button visually dominant and disabled until ready.
-- Show the selected PDF name and size after upload.
+- Show the selected PDF name and size after upload, or keep the active text/URL input clearly visible.
 - Present slide count and orientation as explicit segmented/card choices after tone selection.
 - Use `Layers` for slide-count controls and `Monitor` for orientation controls.
 
@@ -742,15 +745,15 @@ Rules:
 
 ## 10.3 Persistence Design
 
-Saved deck persistence should preserve editing continuity while minimizing stored source data.
+Saved deck persistence should preserve editing continuity and keep enough source context for future AI edits while avoiding original file storage.
 
 Rules:
 
-- Save `PresentationData`, theme, and optional custom settings.
-- Do not persist uploaded PDF files.
-- Do not persist `rawParsedText`.
-- Keep `rawParsedText` available in the current editor session after generation until the user leaves or reloads.
-- Loaded saved decks may not show source text because it is intentionally not stored.
+- Save `PresentationData`, theme, optional custom settings, and private normalized source context.
+- Do not persist uploaded PDFs or original source files.
+- Do not persist `rawParsedText` inside `PresentationData`.
+- Reattach private saved source context as `rawParsedText` only for authenticated owner editor views.
+- Public share responses must omit private source context and `rawParsedText`.
 - Save As New must create a separate deck record rather than overwriting the current deck.
 
 ## 11. Accessibility Guidelines
@@ -786,9 +789,9 @@ Rules:
 
 ### 12.3 Privacy
 
-- Treat uploaded PDFs and extracted source text as transient processing data.
-- Persist only the edited deck JSON, theme, and custom styling.
-- Avoid adding source text persistence unless the product explicitly introduces a user-facing opt-in.
+- Treat uploaded PDFs and original source files as transient processing data.
+- Persist normalized source text privately with the owner deck for AI editing and new-slide generation.
+- Never expose saved source context through public share links.
 - Store only hashed share-token lookup data in the database and keep any retrievable token material encrypted at rest.
 - Mark public share pages `noindex` and `nofollow`.
 

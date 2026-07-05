@@ -8,9 +8,11 @@ import {
   AuthUser,
   CustomizationSettings,
   DeckSummary,
+  GenerationSource,
   PresentationData,
   ShareLinkInfo,
   SavedDeck,
+  SourceContext,
   ThemeName
 } from './types';
 import { Uploader } from './components/Uploader';
@@ -40,6 +42,7 @@ export default function App() {
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
   const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings | undefined>();
+  const [sourceContext, setSourceContext] = useState<SourceContext | undefined>();
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(true);
 
@@ -174,13 +177,14 @@ export default function App() {
     setUser(null);
     setDraftPresentation(null);
     setPresentation(null);
+    setSourceContext(undefined);
     setCurrentDeckId(null);
     setDecks([]);
     setShowLibrary(true);
   };
 
   const handleGenerate = async (
-    file: File,
+    source: GenerationSource,
     selectedTheme: ThemeName,
     settings?: CustomizationSettings,
     graphicStyle: string = 'modern_infographic',
@@ -196,10 +200,18 @@ export default function App() {
     setError(null);
     setTheme(selectedTheme);
     setCustomSettings(settings);
+    setSourceContext(undefined);
     setCurrentDeckId(null);
 
     const formData = new FormData();
-    formData.append('pdf', file);
+    formData.append('sourceType', source.sourceType);
+    if (source.sourceType === 'pdf') {
+      formData.append('pdf', source.file);
+    } else if (source.sourceType === 'text') {
+      formData.append('sourceText', source.sourceText);
+    } else {
+      formData.append('sourceUrl', source.sourceUrl);
+    }
     formData.append('graphicStyle', graphicStyle);
     formData.append('tone', tone);
     formData.append('slideCount', slideCount);
@@ -215,18 +227,19 @@ export default function App() {
     }
 
     try {
-      const data = await apiRequest<PresentationData & { creditsRemaining?: number }>('/api/generate', {
+      const data = await apiRequest<PresentationData & { creditsRemaining?: number; sourceContext?: SourceContext }>('/api/generate', {
         method: 'POST',
         body: formData,
       });
 
       if (data && data.slides && data.slides.length > 0) {
         setDraftPresentation(data);
+        setSourceContext(data.sourceContext);
         setShowLibrary(false);
         if (typeof data.creditsRemaining === 'number' && user) {
           setUser({ ...user, credits: data.creditsRemaining });
         }
-        void saveDeck(data, selectedTheme, settings).catch(() => undefined);
+        void saveDeck(data, selectedTheme, settings, false, data.sourceContext).catch(() => undefined);
       } else {
         throw new Error('Received invalid presentation structure from server');
       }
@@ -242,7 +255,8 @@ export default function App() {
     data: PresentationData,
     selectedTheme: ThemeName,
     settings?: CustomizationSettings,
-    saveAsNew = false
+    saveAsNew = false,
+    nextSourceContext?: SourceContext
   ) => {
     const performSave = async () => {
       if (saveStatusTimerRef.current) {
@@ -261,12 +275,14 @@ export default function App() {
             presentationData: data,
             theme: selectedTheme,
             customSettings: settings,
+            sourceContext: nextSourceContext || sourceContext,
           }),
         });
         currentDeckIdRef.current = result.deck.id;
         setCurrentDeckId(result.deck.id);
         setTheme(result.deck.theme);
         setCustomSettings(result.deck.customSettings);
+        setSourceContext(result.deck.sourceContext || nextSourceContext || sourceContext);
         setDraftPresentation(data);
         setSaveStatus('Saved');
         setDecks((currentDecks) => {
@@ -309,6 +325,7 @@ export default function App() {
       setPresentation(null);
       setTheme(data.deck.theme);
       setCustomSettings(data.deck.customSettings);
+      setSourceContext(data.deck.sourceContext);
       setShowLibrary(false);
       setError(null);
     } catch (err) {
@@ -325,6 +342,7 @@ export default function App() {
       setPresentation(null);
       setTheme(data.deck.theme);
       setCustomSettings(data.deck.customSettings);
+      setSourceContext(data.deck.sourceContext);
       setShowLibrary(false);
     } catch (err) {
       setDecksError(err instanceof Error ? err.message : 'Failed to open deck');
@@ -340,6 +358,7 @@ export default function App() {
       setPresentation(data.deck.presentationData);
       setTheme(data.deck.theme);
       setCustomSettings(data.deck.customSettings);
+      setSourceContext(data.deck.sourceContext);
       setShowLibrary(false);
     } catch (err) {
       setDecksError(err instanceof Error ? err.message : 'Failed to open deck');

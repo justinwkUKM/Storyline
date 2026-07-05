@@ -20,6 +20,8 @@ export const decksRouter = Router();
 decksRouter.use(requireAuth);
 
 const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'sunset', 'ocean', 'lavender', 'rose', 'custom']);
+const VALID_SOURCE_TYPES = new Set(['pdf', 'text', 'url']);
+const MAX_SOURCE_CONTEXT_LENGTH = 120000;
 
 function getRequestOrigin(req: Request) {
   return req.get('origin') || `${req.protocol}://${req.get('host')}`;
@@ -28,6 +30,44 @@ function getRequestOrigin(req: Request) {
 function parseJsonField<T>(value: string | null): T | undefined {
   if (!value) return undefined;
   return JSON.parse(value) as T;
+}
+
+function normalizeSourceContext(value: any, fallbackText?: string) {
+  const source = value && typeof value === 'object' ? value : {};
+  const rawText = typeof source.text === 'string' ? source.text : fallbackText;
+  const text = typeof rawText === 'string' ? rawText.trim().slice(0, MAX_SOURCE_CONTEXT_LENGTH) : '';
+  if (!text) return undefined;
+
+  const sourceType = typeof source.sourceType === 'string' && VALID_SOURCE_TYPES.has(source.sourceType)
+    ? source.sourceType
+    : 'text';
+  const label = typeof source.label === 'string' && source.label.trim()
+    ? source.label.trim().slice(0, 500)
+    : 'Saved source';
+  const title = typeof source.title === 'string' && source.title.trim()
+    ? source.title.trim().slice(0, 500)
+    : undefined;
+
+  return {
+    sourceType,
+    label,
+    ...(title ? { title } : {}),
+    text,
+  };
+}
+
+function serializePresentationData(presentationData: any, sourceContext?: any) {
+  const cleanPresentationData = presentationData && typeof presentationData === 'object'
+    ? { ...presentationData }
+    : presentationData;
+  if (cleanPresentationData && typeof cleanPresentationData === 'object') {
+    delete cleanPresentationData.rawParsedText;
+    delete cleanPresentationData.sourceContext;
+    if (sourceContext?.text) {
+      cleanPresentationData.rawParsedText = sourceContext.text;
+    }
+  }
+  return cleanPresentationData;
 }
 
 function normalizeDeckPayload(body: any) {
@@ -45,6 +85,7 @@ function normalizeDeckPayload(body: any) {
     throw new ApiError(400, 'Presentation data must include a title and at least one slide.');
   }
 
+  const sourceContext = normalizeSourceContext(body.sourceContext, presentationData.rawParsedText);
   const sanitizedPresentationData = {
     ...presentationData,
     slides: presentationData.slides.map((slide: any) => ({
@@ -54,14 +95,17 @@ function normalizeDeckPayload(body: any) {
         : [],
     })),
     rawParsedText: undefined,
+    sourceContext: undefined,
   };
   delete sanitizedPresentationData.rawParsedText;
+  delete sanitizedPresentationData.sourceContext;
 
   return {
     title,
     theme,
     presentationData: JSON.stringify(sanitizedPresentationData),
     customSettings: body.customSettings ? JSON.stringify(body.customSettings) : null,
+    sourceContext: sourceContext ? JSON.stringify(sourceContext) : undefined,
   };
 }
 
@@ -71,16 +115,24 @@ export function serializeDeck(deck: {
   presentationData: string;
   theme: string;
   customSettings: string | null;
+  sourceContext?: string | null;
   createdAt: Date;
   updatedAt: Date;
   share?: { revokedAt: Date | null } | null;
-}) {
+}, options: { includeSourceContext?: boolean } = {}) {
+  const sourceContext = parseJsonField<any>(deck.sourceContext || null);
+  const presentationData = parseJsonField<any>(deck.presentationData);
+  const ownerPresentationData = options.includeSourceContext
+    ? serializePresentationData(presentationData, sourceContext)
+    : serializePresentationData(presentationData);
+
   return {
     id: deck.id,
     title: deck.title,
-    presentationData: parseJsonField(deck.presentationData),
+    presentationData: ownerPresentationData,
     theme: deck.theme,
     customSettings: parseJsonField(deck.customSettings),
+    ...(options.includeSourceContext && sourceContext ? { sourceContext } : {}),
     createdAt: deck.createdAt.toISOString(),
     updatedAt: deck.updatedAt.toISOString(),
     hasShare: Boolean(deck.share && !deck.share.revokedAt),
@@ -105,7 +157,7 @@ decksRouter.post('/', asyncHandler(async (req, res) => {
   const payload = normalizeDeckPayload(req.body);
   const deck = await createDeckForUser(req.user!.id, payload);
 
-  res.status(201).json({ deck: serializeDeck(deck) });
+  res.status(201).json({ deck: serializeDeck(deck, { includeSourceContext: true }) });
 }));
 
 decksRouter.get('/:id', asyncHandler(async (req, res) => {
@@ -115,7 +167,7 @@ decksRouter.get('/:id', asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Deck not found.');
   }
 
-  res.json({ deck: serializeDeck(deck) });
+  res.json({ deck: serializeDeck(deck, { includeSourceContext: true }) });
 }));
 
 decksRouter.put('/:id', asyncHandler(async (req, res) => {
@@ -126,7 +178,7 @@ decksRouter.put('/:id', asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Deck not found.');
   }
 
-  res.json({ deck: serializeDeck(deck) });
+  res.json({ deck: serializeDeck(deck, { includeSourceContext: true }) });
 }));
 
 decksRouter.delete('/:id', asyncHandler(async (req, res) => {

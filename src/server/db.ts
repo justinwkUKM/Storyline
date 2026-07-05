@@ -27,6 +27,7 @@ export interface DeckRecord {
   presentationData: string;
   theme: string;
   customSettings: string | null;
+  sourceContext: string | null;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -172,6 +173,7 @@ function deckFromDoc(doc: FirebaseFirestore.DocumentSnapshot, share?: DeckShareR
     presentationData: normalizeString(data.presentationData),
     theme: normalizeString(data.theme || 'modern'),
     customSettings: typeof data.customSettings === 'string' ? data.customSettings : null,
+    sourceContext: typeof data.sourceContext === 'string' ? data.sourceContext : null,
     userId: normalizeString(data.userId),
     createdAt: toDate(data.createdAt),
     updatedAt: toDate(data.updatedAt),
@@ -289,7 +291,7 @@ export async function listDecksForUser(userId: string) {
     .filter((deck): deck is DeckRecord => Boolean(deck));
 }
 
-export async function createDeckForUser(userId: string, payload: Pick<DeckRecord, 'title' | 'presentationData' | 'theme' | 'customSettings'>) {
+export async function createDeckForUser(userId: string, payload: Pick<DeckRecord, 'title' | 'presentationData' | 'theme' | 'customSettings'> & { sourceContext?: string | null }) {
   const createdAt = now();
   const ref = decks.doc();
   await ref.set({
@@ -313,14 +315,17 @@ export async function getDeckByIdForUser(deckId: string, userId: string) {
   return deck;
 }
 
-export async function updateDeckForUser(deckId: string, userId: string, payload: Pick<DeckRecord, 'title' | 'presentationData' | 'theme' | 'customSettings'>) {
+export async function updateDeckForUser(deckId: string, userId: string, payload: Pick<DeckRecord, 'title' | 'presentationData' | 'theme' | 'customSettings'> & { sourceContext?: string | null }) {
   const existing = await getDeckByIdForUser(deckId, userId);
   if (!existing) return null;
 
-  await decks.doc(deckId).update({
+  const nextPayload = {
     ...payload,
+    sourceContext: payload.sourceContext === undefined ? existing.sourceContext : payload.sourceContext,
     updatedAt: now(),
-  });
+  };
+
+  await decks.doc(deckId).update(nextPayload);
   return getDeckByIdForUser(deckId, userId);
 }
 

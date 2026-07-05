@@ -40,6 +40,18 @@ export interface PresentationData {
   orientation?: 'horizontal' | 'vertical';
 }
 
+export interface SourceContext {
+  sourceType: 'pdf' | 'text' | 'url';
+  label: string;
+  title?: string;
+  text: string;
+}
+
+export type GenerationSource =
+  | { sourceType: 'pdf'; file: File }
+  | { sourceType: 'text'; sourceText: string }
+  | { sourceType: 'url'; sourceUrl: string };
+
 export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'sunset' | 'ocean' | 'lavender' | 'rose' | 'custom';
 
 export interface CustomizationSettings {
@@ -71,6 +83,7 @@ export interface SavedDeck extends DeckSummary {
   presentationData: PresentationData;
   theme: ThemeName;
   customSettings?: CustomizationSettings;
+  sourceContext?: SourceContext;
 }
 
 export interface ShareLinkInfo {
