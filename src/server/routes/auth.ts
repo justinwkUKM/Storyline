@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import {
   createSession,
   destroyCurrentSession,
@@ -8,7 +7,7 @@ import {
   requireAuth,
   verifyPassword,
 } from '../auth';
-import { prisma } from '../db';
+import { createUser, DuplicateEmailError, getUserByEmail } from '../db';
 import { ApiError, asyncHandler } from '../http';
 
 export const authRouter = Router();
@@ -39,16 +38,11 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
   }
 
   try {
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash: await hashPassword(password),
-      },
-    });
+    const user = await createUser(email, await hashPassword(password));
     await createSession(res, user.id);
     res.status(201).json({ user: serializeUser(user) });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    if (err instanceof DuplicateEmailError) {
       throw new ApiError(409, 'An account with this email already exists.');
     }
     throw err;
@@ -58,7 +52,7 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
 authRouter.post('/login', asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const password = typeof req.body.password === 'string' ? req.body.password : '';
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await getUserByEmail(email);
 
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     throw new ApiError(401, 'Invalid email or password.');

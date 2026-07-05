@@ -510,9 +510,10 @@ interface ShareLinkInfo {
 - Upload interaction: `react-dropzone`.
 - Backend framework: Express.
 - Authentication: email/password with hashed passwords and signed HTTP-only session cookies.
-- Session storage: opaque random session tokens stored hashed in SQLite.
-- Database ORM: Prisma.
-- Database: SQLite.
+- Session storage: opaque random session tokens stored hashed in Cloud Firestore.
+- Database SDK: Firebase Admin SDK.
+- Database: Cloud Firestore.
+- Deployment datastore service: Firebase Cloud Firestore, with rules and indexes managed by Firebase config files.
 - TypeScript runtime for development: `tsx`.
 - PDF parsing: `pdf-parse`.
 - Upload parsing: `multer` with memory storage.
@@ -795,6 +796,7 @@ Invalid, missing, or revoked tokens must return `404`.
 
 - API keys must come from environment variables.
 - `SESSION_SECRET` must come from environment variables in production.
+- `SHARE_TOKEN_SECRET` should come from environment variables in production. If omitted, share-token encryption falls back to `SESSION_SECRET`.
 - Session cookies must be signed, HTTP-only, SameSite Lax, and Secure in production.
 - Session tokens must be opaque random values, and only token hashes may be stored in the database.
 - Expired sessions must be deleted opportunistically during auth checks.

@@ -1,5 +1,10 @@
 import crypto from 'crypto';
-import { prisma } from './db';
+import {
+  findDeckShareByTokenHash,
+  getDeckShare,
+  revokeDeckShare as revokeDeckShareRecord,
+  upsertDeckShare,
+} from './db';
 import { createOpaqueToken, hashOpaqueToken } from './token';
 
 export interface ShareLinkPayload {
@@ -54,16 +59,8 @@ export function buildShareUrl(token: string, origin?: string) {
   return `${base}/share/${token}`;
 }
 
-export async function getDeckShare(deckId: string) {
-  return prisma.deckShare.findUnique({
-    where: { deckId },
-  });
-}
-
 export async function getActiveDeckSharePayload(deckId: string, origin?: string) {
-  const share = await prisma.deckShare.findUnique({
-    where: { deckId },
-  });
+  const share = await getDeckShare(deckId);
 
   if (!share || share.revokedAt) {
     return null;
@@ -83,51 +80,20 @@ export async function createOrRotateDeckShare(deckId: string, origin?: string) {
   const tokenHash = hashOpaqueToken(token);
   const encrypted = encryptToken(token);
 
-  const share = await prisma.deckShare.upsert({
-    where: { deckId },
-    create: {
-      deckId,
-      tokenHash,
-      ...encrypted,
-      revokedAt: null,
-    },
-    update: {
-      tokenHash,
-      ...encrypted,
-      revokedAt: null,
-    },
+  const share = await upsertDeckShare(deckId, {
+    tokenHash,
+    ...encrypted,
+    revokedAt: null,
   });
 
   return buildSharePayload(token, share.createdAt, share.updatedAt, origin);
 }
 
 export async function revokeDeckShare(deckId: string) {
-  const share = await prisma.deckShare.findUnique({
-    where: { deckId },
-    select: { id: true },
-  });
-
-  if (!share) {
-    return null;
-  }
-
-  return prisma.deckShare.update({
-    where: { id: share.id },
-    data: {
-      revokedAt: new Date(),
-    },
-  });
+  return revokeDeckShareRecord(deckId);
 }
 
 export async function findSharedDeckByToken(token: string) {
   const tokenHash = hashOpaqueToken(token);
-  return prisma.deckShare.findFirst({
-    where: {
-      tokenHash,
-      revokedAt: null,
-    },
-    include: {
-      deck: true,
-    },
-  });
+  return findDeckShareByTokenHash(tokenHash);
 }

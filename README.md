@@ -28,7 +28,7 @@ Storyline is a full-stack web application for converting reports, papers, notes,
 - React 19 and Vite
 - TypeScript
 - Express
-- Prisma with SQLite
+- Firebase Admin SDK with Cloud Firestore
 - Gemini API via `@google/genai`
 - Tailwind CSS
 - `pdf-parse` for PDF text extraction
@@ -40,6 +40,7 @@ Storyline is a full-stack web application for converting reports, papers, notes,
 
 - Node.js 20+ recommended
 - npm
+- A Firebase project with Cloud Firestore enabled
 - A Gemini API key
 
 ## Environment Variables
@@ -54,12 +55,28 @@ Configure these values:
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key
-DATABASE_URL="file:./dev.db"
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_SERVICE_ACCOUNT_BASE64=base64_encoded_service_account_json
+VITE_FIREBASE_API_KEY=your_web_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_web_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 SESSION_SECRET=replace_with_a_long_random_secret
+SHARE_TOKEN_SECRET=optional_separate_share_link_secret
+APP_URL=https://your-vercel-domain.vercel.app
 PORT=3000
 ```
 
 > `SESSION_SECRET` is used to sign the Storyline session cookie. Use a strong unique value outside local development.
+
+> `FIREBASE_SERVICE_ACCOUNT_BASE64` is the recommended way to provide Firebase Admin credentials on Vercel because it avoids private-key newline escaping issues.
+
+> `VITE_FIREBASE_*` values are browser-safe Firebase web app values. They initialize Firebase Analytics; protected app data still goes through the Vercel API and Firebase Admin.
+
+> `SHARE_TOKEN_SECRET` is optional. If omitted, share-link token encryption falls back to `SESSION_SECRET`.
 
 ## Run Locally
 
@@ -67,18 +84,6 @@ Install dependencies:
 
 ```bash
 npm install
-```
-
-Generate the Prisma client:
-
-```bash
-npm run prisma:generate
-```
-
-Create or update the local SQLite database:
-
-```bash
-npm run prisma:migrate
 ```
 
 Start the development server:
@@ -101,11 +106,21 @@ npm run build            # Build the Vite frontend and bundled Node server
 npm run start            # Run the production server from dist/server.cjs
 npm run preview          # Start Vite preview
 npm run lint             # Type-check the project with TypeScript
-npm run prisma:generate  # Generate Prisma client
-npm run prisma:migrate   # Run Prisma migrations in development
-npm run prisma:push      # Push the Prisma schema to the database
+npm run firebase:setup   # Verify Firebase Admin credentials and Firestore access
 npm run clean            # Remove generated build artifacts
 ```
+
+## Deploy With Vercel and Firebase
+
+Storyline is configured for Vercel frontend hosting with `/api/*` handled by Vercel Node functions. Firestore stores users, sessions, decks, credits, and share links.
+
+1. Enable Cloud Firestore in Firebase.
+2. Create a Firebase service account and base64-encode the JSON file.
+3. Deploy Firestore rules and indexes from `firebase.json`.
+4. Set the required environment variables in Vercel.
+5. Deploy the project to Vercel with the default build command.
+
+Uploaded PDFs are parsed in memory and are not written to Firebase Storage.
 
 ## App Workflow
 

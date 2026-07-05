@@ -4,10 +4,9 @@ import path from 'path';
 import multer from 'multer';
 import cookieParser from 'cookie-parser';
 import { PDFParse } from 'pdf-parse';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { authMiddleware, requireAuth } from './src/server/auth';
-import { prisma } from './src/server/db';
+import { decrementUserCredits } from './src/server/db';
 import { sendError } from './src/server/http';
 import { authRouter } from './src/server/routes/auth';
 import { decksRouter } from './src/server/routes/decks';
@@ -125,9 +124,13 @@ function buildSlideResponseSchema() {
   };
 }
 
-async function startServer() {
+export interface CreateAppOptions {
+  mountFrontend?: boolean;
+}
+
+export async function createApp(options: CreateAppOptions = {}) {
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
+  const mountFrontend = options.mountFrontend ?? true;
 
   // Add request logging middleware
   app.use((req, res, next) => {
@@ -599,14 +602,7 @@ ${textToAnalyze}
       });
 
       // Deduct 1 credit from user on successful generation
-      const updatedUser = await prisma.user.update({
-        where: { id: req.user!.id },
-        data: {
-          credits: {
-            decrement: 1
-          }
-        }
-      });
+      const updatedUser = await decrementUserCredits(req.user!.id);
 
       presentationData.rawParsedText = textToAnalyze;
       presentationData.orientation = orientation;
@@ -622,13 +618,14 @@ ${textToAnalyze}
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
+  if (mountFrontend && process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (mountFrontend) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -639,9 +636,18 @@ ${textToAnalyze}
   // Global JSON error handler
   app.use(sendError);
 
+  return app;
+}
+
+export async function startServer() {
+  const PORT = Number(process.env.PORT || 3000);
+  const app = await createApp();
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+if (process.env.VERCEL !== '1') {
+  startServer();
+}
