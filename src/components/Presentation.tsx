@@ -1234,7 +1234,12 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
         </div>
 
         {showSecondaryMenu && (
-          <div className="absolute bottom-[calc(100%+0.5rem)] right-0 left-0 sm:left-auto sm:w-[360px] rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10 p-3">
+          <div
+            className={cn(
+              "absolute bottom-[calc(100%+0.5rem)] right-0 left-0 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10 p-3",
+              isMobile ? "max-h-[calc(100vh-9rem)] overflow-y-auto" : "sm:left-auto sm:w-[360px]"
+            )}
+          >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Presentation controls</div>
@@ -1245,73 +1250,143 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
               </button>
             </div>
 
-            <div className="mt-3 grid gap-2">
-              {!readOnly && onThemeChange && (
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Theme</span>
-                  <select
-                    value={displayTheme}
-                    onChange={(event) => handleThemeSelect(event.target.value as ThemeName)}
-                    className="bg-transparent text-xs font-black outline-none cursor-pointer text-slate-900"
-                    title="Change presentation theme"
-                  >
-                    {THEMES.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+            {isMobile ? (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {!readOnly && onThemeChange && (
+                  <label className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Theme</span>
+                    <select
+                      value={displayTheme}
+                      onChange={(event) => handleThemeSelect(event.target.value as ThemeName)}
+                      className="bg-transparent text-xs font-black outline-none cursor-pointer text-slate-900"
+                      title="Change presentation theme"
+                    >
+                      {THEMES.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
-              {!readOnly && onEdit && (
-                <button
-                  onClick={onEdit}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
-                >
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Edit slides</span>
-                  <Edit3 className="w-4 h-4" />
-                </button>
-              )}
-
-              {!readOnly && (
-                <div className="grid gap-2">
+                {!readOnly && onEdit && (
                   <button
-                    onClick={exportToPDF}
+                    onClick={onEdit}
                     className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
                   >
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PDF</span>
-                    <Download className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Edit</span>
+                    <Edit3 className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={exportToPPTX}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
-                  >
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PPTX</span>
-                    <FileSpreadsheet className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={exportToMP4}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
-                  >
-                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download video</span>
-                    <Video className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                )}
 
-              {!readOnly && currentSlide.speakerNotes && (
-                <button
-                  onClick={() => setShowSpeakerNotes((current) => !current)}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
-                >
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">
-                    {showSpeakerNotes ? 'Hide notes' : 'Show notes'}
-                  </span>
-                  <Sparkles className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                {!readOnly && (
+                  <>
+                    <button
+                      onClick={exportToPDF}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">PDF</span>
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={exportToPPTX}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">PPTX</span>
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={exportToMP4}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Video</span>
+                      <Video className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                {!readOnly && currentSlide.speakerNotes && (
+                  <button
+                    onClick={() => setShowSpeakerNotes((current) => !current)}
+                    className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
+                      {showSpeakerNotes ? 'Hide notes' : 'Show notes'}
+                    </span>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-2">
+                {!readOnly && onThemeChange && (
+                  <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Theme</span>
+                    <select
+                      value={displayTheme}
+                      onChange={(event) => handleThemeSelect(event.target.value as ThemeName)}
+                      className="bg-transparent text-xs font-black outline-none cursor-pointer text-slate-900"
+                      title="Change presentation theme"
+                    >
+                      {THEMES.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {!readOnly && onEdit && (
+                  <button
+                    onClick={onEdit}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Edit slides</span>
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
+
+                {!readOnly && (
+                  <div className="grid gap-2">
+                    <button
+                      onClick={exportToPDF}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PDF</span>
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={exportToPPTX}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download PPTX</span>
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={exportToMP4}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">Download video</span>
+                      <Video className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {!readOnly && currentSlide.speakerNotes && (
+                  <button
+                    onClick={() => setShowSpeakerNotes((current) => !current)}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-slate-900 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-600">
+                      {showSpeakerNotes ? 'Hide notes' : 'Show notes'}
+                    </span>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
