@@ -119,6 +119,16 @@ Storyline is configured for Vercel frontend hosting with `/api/*` handled by Ver
 
 Uploaded PDFs are parsed in memory and are not written to Firebase Storage.
 
+## Share Links and Storage
+
+Share links do not require Firebase Storage. A share link is an unlisted, public URL that points to the latest saved deck JSON in Firestore.
+
+When a deck owner creates a link, the API generates an opaque random token, stores only its SHA-256 hash for lookup, and stores an encrypted copy of the token so the owner can reopen and copy the same link later. The public route `/share/:token` calls `/api/share/:token`, looks up the active token hash in Firestore, and returns the current saved deck in read-only mode.
+
+Revoking a link sets `revokedAt` on the Firestore share record. Invalid, revoked, or unknown tokens return a not-found response. Shared pages are marked `noindex,nofollow`, and viewers cannot edit, save, delete, or export the owner deck.
+
+The only required Firebase setup for sharing is Cloud Firestore plus the deployed rules and indexes in `firebase.json`. No source PDFs, extracted raw text, generated PDFs, PPTX files, or videos are stored in Firebase Storage by default.
+
 ## App Workflow
 
 1. A visitor lands on the Storyline marketing page.

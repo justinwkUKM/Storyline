@@ -334,6 +334,9 @@ Shared links always resolve to the latest saved state of the deck. They do not c
 - The share URL must be built from the current origin so local development and production both work.
 - Share links must be public but unlisted and must not require login.
 - Share links must render the current saved deck state, not a historical snapshot.
+- Share links must resolve from Cloud Firestore share records and must not require Firebase Storage.
+- Share records must store a SHA-256 token hash for lookup and encrypted token material for reopening the owner share dialog.
+- Revocation must mark the share record with `revokedAt`; revoked links must stop resolving without deleting the saved deck.
 - Shared viewing must be read-only and must not expose owner controls such as edit, save, export, or delete.
 - The public viewer must still allow non-mutating behavior such as slide navigation, fullscreen, links, and embedded video playback.
 - Invalid or revoked tokens must return a 404 response.
@@ -804,6 +807,7 @@ Invalid, missing, or revoked tokens must return `404`.
 - Uploaded files must be processed in memory.
 - External links must open with `noopener noreferrer`.
 - The app must not persist uploaded PDFs or extracted text by default.
+- Firebase Storage is not required for the current product because generated decks are persisted as Firestore JSON and exports are generated client-side for immediate download.
 - Share links must resolve through a hash lookup and should only expose the saved deck data needed for read-only viewing.
 
 ### 12.5 Accessibility
