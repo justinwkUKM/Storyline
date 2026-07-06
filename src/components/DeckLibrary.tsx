@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Copy, FileText, Loader2, PlayCircle, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import { Coins, Copy, ExternalLink, FileText, Loader2, PlayCircle, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react';
 import { AuthUser, DeckSummary } from '../types';
 
 interface DeckLibraryProps {
@@ -14,9 +14,79 @@ interface DeckLibraryProps {
   onShare: (id: string) => void;
   onDelete: (id: string) => void;
   onRefresh: () => void;
+  variant?: 'full' | 'compact';
+  onViewAll?: () => void;
 }
 
-export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDuplicate, onPresent, onShare, onDelete, onRefresh }: DeckLibraryProps) {
+const formatUpdatedDate = (value: string) => new Date(value).toLocaleDateString(undefined, {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+
+export function DeckLibrary({ user, decks, isLoading, error, onNew, onOpen, onDuplicate, onPresent, onShare, onDelete, onRefresh, variant = 'full', onViewAll }: DeckLibraryProps) {
+  const recentDecks = [...decks]
+    .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime())
+    .slice(0, 6);
+
+  if (variant === 'compact') {
+    if (!isLoading && !error && recentDecks.length === 0) return null;
+
+    return (
+      <section className="w-full max-w-4xl rounded-[2rem] border border-lime-200/80 bg-white/80 p-5 shadow-xl shadow-lime-950/5 backdrop-blur">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black text-lime-950">Recent decks</h2>
+            <p className="text-xs font-bold text-lime-900/55">Jump back into your latest storylines.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-4 py-2 text-xs font-black text-lime-900 transition hover:bg-lime-950 hover:text-lime-50"
+          >
+            View all
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-lime-100 bg-lime-50/70 px-4 py-4 text-sm font-bold text-lime-900/70">
+            <Loader2 className="h-4 w-4 animate-spin text-lime-700" />
+            Loading recent decks...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {recentDecks.map((deck) => (
+              <article key={deck.id} className="rounded-2xl border border-lime-100 bg-white/85 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <button type="button" onClick={() => onOpen(deck.id)} className="min-w-0 flex-1 text-left">
+                    <h3 className="truncate text-sm font-black text-lime-950 hover:text-lime-800">{deck.title}</h3>
+                    <p className="mt-1 text-[11px] font-bold text-lime-900/50">Updated {formatUpdatedDate(deck.updatedAt)}</p>
+                  </button>
+                  {deck.hasShare && (
+                    <span className="rounded-full bg-lime-100 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-lime-800">Shared</span>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-lime-100 pt-3">
+                  <button type="button" onClick={() => onOpen(deck.id)} className="rounded-full bg-lime-950 px-3 py-1.5 text-xs font-black text-lime-50 transition hover:bg-lime-900">Open</button>
+                  <button type="button" onClick={() => onPresent(deck.id)} className="inline-flex items-center gap-1 rounded-full bg-lime-50 px-3 py-1.5 text-xs font-black text-lime-800 transition hover:bg-lime-100"><PlayCircle className="h-3.5 w-3.5" />Present</button>
+                  <button type="button" onClick={() => onDuplicate(deck.id)} className="rounded-xl p-1.5 text-lime-700 transition hover:bg-lime-50 hover:text-lime-950" title="Duplicate deck"><Copy className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => onDelete(deck.id)} className="ml-auto rounded-xl p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600" title="Delete deck"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto px-6 py-12 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
