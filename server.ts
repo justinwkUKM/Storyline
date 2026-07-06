@@ -19,6 +19,8 @@ const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
 const MAX_TEXT_LENGTH = 120000;
 const MIN_SOURCE_TEXT_LENGTH = 40;
 const URL_FETCH_TIMEOUT_MS = 12000;
+const URL_MAX_REDIRECTS = 5;
+const URL_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 interface NormalizedGenerationSource {
   type: 'pdf' | 'text' | 'url';
@@ -146,23 +148,77 @@ function stripHtmlToText(html: string) {
 }
 
 function isPrivateIpAddress(address: string) {
+  const normalizedAddress = address.toLowerCase();
+  const ipv4MappedMatch = normalizedAddress.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (ipv4MappedMatch) {
+    return isPrivateIpAddress(ipv4MappedMatch[1]);
+  }
+
   const ipVersion = isIP(address);
   if (ipVersion === 4) {
     const [a, b] = address.split('.').map((part) => Number(part));
     return (
+      a === 0 ||
       a === 10 ||
       a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) ||
-      a === 0
+      (a === 198 && (b === 18 || b === 19))
     );
   }
   if (ipVersion === 6) {
-    const normalized = address.toLowerCase();
-    return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:');
+    return (
+      normalizedAddress === '::' ||
+      normalizedAddress === '::1' ||
+      normalizedAddress.startsWith('fc') ||
+      normalizedAddress.startsWith('fd') ||
+      normalizedAddress.startsWith('fe80:')
+    );
   }
   return false;
+}
+
+function isReadableWebContentType(contentType: string) {
+  const type = contentType.split(';', 1)[0].trim().toLowerCase();
+  return type === 'text/html' || type === 'application/xhtml+xml' || type === 'text/plain' || type.endsWith('+html');
+}
+
+async function readResponseTextWithLimit(response: Response) {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && Number(contentLength) > URL_MAX_RESPONSE_BYTES) {
+    throw new SourceInputError('That webpage is too large to process. Try a shorter article or paste the text directly.');
+  }
+
+  if (!response.body) {
+    return response.text();
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value) {
+        continue;
+      }
+      received += value.byteLength;
+      if (received > URL_MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new SourceInputError('That webpage is too large to process. Try a shorter article or paste the text directly.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return new TextDecoder('utf-8', { fatal: false }).decode(Buffer.concat(chunks, received));
 }
 
 async function assertPublicUrl(rawUrl: unknown) {
@@ -204,7 +260,7 @@ async function extractUrlText(sourceUrl: unknown): Promise<NormalizedGenerationS
   let url = await assertPublicUrl(sourceUrl);
   let response: Response | null = null;
 
-  for (let redirectCount = 0; redirectCount < 5; redirectCount += 1) {
+  for (let redirectCount = 0; redirectCount <= URL_MAX_REDIRECTS; redirectCount += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
     try {
@@ -227,6 +283,10 @@ async function extractUrlText(sourceUrl: unknown): Promise<NormalizedGenerationS
       break;
     }
 
+    if (redirectCount === URL_MAX_REDIRECTS) {
+      throw new SourceInputError('That webpage redirects too many times. Try another public page.');
+    }
+
     const location = response.headers.get('location');
     if (!location) {
       throw new SourceInputError('That webpage redirects without a readable destination. Try another public page.');
@@ -244,11 +304,11 @@ async function extractUrlText(sourceUrl: unknown): Promise<NormalizedGenerationS
   }
 
   const contentType = response.headers.get('content-type') || '';
-  if (contentType && !contentType.toLowerCase().includes('text/html')) {
-    throw new SourceInputError('That URL does not look like a public HTML webpage. Try an article or page with readable text.');
+  if (contentType && !isReadableWebContentType(contentType)) {
+    throw new SourceInputError('That URL does not look like a readable text or HTML webpage. Try an article page or paste the content directly.');
   }
 
-  const html = await response.text();
+  const html = await readResponseTextWithLimit(response);
   const { title, text: extractedText } = stripHtmlToText(html);
   const text = ensureUsefulSourceText(
     extractedText,
