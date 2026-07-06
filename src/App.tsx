@@ -691,6 +691,25 @@ export default function App() {
 
             <Uploader onGenerate={handleGenerate} isLoading={isLoading} user={user} />
 
+            <DeckLibrary
+              user={user}
+              decks={decks}
+              isLoading={decksLoading}
+              error={decksError}
+              variant="compact"
+              onNew={startNewPresentation}
+              onOpen={openDeck}
+              onDuplicate={duplicateDeck}
+              onPresent={presentDeck}
+              onShare={(id) => {
+                const deck = decks.find((item) => item.id === id);
+                void openShareDialog(id, deck?.title || 'Shared Deck');
+              }}
+              onDelete={deleteDeck}
+              onRefresh={refreshDecks}
+              onViewAll={() => setShowLibrary(true)}
+            />
+
             <AnimatePresence>
               {isLoading && (
                 <motion.div

@@ -1,22 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { AnimatePresence, motion } from 'motion/react';
-import {
-  FileText,
-  Link as LinkIcon,
-  Loader2,
-  Paperclip,
-  Plus,
-  Send,
-  Settings,
-  Sparkles,
-  Settings,
-  Type,
-  X,
-} from 'lucide-react';
+import { FileText, Link as LinkIcon, Loader2, Paperclip, Plus, Send, Settings, Sparkles, Type, X } from 'lucide-react';
 import { AuthUser, CustomizationSettings, GenerationSource, ThemeName } from '../types';
 import { cn } from '../lib/utils';
 import { THEMES } from '../lib/themes';
+import { AUDIENCES, NARRATIVE_STYLES, PRESENTATION_TYPES, PROMPT_CHIPS, TONES } from '../lib/generationOptions';
 
 interface UploaderProps {
   onGenerate: (
@@ -47,46 +35,22 @@ const DEFAULT_CUSTOM_SETTINGS: CustomizationSettings = {
   alignment: 'left',
 };
 
-const THEMES: { id: ThemeName; name: string }[] = [
-  { id: 'limefrost', name: 'Limefrost' },
-  { id: 'modern', name: 'Modern' },
-  { id: 'minimal', name: 'Minimal' },
-  { id: 'cosmic', name: 'Cosmic' },
-  { id: 'sunset', name: 'Sunset' },
-  { id: 'ocean', name: 'Ocean' },
-  { id: 'lavender', name: 'Lavender' },
-  { id: 'rose', name: 'Rose' },
-  { id: 'custom', name: 'Custom' },
+const GRAPHIC_STYLES = [
+  { id: 'modern_infographic', name: 'Modern Infographic' },
+  { id: 'clean_strategy', name: 'Clean Strategy' },
+  { id: 'bold_editorial', name: 'Bold Editorial' },
 ];
 
-const PRESENTATION_TYPES = [
-  { id: 'business_brief', name: 'Business Brief' },
-  { id: 'sales_pitch', name: 'Sales Pitch' },
-  { id: 'training_lesson', name: 'Training Lesson' },
-  { id: 'research_report', name: 'Research Report' },
-  { id: 'investor_update', name: 'Investor Update' },
-  { id: 'workshop', name: 'Workshop' },
+const SLIDE_COUNTS = [
+  { id: 'auto', name: 'Auto' },
+  { id: '6', name: '6 slides' },
+  { id: '10', name: '10 slides' },
+  { id: '15', name: '15 slides' },
 ];
 
-const AUDIENCES = [
-  { id: 'general', name: 'General' },
-  { id: 'executives', name: 'Executives' },
-  { id: 'technical', name: 'Technical' },
-  { id: 'students', name: 'Students' },
-  { id: 'customers', name: 'Customers' },
-];
-
-const NARRATIVE_STYLES = [
-  { id: 'balanced', name: 'Balanced' },
-  { id: 'problem_solution', name: 'Problem/Solution' },
-  { id: 'before_after', name: 'Before/After' },
-  { id: 'playbook', name: 'Playbook' },
-  { id: 'deep_dive', name: 'Deep Dive' },
-];
-
-const TONES = [
-  { id: 'executive', name: 'Executive', description: 'Confident, concise, board-ready', icon: Briefcase },
-  { id: 'friendly', name: 'Friendly', description: 'Warm and accessible', icon: Sparkles },
+const ORIENTATIONS = [
+  { id: 'horizontal', name: 'Horizontal' },
+  { id: 'vertical', name: 'Vertical' },
 ];
 
 const formatFileSize = (bytes: number) => {
@@ -95,24 +59,23 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value);
-
 export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [presentationRequest, setPresentationRequest] = useState('');
   const [attachmentMode, setAttachmentMode] = useState<AttachmentMode>('pdf');
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [isAttachmentPanelOpen, setIsAttachmentPanelOpen] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sourceText, setSourceText] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
-  const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
-  const [tone, setTone] = useState<string>('executive');
-  const [slideCount, setSlideCount] = useState<string>('auto');
-  const [orientation, setOrientation] = useState<string>('horizontal');
-  const [presentationType, setPresentationType] = useState<string>('business_brief');
-  const [audience, setAudience] = useState<string>('general');
-  const [narrativeStyle, setNarrativeStyle] = useState<string>('balanced');
+  const [graphicStyle, setGraphicStyle] = useState('modern_infographic');
+  const [tone, setTone] = useState('executive');
+  const [slideCount, setSlideCount] = useState('auto');
+  const [orientation, setOrientation] = useState('horizontal');
+  const [presentationType, setPresentationType] = useState('business_brief');
+  const [audience, setAudience] = useState('general');
+  const [narrativeStyle, setNarrativeStyle] = useState('balanced');
 
   const isOutOfCredits = user.credits < 1;
   const hasSource = Boolean(file) || sourceText.trim().length > 0 || sourceUrl.trim().length > 0 || presentationRequest.trim().length > 0;
@@ -131,7 +94,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
       setSourceText('');
       setSourceUrl('');
       setAttachmentMode('pdf');
-      setIsAttachmentMenuOpen(false);
+      setIsAttachmentPanelOpen(false);
     }
   }, []);
 
@@ -145,17 +108,11 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   } as any);
 
   const attachmentLabel = useMemo(() => {
-    if (file) return file.name;
+    if (file) return `${file.name} (${formatFileSize(file.size)})`;
     if (sourceText.trim()) return `${sourceText.trim().length.toLocaleString()} characters of pasted text`;
     if (sourceUrl.trim()) return sourceUrl.trim();
     return '';
   }, [file, sourceText, sourceUrl]);
-
-  const clearAttachment = () => {
-    setFile(null);
-    setSourceText('');
-    setSourceUrl('');
-  };
 
   const buildSource = (): GenerationSource => {
     if (file) return { sourceType: 'pdf', file };
@@ -164,14 +121,57 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
     return { sourceType: 'text', sourceText: presentationRequest.trim() };
   };
 
-    const primaryPrompt = sourceMode === 'text' ? sourceText.trim() : '';
-
-    onGenerate(source, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation, presentationType, audience, narrativeStyle, primaryPrompt);
+  const handleChipClick = (chip: (typeof PROMPT_CHIPS)[number]) => {
+    setPresentationRequest((current) => {
+      const trimmed = current.trim();
+      return trimmed ? `${trimmed}\n\n${chip.prompt}` : chip.prompt;
+    });
+    if (chip.defaults.presentationType) setPresentationType(chip.defaults.presentationType);
+    if (chip.defaults.tone) setTone(chip.defaults.tone);
+    if (chip.defaults.audience) setAudience(chip.defaults.audience);
+    if (chip.defaults.narrativeStyle) setNarrativeStyle(chip.defaults.narrativeStyle);
   };
 
-  const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
-    setCustomSettings((settings) => ({ ...settings, [key]: value }));
+  const handleSubmit = () => {
+    if (!canGenerate) return;
+    onGenerate(
+      buildSource(),
+      theme,
+      theme === 'custom' ? customSettings : undefined,
+      graphicStyle,
+      tone,
+      slideCount,
+      orientation,
+      presentationType,
+      audience,
+      narrativeStyle,
+      presentationRequest.trim()
+    );
   };
+
+  const renderOptionButtons = (options: { id: string; name: string; desc?: string }[], value: string, onChange: (id: string) => void) => (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
+      {options.map((option) => {
+        const isSelected = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            className={cn(
+              'rounded-2xl border p-3 text-left transition-all',
+              isSelected
+                ? 'border-rose-500 bg-rose-50/70 text-rose-950 ring-1 ring-rose-400/25'
+                : 'border-lime-100 bg-white text-lime-900/85 hover:border-lime-200 hover:bg-lime-50/40'
+            )}
+          >
+            <span className="block text-xs font-black">{option.name}</span>
+            {option.desc && <span className="mt-1 block text-[10px] font-semibold leading-normal text-lime-900/50">{option.desc}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-6 py-8">
@@ -209,6 +209,21 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
             className="min-h-36 w-full resize-y rounded-[1.5rem] border-0 bg-lime-50/35 p-5 text-base font-semibold leading-relaxed text-lime-950 outline-none placeholder:text-lime-900/35 disabled:opacity-60 sm:text-lg"
           />
 
+          <div className="mt-3 flex flex-wrap gap-2 px-1">
+            {PROMPT_CHIPS.map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => handleChipClick(chip)}
+                disabled={isOutOfCredits}
+                className="rounded-full border border-lime-200 bg-white/85 px-4 py-2 text-xs font-black text-lime-900/75 shadow-sm transition hover:bg-lime-50 hover:text-lime-950 disabled:cursor-not-allowed disabled:opacity-50"
+                title={`Sets ${chip.defaults.presentationType ?? 'type'}, ${chip.defaults.tone ?? 'tone'}, ${chip.defaults.audience ?? 'audience'}, and ${chip.defaults.narrativeStyle ?? 'style'} defaults`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           {attachmentLabel && (
             <div className="mx-2 mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-black text-lime-950 shadow-sm">
@@ -222,108 +237,67 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
           )}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1">
-            <button
-              type="button"
-              onClick={() => setIsAttachmentPanelOpen((value) => !value)}
-              disabled={isOutOfCredits}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-lime-200 bg-white text-lime-950 shadow-sm transition hover:bg-lime-50 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Add source"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled
-                className="flex h-12 items-center gap-2 rounded-full border border-lime-100 bg-lime-50/70 px-4 text-xs font-black text-lime-900/35"
-                title="Microphone input coming soon"
-              >
-                <Mic className="h-4 w-4" />
-                <span className="hidden sm:inline">Coming soon</span>
+              <button type="button" onClick={() => setIsAttachmentPanelOpen((value) => !value)} disabled={isOutOfCredits} className="flex h-12 w-12 items-center justify-center rounded-full border border-lime-200 bg-white text-lime-950 shadow-sm transition hover:bg-lime-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Add source">
+                <Plus className="h-5 w-5" />
               </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!canGenerate}
-                className={cn(
-                  'flex h-12 items-center gap-2 rounded-full px-5 text-sm font-black shadow-lg transition',
-                  canGenerate
-                    ? 'bg-lime-950 text-lime-50 shadow-lime-950/15 hover:bg-lime-900 hover:scale-[1.02] active:scale-[0.98]'
-                    : 'cursor-not-allowed bg-gray-300 text-gray-500 shadow-none'
-                )}
-              >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {isLoading ? 'Generating' : 'Generate'}
+              <button type="button" onClick={() => setIsOptionsOpen((value) => !value)} className="flex h-12 items-center gap-2 rounded-full border border-lime-200 bg-white px-4 text-xs font-black text-lime-950 shadow-sm transition hover:bg-lime-50">
+                <Settings className="h-4 w-4" /> Options
               </button>
             </div>
-            <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
-              Start with a primary prompt for the deck, then refine it with presentation type, audience, and narrative variation.
-            </p>
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
-            Primary prompt
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
-            What should this Storyline focus on?
-          </label>
-          <textarea
-            id="focus-prompt"
-            value={focusPrompt}
-            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
-            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
-            className="w-full min-h-40 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
-          />
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
-            <span>Sent as the generation focus prompt</span>
-            <span>{focusPrompt.length}/900</span>
+            <button type="button" onClick={handleSubmit} disabled={!canGenerate} className={cn('flex h-12 items-center gap-2 rounded-full px-5 text-sm font-black shadow-lg transition', canGenerate ? 'bg-lime-950 text-lime-50 shadow-lime-950/15 hover:scale-[1.02] hover:bg-lime-900 active:scale-[0.98]' : 'cursor-not-allowed bg-gray-300 text-gray-500 shadow-none')}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isLoading ? 'Generating' : 'Generate'}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="space-y-3">
-            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Presentation Type</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
-              {PRESENTATION_TYPES.map((option) => {
-                const isSelected = presentationType === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setPresentationType(option.id)}
-                    className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-rose-500 bg-rose-50/70 ring-1 ring-rose-400/25 text-rose-950"
-                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
-                    )}
-                  >
-                    <span className="block text-xs font-black">{option.name}</span>
-                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
-                  </button>
-                );
-              })}
+        {isAttachmentPanelOpen && (
+          <div className="rounded-3xl border border-lime-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {([
+                ['pdf', FileText, 'PDF'],
+                ['text', Type, 'Text'],
+                ['url', LinkIcon, 'URL'],
+              ] as const).map(([mode, Icon, label]) => (
+                <button key={mode} type="button" onClick={() => setAttachmentMode(mode)} className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black', attachmentMode === mode ? 'border-lime-800 bg-lime-950 text-lime-50' : 'border-lime-200 bg-lime-50 text-lime-900')}>
+                  <Icon className="h-4 w-4" /> {label}
+                </button>
+              ))}
+            </div>
+            {attachmentMode === 'pdf' && <button type="button" onClick={open} className="w-full rounded-2xl border border-dashed border-lime-300 bg-lime-50/50 p-6 text-sm font-black text-lime-950">Choose or drop a PDF</button>}
+            {attachmentMode === 'text' && <textarea value={sourceText} onChange={(event) => { setSourceText(event.target.value); setFile(null); setSourceUrl(''); }} placeholder="Paste source text here." className="min-h-36 w-full rounded-2xl border border-lime-200 bg-lime-50/40 p-4 text-sm font-semibold outline-none" />}
+            {attachmentMode === 'url' && <input value={sourceUrl} onChange={(event) => { setSourceUrl(event.target.value); setFile(null); setSourceText(''); }} placeholder="https://example.com/source" className="w-full rounded-2xl border border-lime-200 bg-lime-50/40 p-4 text-sm font-semibold outline-none" />}
+          </div>
+        )}
+
+        {isOptionsOpen && (
+          <div className="grid grid-cols-1 gap-6 rounded-3xl border border-lime-200 bg-white p-5 shadow-sm lg:grid-cols-3">
+            <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Presentation Type</h3>{renderOptionButtons(PRESENTATION_TYPES, presentationType, setPresentationType)}</div>
+            <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Audience</h3>{renderOptionButtons(AUDIENCES, audience, setAudience)}</div>
+            <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Narrative Style</h3>{renderOptionButtons(NARRATIVE_STYLES, narrativeStyle, setNarrativeStyle)}</div>
+            <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Tone</h3>{renderOptionButtons(TONES, tone, setTone)}</div>
+            <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Theme</h3>{renderOptionButtons(THEMES.map(({ id, name, desc }) => ({ id, name, desc })), theme, (id) => setTheme(id as ThemeName))}</div>
+            <div className="space-y-3">
+              <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Format</h3>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-lime-900/50">Graphic style</label>
+              <select value={graphicStyle} onChange={(event) => setGraphicStyle(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
+                {GRAPHIC_STYLES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+              </select>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-lime-900/50">Slide count</label>
+              <select value={slideCount} onChange={(event) => setSlideCount(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
+                {SLIDE_COUNTS.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+              </select>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-lime-900/50">Orientation</label>
+              <select value={orientation} onChange={(event) => setOrientation(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
+                {ORIENTATIONS.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+              </select>
             </div>
           </div>
         )}
 
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {SUGGESTIONS.map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              onClick={() => {
-                setPresentationRequest(suggestion);
-                window.requestAnimationFrame(() => textareaRef.current && resizeTextarea(textareaRef.current));
-              }}
-              className="rounded-full border border-lime-200 bg-white/80 px-4 py-2 text-xs font-black text-lime-900/75 shadow-sm hover:bg-lime-50 hover:text-lime-950"
-            >
-              {suggestion}
-            </button>
-          ))}
+        <div className="flex justify-center pt-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-lime-900/50">Deducts 1 credit • {user.credits} credits remaining</span>
         </div>
 
       </div>
