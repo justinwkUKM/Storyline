@@ -14,7 +14,8 @@ import {
   BookOpen, 
   Sparkles,
   Layers,
-  Monitor
+  Monitor,
+  ChevronDown
 } from 'lucide-react';
 import { ThemeName, CustomizationSettings, AuthUser, GenerationSource } from '../types';
 import { cn } from '../lib/utils';
@@ -179,6 +180,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [audience, setAudience] = useState<string>('general');
   const [narrativeStyle, setNarrativeStyle] = useState<string>('balanced');
   const [focusPrompt, setFocusPrompt] = useState('');
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
   const isOutOfCredits = user.credits < 1;
   const hasSource =
@@ -219,6 +221,12 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
     setCustomSettings(prev => ({ ...prev, [key]: value }));
   };
+
+  const selectedPresentationType = PRESENTATION_TYPES.find((option) => option.id === presentationType)?.name ?? 'Business Brief';
+  const selectedAudience = AUDIENCES.find((option) => option.id === audience)?.name ?? 'General';
+  const selectedTheme = THEMES.find((option) => option.id === theme)?.name ?? 'Limefrost';
+  const selectedSlideCount = slideCount === 'auto' ? 'Auto length' : `${slideCount} slides`;
+  const optionsSummary = `${selectedPresentationType} · ${selectedAudience} audience · ${selectedSlideCount} · ${selectedTheme}`;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-4 w-full">
@@ -351,429 +359,156 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
           )}
         </div>
 
-        {/* Theme Selection */}
+        {/* Presentation Options Drawer */}
         <div className="space-y-4 lg:col-span-2">
-          <h2 className="text-xl font-black text-lime-950">
-            2. Choose Theme
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={cn(
-                  "p-4 rounded-3xl text-left transition-all border duration-200 cursor-pointer shadow-sm",
-                  theme === t.id 
-                    ? "border-lime-950 bg-white ring-2 ring-lime-950 ring-offset-2" 
-                    : "border-lime-200/60 bg-white/70 hover:bg-white hover:border-lime-300"
-                )}
-              >
-                <div className={cn("w-full h-20 rounded-2xl mb-3 shadow-sm", t.colors)} />
-                <h3 className="font-black text-lime-950 text-sm">{t.name}</h3>
-                <p className="text-[10px] text-lime-900/60 mt-1 font-bold leading-normal">{t.description}</p>
-              </button>
-            ))}
-          </div>
+          <div className="rounded-3xl border border-lime-200/80 bg-white/95 p-4 shadow-sm backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setIsOptionsOpen((open) => !open)}
+              className="flex w-full items-center justify-between gap-4 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-lime-50/50"
+              aria-expanded={isOptionsOpen}
+              aria-controls="presentation-options-drawer"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-lime-800" />
+                  <h2 className="text-xl font-black text-lime-950">Tune presentation</h2>
+                </div>
+                <p className="mt-1 truncate text-xs font-black uppercase tracking-wider text-lime-900/50">
+                  {optionsSummary}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-black text-lime-950">
+                Options
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isOptionsOpen && "rotate-180")} />
+              </div>
+            </button>
 
-          <AnimatePresence>
-            {theme === 'custom' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-6 p-6 border border-lime-200 bg-white/95 backdrop-blur rounded-3xl space-y-5 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Settings className="w-5 h-5 text-lime-800" />
-                    <h3 className="text-lg font-black text-lime-950">Customization Settings</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Font Family</label>
-                      <select 
-                        value={customSettings.fontFamily}
-                        onChange={(e) => updateCustomSetting('fontFamily', e.target.value)}
-                        className="w-full p-3 border border-lime-200/80 rounded-2xl bg-lime-50/20 text-sm font-semibold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25 transition-all"
-                      >
-                        <option value="font-sans">Inter (Sans)</option>
-                        <option value="font-mono">JetBrains (Mono)</option>
-                        <option value="font-serif">Georgia (Serif)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Alignment</label>
-                      <select 
-                        value={customSettings.alignment}
-                        onChange={(e) => updateCustomSetting('alignment', e.target.value as any)}
-                        className="w-full p-3 border border-lime-200/80 rounded-2xl bg-lime-50/20 text-sm font-semibold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25 transition-all"
-                      >
-                        <option value="left">Left</option>
-                        <option value="center">Center</option>
-                        <option value="right">Right</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Primary Color (Accent)</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="color" 
-                          value={customSettings.primaryColor}
-                          onChange={(e) => updateCustomSetting('primaryColor', e.target.value)}
-                          className="w-12 h-11 rounded-xl cursor-pointer border border-lime-200/80 bg-white"
-                        />
-                        <input 
-                          type="text" 
-                          value={customSettings.primaryColor}
-                          onChange={(e) => updateCustomSetting('primaryColor', e.target.value)}
-                          className="flex-1 px-4 py-2 border border-lime-200/80 rounded-2xl bg-lime-50/20 text-sm font-bold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25 transition-all"
-                        />
+            <AnimatePresence initial={false}>
+              {isOptionsOpen && (
+                <motion.div
+                  id="presentation-options-drawer"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-5 space-y-6 border-t border-lime-100 pt-5">
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Presentation type</h3>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                        {PRESENTATION_TYPES.map((option) => {
+                          const isSelected = presentationType === option.id;
+                          return (
+                            <button key={option.id} type="button" onClick={() => setPresentationType(option.id)} className={cn("rounded-2xl border p-3 text-left transition-all", isSelected ? "border-rose-500 bg-rose-50/70 text-rose-950 ring-1 ring-rose-400/25" : "border-lime-100 bg-white text-lime-900/85 hover:border-lime-200 hover:bg-lime-50/20")}>
+                              <span className="block text-xs font-black">{option.name}</span>
+                              <span className="mt-1 block text-[10px] font-semibold leading-normal text-lime-900/50">{option.desc}</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </section>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Background Color</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="color" 
-                          value={customSettings.backgroundColor}
-                          onChange={(e) => updateCustomSetting('backgroundColor', e.target.value)}
-                          className="w-12 h-11 rounded-xl cursor-pointer border border-lime-200/80 bg-white"
-                        />
-                        <input 
-                          type="text" 
-                          value={customSettings.backgroundColor}
-                          onChange={(e) => updateCustomSetting('backgroundColor', e.target.value)}
-                          className="flex-1 px-4 py-2 border border-lime-200/80 rounded-2xl bg-lime-50/20 text-sm font-bold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25 transition-all"
-                        />
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Audience</h3>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                        {AUDIENCES.map((option) => {
+                          const isSelected = audience === option.id;
+                          return (
+                            <button key={option.id} type="button" onClick={() => setAudience(option.id)} className={cn("rounded-2xl border p-3 text-left transition-all", isSelected ? "border-cyan-600 bg-cyan-50/70 text-cyan-950 ring-1 ring-cyan-400/25" : "border-lime-100 bg-white text-lime-900/85 hover:border-lime-200 hover:bg-lime-50/20")}>
+                              <span className="block text-xs font-black">{option.name}</span>
+                              <span className="mt-1 block text-[10px] font-semibold leading-normal text-lime-900/50">{option.desc}</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </section>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Text Color</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="color" 
-                          value={customSettings.textColor}
-                          onChange={(e) => updateCustomSetting('textColor', e.target.value)}
-                          className="w-12 h-11 rounded-xl cursor-pointer border border-lime-200/80 bg-white"
-                        />
-                        <input 
-                          type="text" 
-                          value={customSettings.textColor}
-                          onChange={(e) => updateCustomSetting('textColor', e.target.value)}
-                          className="flex-1 px-4 py-2 border border-lime-200/80 rounded-2xl bg-lime-50/20 text-sm font-bold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25 transition-all"
-                        />
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Narrative style</h3>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                        {NARRATIVE_STYLES.map((option) => {
+                          const isSelected = narrativeStyle === option.id;
+                          return (
+                            <button key={option.id} type="button" onClick={() => setNarrativeStyle(option.id)} className={cn("rounded-2xl border p-3 text-left transition-all", isSelected ? "border-violet-600 bg-violet-50/70 text-violet-950 ring-1 ring-violet-400/25" : "border-lime-100 bg-white text-lime-900/85 hover:border-lime-200 hover:bg-lime-50/20")}>
+                              <span className="block text-xs font-black">{option.name}</span>
+                              <span className="mt-1 block text-[10px] font-semibold leading-normal text-lime-900/50">{option.desc}</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </section>
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black text-lime-950 uppercase tracking-wider">Spacing</label>
-                      <div className="flex gap-1.5 bg-lime-50/50 border border-lime-200/60 rounded-2xl p-1">
-                        {['compact', 'normal', 'relaxed'].map(space => (
-                          <button
-                            key={space}
-                            onClick={() => updateCustomSetting('spacing', space as any)}
-                            className={cn(
-                              "flex-1 py-1.5 px-2 rounded-xl text-xs capitalize transition-all cursor-pointer font-bold",
-                              customSettings.spacing === space 
-                                ? "bg-white text-lime-950 shadow-sm border border-lime-200/30" 
-                                : "text-lime-900/60 hover:text-lime-950 hover:bg-white/40"
-                            )}
-                          >
-                            {space}
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Theme</h3>
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                        {THEMES.map((t) => (
+                          <button key={t.id} type="button" onClick={() => setTheme(t.id)} className={cn("rounded-3xl border p-3 text-left shadow-sm transition-all", theme === t.id ? "border-lime-950 bg-white ring-2 ring-lime-950 ring-offset-2" : "border-lime-200/60 bg-white/70 hover:border-lime-300 hover:bg-white")}>
+                            <div className={cn("mb-2 h-14 w-full rounded-2xl shadow-sm", t.colors)} />
+                            <h4 className="text-sm font-black text-lime-950">{t.name}</h4>
+                            <p className="mt-1 text-[10px] font-bold leading-normal text-lime-900/60">{t.description}</p>
                           </button>
                         ))}
                       </div>
-                    </div>
+                    </section>
 
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+                    <AnimatePresence>
+                      {theme === 'custom' && (
+                        <motion.section initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                          <div className="rounded-3xl border border-lime-200 bg-lime-50/20 p-5 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2">
+                              <Settings className="h-5 w-5 text-lime-800" />
+                              <h3 className="text-lg font-black text-lime-950">Custom theme settings</h3>
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                              <div className="space-y-1.5"><label className="text-xs font-black uppercase tracking-wider text-lime-950">Font Family</label><select value={customSettings.fontFamily} onChange={(e) => updateCustomSetting('fontFamily', e.target.value)} className="w-full rounded-2xl border border-lime-200/80 bg-white p-3 text-sm font-semibold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25"><option value="font-sans">Inter (Sans)</option><option value="font-mono">JetBrains (Mono)</option><option value="font-serif">Georgia (Serif)</option></select></div>
+                              <div className="space-y-1.5"><label className="text-xs font-black uppercase tracking-wider text-lime-950">Alignment</label><select value={customSettings.alignment} onChange={(e) => updateCustomSetting('alignment', e.target.value as any)} className="w-full rounded-2xl border border-lime-200/80 bg-white p-3 text-sm font-semibold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>
+                              {([['primaryColor', 'Primary Color (Accent)'], ['backgroundColor', 'Background Color'], ['textColor', 'Text Color']] as const).map(([key, label]) => (
+                                <div key={key} className="space-y-1.5"><label className="text-xs font-black uppercase tracking-wider text-lime-950">{label}</label><div className="flex gap-2"><input type="color" value={customSettings[key]} onChange={(e) => updateCustomSetting(key, e.target.value)} className="h-11 w-12 cursor-pointer rounded-xl border border-lime-200/80 bg-white" /><input type="text" value={customSettings[key]} onChange={(e) => updateCustomSetting(key, e.target.value)} className="flex-1 rounded-2xl border border-lime-200/80 bg-white px-4 py-2 text-sm font-bold outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/25" /></div></div>
+                              ))}
+                              <div className="space-y-1.5"><label className="text-xs font-black uppercase tracking-wider text-lime-950">Spacing</label><div className="flex gap-1.5 rounded-2xl border border-lime-200/60 bg-white p-1">{['compact', 'normal', 'relaxed'].map(space => (<button key={space} type="button" onClick={() => updateCustomSetting('spacing', space as any)} className={cn("flex-1 rounded-xl px-2 py-1.5 text-xs font-bold capitalize transition-all", customSettings.spacing === space ? "border border-lime-200/30 bg-lime-50 text-lime-950 shadow-sm" : "text-lime-900/60 hover:bg-lime-50/50 hover:text-lime-950")}>{space}</button>))}</div></div>
+                            </div>
+                          </div>
+                        </motion.section>
+                      )}
+                    </AnimatePresence>
 
-      {/* 3. Graphic Style and Layout Expectations Selection */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        {/* Graphic Style Selection Card */}
-        <div className="space-y-4 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-5 h-5 text-lime-700" />
-            <h2 className="text-xl font-black text-lime-950">3. Graphic Customization</h2>
-          </div>
-          <p className="text-xs text-lime-900/60 font-semibold mb-4 leading-relaxed">
-            Select the preferred aesthetic and structural layout pattern for the slides' interactive diagrams.
-          </p>
-          <div className="flex flex-col gap-3">
-            {GRAPHIC_STYLES.map((style) => {
-              const Icon = style.icon;
-              const isSelected = graphicStyle === style.id;
-              return (
-                <button
-                  key={style.id}
-                  onClick={() => setGraphicStyle(style.id)}
-                  className={cn(
-                    "flex items-start gap-4 p-4 rounded-2xl text-left border transition-all duration-200 cursor-pointer",
-                    isSelected 
-                      ? "border-lime-700 bg-lime-50/50 shadow-sm ring-1 ring-lime-500/20" 
-                      : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200"
-                  )}
-                >
-                  <div className={cn(
-                    "p-2.5 rounded-xl border flex-shrink-0 transition-colors",
-                    isSelected ? "bg-lime-950 border-lime-700 text-lime-50" : "bg-lime-50 border-lime-100 text-lime-700"
-                  )}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-lime-950 text-sm flex items-center gap-1.5 leading-snug">
-                      {style.name}
-                      {isSelected && <span className="text-[10px] bg-lime-200 text-lime-950 px-2 py-0.5 rounded-full font-black">Active</span>}
-                    </h4>
-                    <p className="text-xs text-lime-900/60 mt-1 font-semibold leading-normal">{style.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                    <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                      <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Graphic style</h3><div className="space-y-2.5">{GRAPHIC_STYLES.map((style) => { const Icon = style.icon; const isSelected = graphicStyle === style.id; return (<button key={style.id} type="button" onClick={() => setGraphicStyle(style.id)} className={cn("flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-all", isSelected ? "border-lime-700 bg-lime-50/50 ring-1 ring-lime-500/20" : "border-lime-100 bg-white hover:border-lime-200 hover:bg-lime-50/20")}><div className={cn("shrink-0 rounded-xl border p-2 transition-colors", isSelected ? "border-lime-700 bg-lime-950 text-lime-50" : "border-lime-100 bg-lime-50 text-lime-700")}><Icon className="h-4 w-4" /></div><div><h4 className="text-xs font-black leading-snug text-lime-950">{style.name}</h4><p className="mt-1 text-[10px] font-semibold leading-normal text-lime-900/60">{style.description}</p></div></button>); })}</div></div>
+                      <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Tone</h3><div className="space-y-2.5">{TONES.map((t) => { const Icon = t.icon; const isSelected = tone === t.id; return (<button key={t.id} type="button" onClick={() => setTone(t.id)} className={cn("flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-all", isSelected ? "border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500/20" : "border-lime-100 bg-white hover:border-lime-200 hover:bg-lime-50/20")}><div className={cn("shrink-0 rounded-xl border p-2 transition-colors", isSelected ? "border-indigo-700 bg-indigo-950 text-indigo-100" : "border-indigo-100/60 bg-indigo-50 text-indigo-700")}><Icon className="h-4 w-4" /></div><div><h4 className="text-xs font-black leading-snug text-lime-950">{t.name}</h4><p className="mt-1 text-[10px] font-semibold leading-normal text-lime-900/60">{t.description}</p></div></button>); })}</div></div>
+                    </section>
 
-        {/* Content Tone Selection Card */}
-        <div className="space-y-4 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <Zap className="w-5 h-5 text-indigo-700" />
-            <h2 className="text-xl font-black text-lime-950">4. Layout & Content Tone</h2>
-          </div>
-          <p className="text-xs text-lime-900/60 font-semibold mb-4 leading-relaxed">
-            Choose how detailed or summary-focused you expect the slide text and interactions to be.
-          </p>
-          <div className="flex flex-col gap-3">
-            {TONES.map((t) => {
-              const Icon = t.icon;
-              const isSelected = tone === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTone(t.id)}
-                  className={cn(
-                    "flex items-start gap-4 p-4 rounded-2xl text-left border transition-all duration-200 cursor-pointer",
-                    isSelected 
-                      ? "border-indigo-600 bg-indigo-50/40 shadow-sm ring-1 ring-indigo-500/20" 
-                      : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200"
-                  )}
-                >
-                  <div className={cn(
-                    "p-2.5 rounded-xl border flex-shrink-0 transition-colors",
-                    isSelected ? "bg-indigo-950 border-indigo-700 text-indigo-100" : "bg-indigo-50 border-indigo-100/60 text-indigo-700"
-                  )}>
-                    <Icon className="w-5 h-5" />
+                    <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                      <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Slide count</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{[{ id: 'auto', name: 'Auto-Detect', desc: 'Optimal summaries' },{ id: '3', name: '3 Slides', desc: 'Ultra-condensed' },{ id: '5', name: '5 Slides', desc: 'Express brief' },{ id: '8', name: '8 Slides', desc: 'Standard deck' },{ id: '10', name: '10 Slides', desc: 'Comprehensive' },{ id: '15', name: '15 Slides', desc: 'In-depth analysis' }].map((option) => { const isSelected = slideCount === option.id; return (<button key={option.id} type="button" onClick={() => setSlideCount(option.id)} className={cn("rounded-2xl border p-3.5 text-center transition-all", isSelected ? "border-emerald-600 bg-emerald-50/40 font-black text-emerald-950 ring-1 ring-emerald-500/20" : "border-lime-100 bg-white text-lime-900/80 hover:border-lime-200 hover:bg-lime-50/20")}><span className="block text-xs font-black">{option.name}</span><span className="mt-1 block text-[9px] font-bold leading-none text-lime-900/40">{option.desc}</span></button>); })}</div></div>
+                      <div className="space-y-3"><h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Orientation</h3><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{[{ id: 'horizontal', name: 'Horizontal (Landscape)', desc: 'Standard 16:9 widescreen presentation layout' },{ id: 'vertical', name: 'Vertical (Portrait)', desc: 'Mobile-first 3:4 vertical stacked layout' }].map((option) => { const isSelected = orientation === option.id; return (<button key={option.id} type="button" onClick={() => setOrientation(option.id)} className={cn("rounded-2xl border p-4 text-left transition-all", isSelected ? "border-lime-700 bg-lime-50/50 font-black text-lime-950 ring-1 ring-lime-500/25" : "border-lime-100 bg-white text-lime-900/85 hover:border-lime-200 hover:bg-lime-50/20")}><span className="block text-sm font-black">{option.name}</span><span className="mt-1.5 block text-[10px] font-semibold leading-normal text-lime-900/50">{option.desc}</span></button>); })}</div></div>
+                    </section>
+
+                    <section className="space-y-2">
+                      <label htmlFor="focus-prompt" className="text-xs font-black uppercase tracking-wider text-lime-950">
+                        Custom focus prompt
+                      </label>
+                      <textarea
+                        id="focus-prompt"
+                        value={focusPrompt}
+                        onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
+                        placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
+                        className="min-h-24 w-full resize-y rounded-3xl border border-lime-200/80 bg-white p-4 text-sm font-semibold text-lime-950 outline-none transition-all focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20"
+                      />
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
+                        <span>Used as extra generation guidance</span>
+                        <span>{focusPrompt.length}/900</span>
+                      </div>
+                    </section>
                   </div>
-                  <div>
-                    <h4 className="font-black text-lime-950 text-sm flex items-center gap-1.5 leading-snug">
-                      {t.name}
-                      {isSelected && <span className="text-[10px] bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-full font-black">Active</span>}
-                    </h4>
-                    <p className="text-xs text-lime-900/60 mt-1 font-semibold leading-normal">{t.description}</p>
-                  </div>
-                </button>
-              );
-            })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Slide Count & Orientation Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-        {/* Slide Count Selection */}
-        <div className="space-y-4 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <Layers className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-xl font-black text-lime-950">5. Slide Count</h2>
-          </div>
-          <p className="text-xs text-lime-900/60 font-semibold mb-4 leading-relaxed">
-            Select how many slides should be crafted. A larger count delivers an exhaustive analysis, while a shorter count is highly compressed.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              { id: 'auto', name: 'Auto-Detect', desc: 'Optimal summaries' },
-              { id: '3', name: '3 Slides', desc: 'Ultra-condensed' },
-              { id: '5', name: '5 Slides', desc: 'Express brief' },
-              { id: '8', name: '8 Slides', desc: 'Standard deck' },
-              { id: '10', name: '10 Slides', desc: 'Comprehensive' },
-              { id: '15', name: '15 Slides', desc: 'In-depth analysis' }
-            ].map((option) => {
-              const isSelected = slideCount === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setSlideCount(option.id)}
-                  className={cn(
-                    "p-3.5 rounded-2xl border text-center transition-all cursor-pointer",
-                    isSelected 
-                      ? "border-emerald-600 bg-emerald-50/40 shadow-sm ring-1 ring-emerald-500/20 font-black text-emerald-950" 
-                      : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/80"
-                  )}
-                >
-                  <span className="block text-xs font-black">{option.name}</span>
-                  <span className="block text-[9px] text-lime-900/40 mt-1 font-bold leading-none">{option.desc}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Orientation Selection */}
-        <div className="space-y-4 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <Monitor className="w-5 h-5 text-lime-800" />
-            <h2 className="text-xl font-black text-lime-950">6. Slide Orientation</h2>
-          </div>
-          <p className="text-xs text-lime-900/60 font-semibold mb-4 leading-relaxed">
-            Select the aspect ratio or canvas flow. Landscape is standard for large display screens, while portrait is optimized for mobile-first reading.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { id: 'horizontal', name: 'Horizontal (Landscape)', desc: 'Standard 16:9 widescreen presentation layout' },
-              { id: 'vertical', name: 'Vertical (Portrait)', desc: 'Mobile-first 3:4 vertical stacked layout' }
-            ].map((option) => {
-              const isSelected = orientation === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setOrientation(option.id)}
-                  className={cn(
-                    "p-4 rounded-2xl border text-left transition-all cursor-pointer",
-                    isSelected 
-                      ? "border-lime-700 bg-lime-50/50 shadow-sm ring-1 ring-lime-500/25 font-black text-lime-950" 
-                      : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
-                  )}
-                >
-                  <span className="block text-sm font-black">{option.name}</span>
-                  <span className="block text-[10px] text-lime-900/50 mt-1.5 font-semibold leading-normal">{option.desc}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Presentation Type, Audience, Narrative Variation, and Focus Prompt */}
-      <div className="space-y-6 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm mb-10">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-5 h-5 text-rose-600" />
-              <h2 className="text-xl font-black text-lime-950">7. Presentation Focus</h2>
-            </div>
-            <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
-              Shape what Gemini emphasizes before it creates the deck. Pick a presentation type, audience, narrative variation, and optional custom prompt.
-            </p>
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
-            Optional direction
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="space-y-3">
-            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Presentation Type</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
-              {PRESENTATION_TYPES.map((option) => {
-                const isSelected = presentationType === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setPresentationType(option.id)}
-                    className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-rose-500 bg-rose-50/70 ring-1 ring-rose-400/25 text-rose-950"
-                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
-                    )}
-                  >
-                    <span className="block text-xs font-black">{option.name}</span>
-                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Audience</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
-              {AUDIENCES.map((option) => {
-                const isSelected = audience === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setAudience(option.id)}
-                    className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-cyan-600 bg-cyan-50/70 ring-1 ring-cyan-400/25 text-cyan-950"
-                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
-                    )}
-                  >
-                    <span className="block text-xs font-black">{option.name}</span>
-                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Narrative Variation</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
-              {NARRATIVE_STYLES.map((option) => {
-                const isSelected = narrativeStyle === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setNarrativeStyle(option.id)}
-                    className={cn(
-                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
-                      isSelected
-                        ? "border-violet-600 bg-violet-50/70 ring-1 ring-violet-400/25 text-violet-950"
-                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
-                    )}
-                  >
-                    <span className="block text-xs font-black">{option.name}</span>
-                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
-            Custom focus prompt
-          </label>
-          <textarea
-            id="focus-prompt"
-            value={focusPrompt}
-            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
-            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
-            className="w-full min-h-28 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
-          />
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
-            <span>Used as extra generation guidance</span>
-            <span>{focusPrompt.length}/900</span>
-          </div>
-        </div>
+      <div className="mx-auto mb-6 flex max-w-3xl items-center justify-center rounded-full border border-lime-200 bg-white/80 px-4 py-2 text-center text-xs font-black uppercase tracking-wider text-lime-900/55 shadow-sm">
+        {optionsSummary}
       </div>
 
       <div className="flex justify-center mt-6">
