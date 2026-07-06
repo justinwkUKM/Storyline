@@ -25,8 +25,18 @@ import { BrandLogo } from './components/BrandLogo';
 import { SiteFooter } from './components/SiteFooter';
 import { ShareLinkDialog } from './components/ShareLinkDialog';
 import { apiRequest } from './lib/api';
+import { cn } from './lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import { LogOut, Zap } from 'lucide-react';
+
+
+const GENERATION_PROGRESS_MESSAGES = [
+  'Reading your source.',
+  'Finding the storyline.',
+  'Designing slides.',
+  'Creating visuals.',
+  'Preparing your editor.',
+];
 
 export default function App() {
   const shareToken = typeof window !== 'undefined'
@@ -55,6 +65,7 @@ export default function App() {
   const saveStatusTimerRef = useRef<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [generationProgressIndex, setGenerationProgressIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [sharedPresentation, setSharedPresentation] = useState<PresentationData | null>(null);
   const [sharedTheme, setSharedTheme] = useState<ThemeName>('limefrost');
@@ -80,6 +91,19 @@ export default function App() {
       setDecksLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isLoading) {
+      setGenerationProgressIndex(0);
+      return;
+    }
+
+    const progressTimer = window.setInterval(() => {
+      setGenerationProgressIndex((currentIndex) => (currentIndex + 1) % GENERATION_PROGRESS_MESSAGES.length);
+    }, 2200);
+
+    return () => window.clearInterval(progressTimer);
+  }, [isLoading]);
 
   useEffect(() => {
     if (shareToken) {
@@ -681,7 +705,29 @@ export default function App() {
                     className="w-16 h-16 border-4 border-lime-200 border-t-lime-700 rounded-full mb-6"
                   />
                   <h3 className="text-2xl font-black text-lime-950 mb-2">Building your storyline...</h3>
-                  <p className="text-lime-900/70">Extracting text and shaping a deck with Gemini AI</p>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={GENERATION_PROGRESS_MESSAGES[generationProgressIndex]}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.25 }}
+                      className="min-h-6 text-center text-lg font-bold text-lime-900/75"
+                    >
+                      {GENERATION_PROGRESS_MESSAGES[generationProgressIndex]}
+                    </motion.p>
+                  </AnimatePresence>
+                  <div className="mt-5 flex gap-2" aria-hidden="true">
+                    {GENERATION_PROGRESS_MESSAGES.map((message, index) => (
+                      <span
+                        key={message}
+                        className={cn(
+                          "h-2 w-2 rounded-full transition-all duration-300",
+                          index === generationProgressIndex ? "w-8 bg-lime-700" : "bg-lime-200"
+                        )}
+                      />
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

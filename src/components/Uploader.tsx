@@ -342,7 +342,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
           {isLoading ? (
             <>
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Generating...
+              Preparing...
             </>
           ) : (
             'Generate Presentation'
