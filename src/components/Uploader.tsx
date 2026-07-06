@@ -299,7 +299,35 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
         <div className="flex justify-center pt-2">
           <span className="text-[10px] font-black uppercase tracking-wider text-lime-900/50">Deducts 1 credit • {user.credits} credits remaining</span>
         </div>
-      </section>
+
+      </div>
+
+      <div className="flex justify-center mt-6">
+        <button
+          onClick={handleSubmit}
+          disabled={!hasSource || isLoading || isOutOfCredits}
+          className={cn(
+            "px-10 py-4 rounded-full font-black text-lg text-lime-50 shadow-xl transition-all flex items-center justify-center min-w-[240px] cursor-pointer",
+            !hasSource || isLoading || isOutOfCredits
+              ? "bg-gray-400 cursor-not-allowed shadow-none" 
+              : "bg-lime-950 hover:bg-lime-900 hover:scale-[1.02] active:scale-[0.98] shadow-lime-950/15"
+          )}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Preparing...
+            </>
+          ) : (
+            'Generate Presentation'
+          )}
+        </button>
+      </div>
+      <div className="flex justify-center mt-2.5">
+        <span className="text-[10px] font-black text-lime-900/50 uppercase tracking-wider">
+          Deducts 1 credit • {user.credits} credits remaining
+        </span>
+      </div>
     </div>
   );
 }
