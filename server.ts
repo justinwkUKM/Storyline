@@ -56,6 +56,17 @@ function ensureUsefulSourceText(text: string, emptyMessage: string) {
   return capped;
 }
 
+function normalizePastedSourceText(text: string) {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim();
+  if (!normalized || normalized.replace(/\s/g, '').length < MIN_SOURCE_TEXT_LENGTH) {
+    throw new SourceInputError('The pasted text is empty or too short to create a useful presentation. Add more source material and try again.');
+  }
+  if (normalized.length > MAX_TEXT_LENGTH) {
+    throw new SourceInputError(`Pasted text is too long. Please keep it under ${MAX_TEXT_LENGTH.toLocaleString()} characters.`);
+  }
+  return normalized;
+}
+
 async function extractPdfText(file?: Express.Multer.File): Promise<NormalizedGenerationSource> {
   if (!file) {
     throw new SourceInputError('No PDF file uploaded. Please select a valid PDF.');
@@ -88,10 +99,7 @@ function extractRawText(sourceText: unknown): NormalizedGenerationSource {
     throw new SourceInputError('Paste source text before generating a presentation.');
   }
 
-  const text = ensureUsefulSourceText(
-    sourceText,
-    'The pasted text is empty or too short to create a useful presentation. Add more source material and try again.'
-  );
+  const text = normalizePastedSourceText(sourceText);
 
   return {
     type: 'text',
