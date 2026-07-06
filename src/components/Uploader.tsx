@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   FileText,
   Link as LinkIcon,
@@ -7,13 +8,15 @@ import {
   Paperclip,
   Plus,
   Send,
+  Settings,
   Sparkles,
   Settings,
   Type,
   X,
 } from 'lucide-react';
-import { ThemeName, CustomizationSettings, AuthUser, GenerationSource } from '../types';
+import { AuthUser, CustomizationSettings, GenerationSource, ThemeName } from '../types';
 import { cn } from '../lib/utils';
+import { THEMES } from '../lib/themes';
 
 interface UploaderProps {
   onGenerate: (
@@ -81,10 +84,23 @@ const NARRATIVE_STYLES = [
   { id: 'deep_dive', name: 'Deep Dive' },
 ];
 
+const TONES = [
+  { id: 'executive', name: 'Executive', description: 'Confident, concise, board-ready', icon: Briefcase },
+  { id: 'friendly', name: 'Friendly', description: 'Warm and accessible', icon: Sparkles },
+];
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value);
+
 export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [presentationRequest, setPresentationRequest] = useState('');
   const [attachmentMode, setAttachmentMode] = useState<AttachmentMode>('pdf');
-  const [isAttachmentPanelOpen, setIsAttachmentPanelOpen] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sourceText, setSourceText] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
@@ -103,6 +119,12 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const hasSource = Boolean(file) || sourceText.trim().length > 0 || sourceUrl.trim().length > 0 || presentationRequest.trim().length > 0;
   const canGenerate = !isOutOfCredits && !isLoading && hasSource;
 
+  const clearAttachment = () => {
+    setFile(null);
+    setSourceText('');
+    setSourceUrl('');
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const [uploadedFile] = acceptedFiles;
     if (uploadedFile) {
@@ -110,7 +132,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
       setSourceText('');
       setSourceUrl('');
       setAttachmentMode('pdf');
-      setIsAttachmentPanelOpen(false);
+      setIsAttachmentMenuOpen(false);
     }
   }, []);
 
@@ -141,6 +163,10 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
     if (sourceText.trim()) return { sourceType: 'text', sourceText: sourceText.trim() };
     if (sourceUrl.trim()) return { sourceType: 'url', sourceUrl: sourceUrl.trim() };
     return { sourceType: 'text', sourceText: presentationRequest.trim() };
+  };
+
+  const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
+    setCustomSettings((current) => ({ ...current, [key]: value }));
   };
 
   const handleSubmit = () => {
