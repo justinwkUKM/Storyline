@@ -673,12 +673,29 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
               <h2 className="text-xl font-black text-lime-950">7. Presentation Focus</h2>
             </div>
             <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
-              Shape what Gemini emphasizes before it creates the deck. Pick a presentation type, audience, narrative variation, and optional custom prompt.
+              Start with a primary prompt for the deck, then refine it with presentation type, audience, and narrative variation.
             </p>
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
-            Optional direction
+            Primary prompt
           </span>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
+            What should this Storyline focus on?
+          </label>
+          <textarea
+            id="focus-prompt"
+            value={focusPrompt}
+            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
+            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
+            className="w-full min-h-40 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
+          />
+          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
+            <span>Sent as the generation focus prompt</span>
+            <span>{focusPrompt.length}/900</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -758,22 +775,6 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
-            Custom focus prompt
-          </label>
-          <textarea
-            id="focus-prompt"
-            value={focusPrompt}
-            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
-            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
-            className="w-full min-h-28 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
-          />
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
-            <span>Used as extra generation guidance</span>
-            <span>{focusPrompt.length}/900</span>
-          </div>
-        </div>
       </div>
 
       <div className="flex justify-center mt-6">
