@@ -232,60 +232,57 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
               <Plus className="h-5 w-5" />
             </button>
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canGenerate}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-black text-lime-50 shadow-lg transition',
-                canGenerate ? 'bg-lime-950 hover:bg-lime-900' : 'cursor-not-allowed bg-gray-400 shadow-none'
-              )}
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {isLoading ? 'Generating...' : 'Generate Presentation'}
-            </button>
-          </div>
-        </div>
-
-        {isAttachmentPanelOpen && (
-          <div className="rounded-3xl border border-lime-200 bg-white p-4 shadow-sm">
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              {([
-                { id: 'pdf', label: 'PDF', icon: FileText },
-                { id: 'text', label: 'Text', icon: Type },
-                { id: 'url', label: 'URL', icon: LinkIcon },
-              ] as const).map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setAttachmentMode(id)}
-                  className={cn('flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-black', attachmentMode === id ? 'border-lime-800 bg-lime-50 text-lime-950' : 'border-lime-100 text-lime-900/65')}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Presentation Type, Audience, and Narrative Variation */}
-      <div className="space-y-6 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm mb-10">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-5 h-5 text-rose-600" />
-              <h2 className="text-xl font-black text-lime-950">7. Presentation Focus</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled
+                className="flex h-12 items-center gap-2 rounded-full border border-lime-100 bg-lime-50/70 px-4 text-xs font-black text-lime-900/35"
+                title="Microphone input coming soon"
+              >
+                <Mic className="h-4 w-4" />
+                <span className="hidden sm:inline">Coming soon</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canGenerate}
+                className={cn(
+                  'flex h-12 items-center gap-2 rounded-full px-5 text-sm font-black shadow-lg transition',
+                  canGenerate
+                    ? 'bg-lime-950 text-lime-50 shadow-lime-950/15 hover:bg-lime-900 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'cursor-not-allowed bg-gray-300 text-gray-500 shadow-none'
+                )}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isLoading ? 'Generating' : 'Generate'}
+              </button>
             </div>
             <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
-              Shape what Gemini emphasizes before it creates the deck. Pick a presentation type, audience, and narrative variation.
+              Start with a primary prompt for the deck, then refine it with presentation type, audience, and narrative variation.
             </p>
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
-            Optional direction
+            Primary prompt
           </span>
         </div>
+
+        <div className="space-y-2">
+          <label htmlFor="focus-prompt" className="text-xs font-black text-lime-950 uppercase tracking-wider">
+            What should this Storyline focus on?
+          </label>
+          <textarea
+            id="focus-prompt"
+            value={focusPrompt}
+            onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))}
+            placeholder="Example: Focus on customer-facing outcomes, include a practical implementation roadmap, and avoid overly technical jargon."
+            className="w-full min-h-40 p-4 border border-lime-200/80 rounded-3xl bg-lime-50/20 text-sm font-semibold text-lime-950 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all resize-y"
+          />
+          <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-lime-900/45">
+            <span>Sent as the generation focus prompt</span>
+            <span>{focusPrompt.length}/900</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-3">
             <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Presentation Type</h3>
@@ -313,59 +310,50 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
           </div>
         )}
 
-        <div className="rounded-3xl border border-lime-200/80 bg-white/95 p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-2 text-lime-950">
-            <Settings className="h-5 w-5" />
-            <h2 className="text-lg font-black">Tune presentation</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label className="text-xs font-black uppercase text-lime-950">Type
-              <select value={presentationType} onChange={(event) => setPresentationType(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {PRESENTATION_TYPES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950">Audience
-              <select value={audience} onChange={(event) => setAudience(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {AUDIENCES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950">Theme
-              <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeName)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {THEMES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950">Tone
-              <select value={tone} onChange={(event) => setTone(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {['executive', 'academic', 'creative', 'sales', 'training', 'investor'].map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950">Slides
-              <select value={slideCount} onChange={(event) => setSlideCount(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {['auto', '3', '5', '8', '10', '15'].map((option) => <option key={option} value={option}>{option === 'auto' ? 'Auto' : option}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950">Orientation
-              <select value={orientation} onChange={(event) => setOrientation(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                <option value="horizontal">Horizontal</option>
-                <option value="vertical">Vertical</option>
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950 md:col-span-3">Narrative style
-              <select value={narrativeStyle} onChange={(event) => setNarrativeStyle(event.target.value)} className="mt-1 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case">
-                {NARRATIVE_STYLES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-black uppercase text-lime-950 md:col-span-3">Custom focus prompt
-              <textarea value={focusPrompt} onChange={(event) => setFocusPrompt(event.target.value.slice(0, 900))} className="mt-1 min-h-20 w-full rounded-2xl border border-lime-200 p-3 text-sm normal-case" />
-            </label>
-          </div>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => {
+                setPresentationRequest(suggestion);
+                window.requestAnimationFrame(() => textareaRef.current && resizeTextarea(textareaRef.current));
+              }}
+              className="rounded-full border border-lime-200 bg-white/80 px-4 py-2 text-xs font-black text-lime-900/75 shadow-sm hover:bg-lime-50 hover:text-lime-950"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
 
       </div>
 
-        <div className="text-center text-[10px] font-black uppercase tracking-wider text-lime-900/50">
+      <div className="flex justify-center mt-6">
+        <button
+          onClick={handleSubmit}
+          disabled={!hasSource || isLoading || isOutOfCredits}
+          className={cn(
+            "px-10 py-4 rounded-full font-black text-lg text-lime-50 shadow-xl transition-all flex items-center justify-center min-w-[240px] cursor-pointer",
+            !hasSource || isLoading || isOutOfCredits
+              ? "bg-gray-400 cursor-not-allowed shadow-none" 
+              : "bg-lime-950 hover:bg-lime-900 hover:scale-[1.02] active:scale-[0.98] shadow-lime-950/15"
+          )}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            'Generate Presentation'
+          )}
+        </button>
+      </div>
+      <div className="flex justify-center mt-2.5">
+        <span className="text-[10px] font-black text-lime-900/50 uppercase tracking-wider">
           Deducts 1 credit • {user.credits} credits remaining
-        </div>
-      </section>
+        </span>
+      </div>
     </div>
   );
 }
