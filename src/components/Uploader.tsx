@@ -106,14 +106,13 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [sourceUrl, setSourceUrl] = useState('');
   const [theme, setTheme] = useState<ThemeName>('limefrost');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
-  const [graphicStyle, setGraphicStyle] = useState('modern_infographic');
-  const [tone, setTone] = useState('executive');
-  const [slideCount, setSlideCount] = useState('auto');
-  const [orientation, setOrientation] = useState('horizontal');
-  const [presentationType, setPresentationType] = useState('business_brief');
-  const [audience, setAudience] = useState('general');
-  const [narrativeStyle, setNarrativeStyle] = useState('balanced');
-  const [focusPrompt, setFocusPrompt] = useState('');
+  const [graphicStyle, setGraphicStyle] = useState<string>('modern_infographic');
+  const [tone, setTone] = useState<string>('executive');
+  const [slideCount, setSlideCount] = useState<string>('auto');
+  const [orientation, setOrientation] = useState<string>('horizontal');
+  const [presentationType, setPresentationType] = useState<string>('business_brief');
+  const [audience, setAudience] = useState<string>('general');
+  const [narrativeStyle, setNarrativeStyle] = useState<string>('balanced');
 
   const isOutOfCredits = user.credits < 1;
   const hasSource = Boolean(file) || sourceText.trim().length > 0 || sourceUrl.trim().length > 0 || presentationRequest.trim().length > 0;
@@ -165,25 +164,9 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
     return { sourceType: 'text', sourceText: presentationRequest.trim() };
   };
 
-  const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
-    setCustomSettings((current) => ({ ...current, [key]: value }));
-  };
+    const primaryPrompt = sourceMode === 'text' ? sourceText.trim() : '';
 
-  const handleSubmit = () => {
-    if (!canGenerate) return;
-    onGenerate(
-      buildSource(),
-      theme,
-      theme === 'custom' ? customSettings : undefined,
-      graphicStyle,
-      tone,
-      slideCount,
-      orientation,
-      presentationType,
-      audience,
-      narrativeStyle,
-      focusPrompt.trim() || presentationRequest.trim()
-    );
+    onGenerate(source, theme, theme === 'custom' ? customSettings : undefined, graphicStyle, tone, slideCount, orientation, presentationType, audience, narrativeStyle, primaryPrompt);
   };
 
   const updateCustomSetting = <K extends keyof CustomizationSettings>(key: K, value: CustomizationSettings[K]) => {
@@ -281,31 +264,52 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
                   <Icon className="h-4 w-4" />
                   {label}
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
-            {attachmentMode === 'pdf' && (
-              <button type="button" onClick={open} className="w-full rounded-2xl border border-dashed border-lime-300 bg-lime-50/50 p-6 text-sm font-black text-lime-950">
-                Choose a PDF or drag it onto the prompt box
-              </button>
-            )}
-            {attachmentMode === 'text' && (
-              <textarea
-                value={sourceText}
-                onChange={(event) => { setSourceText(event.target.value); setFile(null); setSourceUrl(''); }}
-                rows={8}
-                placeholder="Paste source text here. Storyline will use this text instead of a PDF."
-                className="w-full resize-y rounded-2xl border border-lime-200 bg-lime-50/30 p-4 text-sm font-semibold text-lime-950 outline-none focus:border-lime-500"
-              />
-            )}
-            {attachmentMode === 'url' && (
-              <input
-                value={sourceUrl}
-                onChange={(event) => { setSourceUrl(event.target.value); setFile(null); setSourceText(''); }}
-                placeholder="https://example.com/article"
-                className="w-full rounded-2xl border border-lime-200 bg-lime-50/30 p-4 text-sm font-semibold text-lime-950 outline-none focus:border-lime-500"
-              />
-            )}
+      {/* Presentation Type, Audience, and Narrative Variation */}
+      <div className="space-y-6 p-6 bg-white/95 backdrop-blur rounded-3xl border border-lime-200/80 shadow-sm mb-10">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-5 h-5 text-rose-600" />
+              <h2 className="text-xl font-black text-lime-950">7. Presentation Focus</h2>
+            </div>
+            <p className="text-xs text-lime-900/60 font-semibold leading-relaxed max-w-3xl">
+              Shape what Gemini emphasizes before it creates the deck. Pick a presentation type, audience, and narrative variation.
+            </p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-rose-700 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-full">
+            Optional direction
+          </span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-3">
+            <h3 className="text-xs font-black text-lime-950 uppercase tracking-wider">Presentation Type</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              {PRESENTATION_TYPES.map((option) => {
+                const isSelected = presentationType === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setPresentationType(option.id)}
+                    className={cn(
+                      "p-3 rounded-2xl border text-left transition-all cursor-pointer",
+                      isSelected
+                        ? "border-rose-500 bg-rose-50/70 ring-1 ring-rose-400/25 text-rose-950"
+                        : "border-lime-100 bg-white hover:bg-lime-50/20 hover:border-lime-200 text-lime-900/85"
+                    )}
+                  >
+                    <span className="block text-xs font-black">{option.name}</span>
+                    <span className="block text-[10px] text-lime-900/50 mt-1 font-semibold leading-normal">{option.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -356,14 +360,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
             </label>
           </div>
 
-          {theme === 'custom' && (
-            <div className="mt-4 grid grid-cols-1 gap-3 border-t border-lime-100 pt-4 md:grid-cols-3">
-              <input type="color" value={customSettings.primaryColor} onChange={(event) => updateCustomSetting('primaryColor', event.target.value)} aria-label="Primary color" />
-              <input type="color" value={customSettings.backgroundColor} onChange={(event) => updateCustomSetting('backgroundColor', event.target.value)} aria-label="Background color" />
-              <input type="color" value={customSettings.textColor} onChange={(event) => updateCustomSetting('textColor', event.target.value)} aria-label="Text color" />
-            </div>
-          )}
-        </div>
+      </div>
 
         <div className="text-center text-[10px] font-black uppercase tracking-wider text-lime-900/50">
           Deducts 1 credit • {user.credits} credits remaining
