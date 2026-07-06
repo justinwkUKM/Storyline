@@ -13,6 +13,8 @@ env:
   GCP_PROJECT_ID: storyline-6cd69
   GCP_REGION: asia-southeast1
   RUNTIME_SERVICE_ACCOUNT: storyline-cloud-run@storyline-6cd69.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/101681268749/locations/global/workloadIdentityPools/github-actions/providers/github
+  WIF_SERVICE_ACCOUNT: storyline-cloud-run@storyline-6cd69.iam.gserviceaccount.com
   GEMINI_SECRET: storyline-gemini-api-key
   SESSION_SECRET: storyline-session-secret
   SHARE_SECRET: storyline-share-token-secret
@@ -48,8 +50,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     environment: staging
     env:
-      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
-      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
     permissions:
       contents: read
@@ -114,8 +114,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
     env:
-      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
-      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
     permissions:
       contents: read
