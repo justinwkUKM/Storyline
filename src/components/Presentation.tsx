@@ -40,6 +40,15 @@ interface PresentationProps {
 }
 
 type SlideDensity = 'roomy' | 'normal' | 'compact' | 'dense' | 'cramped';
+type SlideLayoutKind = 'visual-lead' | 'text-lead' | 'metric-hero' | 'process-flow' | 'quote-focus' | 'dense-summary';
+type PresenterViewportMode = 'desktop' | 'tablet' | 'mobile';
+
+interface PresenterLayout {
+  kind: SlideLayoutKind;
+  viewportMode: PresenterViewportMode;
+  stacked: boolean;
+  emphasis: 'graphic' | 'text' | 'balanced';
+}
 
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.1, 1.2] as const;
 const DENSITY_ORDER: SlideDensity[] = ['roomy', 'normal', 'compact', 'dense', 'cramped'];
@@ -189,6 +198,60 @@ function getSlideDensity(
   return 'roomy';
 }
 
+function getSlideTextStats(slide: PresentationData['slides'][number]) {
+  const textLengths = slide.content.map((point) => stripHtml(point).length);
+  return {
+    totalLength: textLengths.reduce((sum, length) => sum + length, 0),
+    longestPoint: textLengths.reduce((max, length) => Math.max(max, length), 0),
+    pointCount: slide.content.length
+  };
+}
+
+function getPresenterLayout(
+  slide: PresentationData['slides'][number],
+  viewportSize: { width: number; height: number },
+  density: SlideDensity,
+  isVertical: boolean,
+  slideIndex: number
+): PresenterLayout {
+  const viewportMode: PresenterViewportMode =
+    viewportSize.width < 640 ? 'mobile' : viewportSize.width < 1024 ? 'tablet' : 'desktop';
+  const stacked = isVertical || viewportMode !== 'desktop';
+  const { totalLength, longestPoint, pointCount } = getSlideTextStats(slide);
+  const isTextOnlyDense = density === 'dense' || density === 'cramped' || pointCount > 4 || totalLength > 560 || longestPoint > 220;
+  const isGraphicDense = density === 'cramped' || pointCount > 6 || totalLength > 760 || longestPoint > 260;
+
+  if (!slide.graphic) {
+    if (pointCount <= 2 && totalLength < 260) {
+      return { kind: 'quote-focus', viewportMode, stacked, emphasis: 'text' };
+    }
+    return { kind: isTextOnlyDense ? 'dense-summary' : 'text-lead', viewportMode, stacked, emphasis: 'text' };
+  }
+
+  if (slide.graphic.type === 'metrics') {
+    return { kind: 'metric-hero', viewportMode, stacked, emphasis: 'graphic' };
+  }
+
+  if (slide.graphic.type === 'process' || slide.graphic.type === 'hierarchy') {
+    return { kind: 'process-flow', viewportMode, stacked, emphasis: 'graphic' };
+  }
+
+  if (pointCount <= 2 || totalLength < 260 || slide.graphic.type === 'pie' || slide.graphic.type === 'comparison') {
+    return { kind: 'visual-lead', viewportMode, stacked, emphasis: 'graphic' };
+  }
+
+  if (isGraphicDense) {
+    return { kind: 'dense-summary', viewportMode, stacked, emphasis: 'balanced' };
+  }
+
+  return {
+    kind: slideIndex % 2 === 0 ? 'visual-lead' : 'text-lead',
+    viewportMode,
+    stacked,
+    emphasis: slideIndex % 2 === 0 ? 'graphic' : 'text'
+  };
+}
+
 export function Presentation({ data, theme, customSettings, onClose, onEdit, onThemeChange, readOnly = false }: PresentationProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -305,7 +368,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
 
   const slideVariants = {
     enter: (direction: number) => ({
-      x: direction > 0 ? 800 : -800,
+      x: direction > 0 ? 320 : -320,
       opacity: 0
     }),
     center: {
@@ -315,7 +378,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     },
     exit: (direction: number) => ({
       zIndex: 0,
-      x: direction < 0 ? 800 : -800,
+      x: direction < 0 ? 320 : -320,
       opacity: 0
     })
   };
@@ -326,8 +389,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   const isMobile = viewportSize.width < 768;
   const zoom = ZOOM_STEPS[zoomIndex];
   const aspectRatio = isVertical ? 3 / 4 : 16 / 9;
-  const chromeHeight = isFullscreen ? (isMobile ? 72 : 88) : (isMobile ? 88 : 112);
-  const availableSlideWidth = Math.max(280, viewportSize.width - (isMobile ? 16 : 24));
+  const chromeHeight = isFullscreen ? (isMobile ? 42 : 48) : (isMobile ? 58 : 64);
+  const availableSlideWidth = Math.max(280, viewportSize.width - (isMobile ? 8 : 16));
   const availableSlideHeight = Math.max(280, viewportSize.height - chromeHeight);
   const baseSlideWidth = Math.min(availableSlideWidth, availableSlideHeight * aspectRatio);
   const mobileZoomFill = isMobile ? 1.5 : 1;
@@ -340,6 +403,10 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   );
   const density = getDensityByIndex(getDensityIndex(baseDensity) + densityBump);
   const densityClasses = DENSITY_CLASSES[density];
+  const presenterLayout = useMemo(
+    () => getPresenterLayout(currentSlide, viewportSize, density, isVertical, currentIndex),
+    [currentIndex, currentSlide, density, isVertical, viewportSize]
+  );
 
   const isCustom = displayTheme === 'custom';
   const activeCustomSettings = displayCustomSettings || DEFAULT_CUSTOM_SETTINGS;
@@ -806,15 +873,263 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     }
   };
 
+  const getPointTextClass = (layoutKind: SlideLayoutKind, withGraphic: boolean) => {
+    if (isMobile) {
+      return layoutKind === 'quote-focus' ? 'text-xl' : 'text-base';
+    }
+    if (layoutKind === 'quote-focus') return isVertical ? 'text-xl' : 'text-2xl lg:text-3xl';
+    if (layoutKind === 'metric-hero') return 'text-base lg:text-lg';
+    if (layoutKind === 'dense-summary') return isVertical ? 'text-sm md:text-base' : 'text-base lg:text-lg';
+    if (layoutKind === 'text-lead') return isVertical ? 'text-base md:text-lg' : 'text-lg lg:text-2xl';
+    if (layoutKind === 'process-flow') return isVertical ? 'text-sm md:text-base' : 'text-base lg:text-lg';
+    return withGraphic ? 'text-base lg:text-lg' : 'text-lg lg:text-2xl';
+  };
+
+  const getPointDelay = (idx: number) => 0.08 + Math.min(idx, 4) * 0.045;
+
+  const renderVideoLauncher = (extraClassName = '') => (
+    currentSlide.videoUrl ? (
+      <button
+        onClick={() => setShowVideo(true)}
+        className={cn("inline-flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-xs font-bold transition-colors hover:bg-black/10", extraClassName)}
+      >
+        <PlayCircle className="w-4 h-4 text-lime-500" />
+        <span style={textStyleObj}>Watch Video</span>
+      </button>
+    ) : null
+  );
+
+  const renderPointList = (
+    points: string[],
+    layoutKind: SlideLayoutKind,
+    variant: 'bullets' | 'cards' | 'numbered' = 'bullets',
+    className = ''
+  ) => {
+    const textClass = getPointTextClass(layoutKind, Boolean(currentSlide.graphic));
+    return (
+      <ul className={cn(variant === 'cards' ? 'grid gap-3' : getSpacingClass(), 'w-full', className)}>
+        {points.map((point, idx) => (
+          <motion.li
+            key={`${idx}-${point}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: getPointDelay(idx), duration: 0.22 }}
+            className={cn(
+              "min-w-0 leading-snug md:leading-relaxed",
+              variant === 'cards' && "rounded-2xl border border-black/5 bg-white/55 p-4 shadow-sm dark:bg-slate-950/20",
+              variant === 'bullets' && "flex",
+              variant === 'numbered' && "flex items-start gap-4 rounded-2xl border border-black/5 bg-black/[0.03] p-4 dark:bg-white/[0.04]",
+              textClass,
+              !isCustom && style.text,
+              getAlignmentClassForList()
+            )}
+            style={textStyleObj}
+          >
+            {variant === 'numbered' ? (
+              <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black", !isCustom && style.accent)} style={accentStyleObj}>
+                {idx + 1}
+              </span>
+            ) : variant === 'bullets' ? (
+              <span
+                className={cn(
+                  "mt-2 inline-block shrink-0 rounded-full",
+                  isVertical || isMobile ? "h-2.5 w-2.5" : "h-3 w-3",
+                  !isCustom && style.accent,
+                  activeCustomSettings.alignment === 'right' ? 'ml-3 mr-0' : 'ml-0 mr-3',
+                  activeCustomSettings.alignment === 'center' ? 'hidden' : ''
+                )}
+                style={accentStyleObj}
+              />
+            ) : null}
+            <span
+              className={cn("min-w-0", activeCustomSettings.alignment === 'center' && 'text-center')}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }}
+            />
+          </motion.li>
+        ))}
+      </ul>
+    );
+  };
+
+  const renderGraphicPanel = (
+    className = '',
+    prominent = false
+  ) => {
+    if (!currentSlide.graphic) return null;
+    return (
+      <motion.div
+        data-presenter-graphic="true"
+        initial={{ opacity: 0, scale: 0.985 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.08, duration: 0.28 }}
+        className={cn(
+          "flex min-h-0 flex-col justify-center overflow-hidden rounded-3xl border border-black/5 bg-black/5 shadow-inner dark:border-white/5 dark:bg-white/5",
+          prominent ? "p-4 md:p-5" : densityClasses.graphicBox,
+          prominent && !isVertical && !isMobile ? "min-h-[420px]" : densityClasses.graphicMinHeight,
+          isVertical || isMobile ? "min-h-[260px]" : "",
+          className
+        )}
+      >
+        <InteractiveGraphic
+          graphic={currentSlide.graphic}
+          accentClass={!isCustom ? style.accent : ''}
+          accentStyleObj={accentStyleObj}
+          isDarkTheme={displayTheme === 'cosmic'}
+          isVerticalMode={isVertical || presenterLayout.stacked}
+        />
+      </motion.div>
+    );
+  };
+
+  const renderContentSlide = () => {
+    if (showVideo && currentSlide.videoUrl) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="relative aspect-video max-h-full w-full overflow-hidden rounded-3xl border border-black/10 bg-black/10 shadow-inner">
+            <button
+              onClick={() => setShowVideo(false)}
+              className="absolute right-3 top-3 z-10 rounded-full bg-black/70 p-2 text-white transition-colors hover:bg-black/90"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <iframe
+              src={currentSlide.videoUrl}
+              className="h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      );
+    }
+
+    const layoutKind = presenterLayout.kind;
+    const points = currentSlide.content;
+    const leadPoint = points[0] || '';
+    const supportPoints = points.slice(1);
+
+    if (layoutKind === 'quote-focus') {
+      return (
+        <div className="flex h-full w-full flex-col justify-center gap-5">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.26 }}
+            className="max-w-5xl"
+          >
+            <div className={cn("mb-4 h-1.5 w-16 rounded-full", !isCustom && style.accent)} style={accentStyleObj} />
+            <div
+              className={cn("font-black leading-[1.05]", isMobile ? "text-2xl" : isVertical ? "text-3xl" : "text-4xl lg:text-6xl", !isCustom && style.title)}
+              style={titleStyleObj}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(leadPoint) }}
+            />
+          </motion.div>
+          {supportPoints.length > 0 && renderPointList(supportPoints.slice(0, 3), layoutKind, 'cards', 'max-w-4xl')}
+          {renderVideoLauncher()}
+        </div>
+      );
+    }
+
+    if (layoutKind === 'metric-hero' && currentSlide.graphic) {
+      return presenterLayout.stacked ? (
+        <div className="flex h-full w-full flex-col justify-stretch gap-4">
+          {renderGraphicPanel('flex-1', true)}
+          {renderPointList(points.slice(0, 3), layoutKind, 'cards', 'grid-cols-1')}
+          {renderVideoLauncher()}
+        </div>
+      ) : (
+        <div className="grid h-full w-full grid-cols-12 items-stretch gap-5 lg:gap-7">
+          <div className="col-span-8 flex min-h-0">{renderGraphicPanel('w-full', true)}</div>
+          <div className="col-span-4 flex flex-col justify-center gap-4">
+            {renderPointList(points.slice(0, 4), layoutKind, 'cards')}
+            {renderVideoLauncher()}
+          </div>
+        </div>
+      );
+    }
+
+    if (layoutKind === 'process-flow' && currentSlide.graphic) {
+      return (
+        <div className="flex h-full w-full flex-col justify-stretch gap-4 lg:gap-5">
+          {renderGraphicPanel('w-full flex-[1.15]', true)}
+          {renderPointList(points, layoutKind, presenterLayout.stacked ? 'numbered' : 'cards', presenterLayout.stacked ? '' : 'grid-cols-2 xl:grid-cols-3')}
+          {renderVideoLauncher()}
+        </div>
+      );
+    }
+
+    if (layoutKind === 'visual-lead' && currentSlide.graphic) {
+      return presenterLayout.stacked ? (
+        <div className="flex h-full w-full flex-col justify-stretch gap-4">
+          {renderGraphicPanel('flex-1', true)}
+          {renderPointList(points.slice(0, 3), layoutKind, 'cards')}
+          {renderVideoLauncher()}
+        </div>
+      ) : (
+        <div className="grid h-full w-full grid-cols-12 items-stretch gap-6 lg:gap-8">
+          <div className="col-span-7 flex min-h-0">{renderGraphicPanel('w-full', true)}</div>
+          <div className="col-span-5 flex flex-col justify-center gap-4">
+            {renderPointList(points, layoutKind, points.length <= 3 ? 'cards' : 'bullets')}
+            {renderVideoLauncher()}
+          </div>
+        </div>
+      );
+    }
+
+    if (layoutKind === 'text-lead') {
+      return (
+        <div className={cn("grid h-full w-full items-center gap-5 lg:gap-8", presenterLayout.stacked ? "grid-cols-1" : "grid-cols-12")}>
+          <div className={cn("flex flex-col justify-center gap-5", presenterLayout.stacked ? "" : currentSlide.graphic ? "col-span-7" : "col-span-12")}>
+            <div
+              className={cn("max-w-5xl text-2xl font-black leading-tight md:text-3xl", !isCustom && style.title)}
+              style={titleStyleObj}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(leadPoint) }}
+            />
+            {supportPoints.length > 0 && renderPointList(supportPoints, layoutKind, 'numbered')}
+            {renderVideoLauncher()}
+          </div>
+          {currentSlide.graphic && !presenterLayout.stacked && (
+            <div className="col-span-5 flex min-h-0">{renderGraphicPanel('w-full', false)}</div>
+          )}
+          {currentSlide.graphic && presenterLayout.stacked && renderGraphicPanel('w-full', false)}
+        </div>
+      );
+    }
+
+    return (
+      <div className={cn("grid h-full w-full items-stretch gap-4 lg:gap-6", presenterLayout.stacked ? "grid-cols-1" : currentSlide.graphic ? "grid-cols-12" : "grid-cols-1")}>
+        <div className={cn("flex flex-col justify-center", presenterLayout.stacked ? "" : currentSlide.graphic ? "col-span-6" : "col-span-1")}>
+          {renderPointList(points, layoutKind, points.length > 3 ? 'numbered' : 'bullets')}
+          {renderVideoLauncher(isVertical || isMobile ? 'mt-3' : 'mt-5')}
+        </div>
+        {currentSlide.graphic && (
+          <div className={cn("flex min-h-0", presenterLayout.stacked ? "" : "col-span-6")}>
+            {renderGraphicPanel('w-full', false)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 p-0 sm:p-3 md:p-4 gap-0 sm:gap-3",
+        "fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 p-0 sm:p-2 md:p-2 gap-0",
         !isCustom && style.bg, 
         isCustom && activeCustomSettings.fontFamily
       )}
       style={containerStyle}
     >
+      <style>{`
+        [data-presenter-graphic="true"] [class*="text-[9px]"],
+        [data-presenter-graphic="true"] [class*="text-[10px]"] {
+          font-size: clamp(11px, 0.72vw, 14px) !important;
+        }
+        [data-presenter-graphic="true"] [class*="text-[11px]"],
+        [data-presenter-graphic="true"] .text-xs {
+          font-size: clamp(12px, 0.82vw, 15px) !important;
+        }
+      `}</style>
       
       {/* Absolute Header Branding (Centered clean watermark) */}
       <div className={cn("absolute top-4 left-6 z-40 flex items-center gap-2 opacity-60 pointer-events-none", isMobile && "hidden")}>
@@ -840,8 +1155,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
             animate="center"
             exit="exit"
             transition={{
-              x: { type: "spring", stiffness: 350, damping: 33 },
-              opacity: { duration: 0.15 }
+              x: { type: "spring", stiffness: 460, damping: 42 },
+              opacity: { duration: 0.12 }
             }}
             className={cn(
               "w-full rounded-[22px] shadow-sm border overflow-hidden flex flex-col relative bg-white",
@@ -954,84 +1269,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                   
                   {/* TAB 1: Slide Content & Graphics */}
                   {activeTab === 'content' && (
-                    <div className="w-full">
-                      {showVideo && currentSlide.videoUrl ? (
-                        <div className="w-full aspect-video max-h-[350px] bg-black/10 rounded-2xl overflow-hidden relative border border-black/10 shadow-inner">
-                          <button 
-                            onClick={() => setShowVideo(false)} 
-                            className="absolute top-3 right-3 z-10 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full transition-colors cursor-pointer"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          <iframe 
-                            src={currentSlide.videoUrl} 
-                            className="w-full h-full border-0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        </div>
-                      ) : currentSlide.graphic ? (
-                        <div className={cn("grid items-center w-full", densityClasses.contentGap, isVertical ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-12")}>
-                          
-                          {/* Bullet points on Left column */}
-                          <div className={cn(isVertical ? "col-span-1" : "lg:col-span-5", "flex flex-col justify-center")}>
-                            <ul className={cn(getSpacingClass(), "w-full")}>
-                              {currentSlide.content.map((point, idx) => (
-                                <motion.li
-                                  key={idx}
-                                  initial={{ opacity: 0, x: -15 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: 0.15 + (idx * 0.08) }}
-                                  className={cn("flex leading-snug md:leading-relaxed", isMobile ? "text-[11px]" : isVertical ? "text-[10px] md:text-xs" : densityClasses.bodyWithGraphic, !isCustom && style.text, getAlignmentClassForList())}
-                                  style={textStyleObj}
-                                >
-                                  <span className={cn("inline-block rounded-full mt-2 mr-3 flex-shrink-0", isVertical ? "w-1.5 h-1.5" : "w-2 h-2", !isCustom && style.accent, activeCustomSettings.alignment === 'right' ? 'mr-0 ml-3' : 'ml-0 mr-3', activeCustomSettings.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                                  <span className={cn(activeCustomSettings.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
-                                </motion.li>
-                              ))}
-                            </ul>
-
-                            {/* Supplementary Embedded Video launcher */}
-                            {currentSlide.videoUrl && (
-                              <button
-                                onClick={() => setShowVideo(true)}
-                                className={cn("flex items-center gap-2 px-3 py-2 rounded-xl bg-black/5 hover:bg-black/10 text-[10px] md:text-xs font-semibold text-left transition-colors cursor-pointer w-fit", isVertical ? "mt-3" : "mt-6")}
-                              >
-                                <PlayCircle className="w-4 h-4 text-lime-500" />
-                                <span style={textStyleObj}>Watch Video</span>
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Interactive premium Graphic on Right column */}
-                          <div className={cn("flex flex-col justify-center bg-black/5 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 shadow-inner", densityClasses.graphicBox, isVertical ? "col-span-1 min-h-[150px]" : "lg:col-span-7", !isVertical && densityClasses.graphicMinHeight)}>
-                            <InteractiveGraphic
-                              graphic={currentSlide.graphic}
-                              accentClass={!isCustom ? style.accent : ''}
-                              accentStyleObj={accentStyleObj}
-                              isDarkTheme={displayTheme === 'cosmic'}
-                              isVerticalMode={isVertical}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        // Full-width bullet points if no graphic is present
-                        <ul className={cn(getSpacingClass(), "w-full max-w-4xl mx-auto")}>
-                          {currentSlide.content.map((point, idx) => (
-                            <motion.li
-                              key={idx}
-                              initial={{ opacity: 0, x: -15 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.15 + (idx * 0.08) }}
-                              className={cn("flex leading-snug md:leading-relaxed", isMobile ? "text-[12px]" : densityClasses.bodyNoGraphic, !isCustom && style.text, getAlignmentClassForList())}
-                              style={textStyleObj}
-                            >
-                              <span className={cn("inline-block w-2.5 h-2.5 rounded-full mt-2.5 mr-4 flex-shrink-0", !isCustom && style.accent, activeCustomSettings.alignment === 'right' ? 'mr-0 ml-4' : 'ml-0 mr-4', activeCustomSettings.alignment === 'center' ? 'hidden' : '')} style={accentStyleObj} />
-                              <span className={cn(activeCustomSettings.alignment === 'center' && 'text-center')} dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
-                            </motion.li>
-                          ))}
-                        </ul>
-                      )}
+                    <div className="h-full w-full min-h-0">
+                      {renderContentSlide()}
                     </div>
                   )}
 
@@ -1462,6 +1701,57 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
               : 'text-2xl';
           const exportListSpacing = exportIsTight ? 'space-y-2.5' : exportIsCompact ? 'space-y-3.5' : 'space-y-5';
           const exportGraphicHeight = isVertical ? 'h-[300px]' : 'h-[380px]';
+          const exportLayout = getPresenterLayout(
+            slide,
+            { width: isVertical ? 720 : 1280, height: isVertical ? 960 : 720 },
+            exportDensity,
+            isVertical,
+            sIdx
+          );
+          const exportLeadPoint = slide.content[0] || '';
+          const exportSupportPoints = slide.content.slice(1);
+          const exportPointItem = (point: string, idx: number, variant: 'bullets' | 'cards' | 'numbered' = 'bullets') => (
+            <li
+              key={idx}
+              className={cn(
+                "min-w-0 leading-relaxed",
+                variant === 'cards' && "rounded-2xl border border-black/5 bg-white/45 p-4 shadow-sm dark:bg-slate-950/20",
+                variant === 'numbered' && "flex items-start gap-4 rounded-2xl border border-black/5 bg-black/[0.03] p-4 dark:bg-white/[0.04]",
+                variant === 'bullets' && "flex",
+                slide.graphic ? exportBulletClass : exportNoGraphicBulletClass,
+                !isCustom && themeStyles[displayTheme].text
+              )}
+              style={textStyleObj}
+            >
+              {variant === 'numbered' ? (
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj}>
+                  {idx + 1}
+                </span>
+              ) : variant === 'bullets' ? (
+                <span className={cn("mt-2 inline-block shrink-0 rounded-full", isVertical ? "h-2 w-2 mr-4" : "h-3.5 w-3.5 mr-5", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
+              ) : null}
+              <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
+            </li>
+          );
+          const exportPointList = (points: string[], variant: 'bullets' | 'cards' | 'numbered' = 'bullets', className = '') => (
+            <ul className={cn(variant === 'cards' ? 'grid gap-3' : exportListSpacing, className)}>
+              {points.map((point, idx) => exportPointItem(point, idx, variant))}
+            </ul>
+          );
+          const exportGraphicPanel = (className = '', prominent = false) => (
+            slide.graphic ? (
+              <div className={cn("flex items-center justify-center rounded-3xl border border-black/5 bg-black/5 p-6 shadow-inner dark:border-white/5 dark:bg-white/5", prominent ? (isVertical ? "min-h-[390px]" : "min-h-[430px]") : exportGraphicHeight, className)}>
+                <InteractiveGraphic
+                  graphic={slide.graphic}
+                  accentClass={!isCustom ? themeStyles[displayTheme].accent : ''}
+                  accentStyleObj={accentStyleObj}
+                  isDarkTheme={displayTheme === 'cosmic'}
+                  isVerticalMode={isVertical || exportLayout.stacked}
+                  exportMode
+                />
+              </div>
+            ) : null
+          );
 
           return (
           <React.Fragment key={sIdx}>
@@ -1503,46 +1793,54 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                     {slide.title}
                   </h2>
                   <div className="flex-1 w-full flex min-h-0 items-center justify-between gap-6">
-                    {slide.graphic ? (
-                      <div className={cn("grid gap-6 w-full items-center", isVertical ? "grid-cols-1 mt-2" : "grid-cols-12 gap-10")}>
-                        <div className={isVertical ? "col-span-1" : "col-span-5"}>
-                          <ul className={exportListSpacing}>
-                            {slide.content.map((point, idx) => (
-                              <li
-                                key={idx}
-                                className={cn("flex leading-relaxed", exportBulletClass, !isCustom && themeStyles[displayTheme].text)}
-                                style={textStyleObj}
-                              >
-                                <span className={cn("inline-block rounded-full mt-2 mr-4 flex-shrink-0", isVertical ? "w-2 h-2" : "w-3.5 h-3.5", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
-                                <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div className={cn("bg-black/5 dark:bg-white/5 rounded-2xl p-6 border border-black/5 dark:border-white/5 flex items-center justify-center", isVertical ? "col-span-1" : "col-span-7", exportGraphicHeight)}>
-                          <InteractiveGraphic
-                            graphic={slide.graphic}
-                            accentClass={!isCustom ? themeStyles[displayTheme].accent : ''}
-                            accentStyleObj={accentStyleObj}
-                            isDarkTheme={displayTheme === 'cosmic'}
-                            isVerticalMode={isVertical}
-                            exportMode
-                          />
+                    {exportLayout.kind === 'quote-focus' ? (
+                      <div className="flex w-full flex-col justify-center gap-8">
+                        <div className={cn("h-1.5 w-20 rounded-full", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
+                        <div
+                          className={cn("font-black leading-[1.05]", isVertical ? "text-4xl" : "text-6xl", !isCustom && themeStyles[displayTheme].title)}
+                          style={titleStyleObj}
+                          dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(exportLeadPoint) }}
+                        />
+                        {exportSupportPoints.length > 0 && exportPointList(exportSupportPoints.slice(0, 3), 'cards', isVertical ? '' : 'grid-cols-3')}
+                      </div>
+                    ) : exportLayout.kind === 'metric-hero' && slide.graphic ? (
+                      <div className={cn("grid w-full items-stretch gap-8", isVertical ? "grid-cols-1" : "grid-cols-12")}>
+                        <div className={isVertical ? "" : "col-span-8"}>{exportGraphicPanel('', true)}</div>
+                        <div className={cn("flex flex-col justify-center", isVertical ? "" : "col-span-4")}>
+                          {exportPointList(slide.content.slice(0, 4), 'cards')}
                         </div>
                       </div>
+                    ) : exportLayout.kind === 'process-flow' && slide.graphic ? (
+                      <div className="flex w-full flex-col justify-center gap-6">
+                        {exportGraphicPanel('w-full', true)}
+                        {exportPointList(slide.content.slice(0, isVertical ? 3 : 4), isVertical ? 'numbered' : 'cards', isVertical ? '' : 'grid-cols-2')}
+                      </div>
+                    ) : exportLayout.kind === 'visual-lead' && slide.graphic ? (
+                      <div className={cn("grid w-full items-center gap-8", isVertical ? "grid-cols-1" : "grid-cols-12")}>
+                        <div className={isVertical ? "" : "col-span-7"}>{exportGraphicPanel('', true)}</div>
+                        <div className={isVertical ? "" : "col-span-5"}>
+                          {exportPointList(slide.content, slide.content.length <= 3 ? 'cards' : 'bullets')}
+                        </div>
+                      </div>
+                    ) : exportLayout.kind === 'text-lead' ? (
+                      <div className={cn("grid w-full items-center gap-8", isVertical || !slide.graphic ? "grid-cols-1" : "grid-cols-12")}>
+                        <div className={isVertical || !slide.graphic ? "" : "col-span-7"}>
+                          <div
+                            className={cn("mb-6 text-4xl font-black leading-tight", isVertical && "text-3xl", !isCustom && themeStyles[displayTheme].title)}
+                            style={titleStyleObj}
+                            dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(exportLeadPoint) }}
+                          />
+                          {exportSupportPoints.length > 0 && exportPointList(exportSupportPoints, 'numbered')}
+                        </div>
+                        {slide.graphic && <div className={isVertical ? "" : "col-span-5"}>{exportGraphicPanel()}</div>}
+                      </div>
                     ) : (
-                      <ul className={cn(exportListSpacing, "w-full")}>
-                        {slide.content.map((point, idx) => (
-                          <li
-                            key={idx}
-                            className={cn("flex leading-relaxed", exportNoGraphicBulletClass, !isCustom && themeStyles[displayTheme].text)}
-                            style={textStyleObj}
-                          >
-                            <span className={cn("inline-block w-4 h-4 rounded-full mt-3.5 mr-6 flex-shrink-0", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
-                            <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(point) }} />
-                          </li>
-                        ))}
-                      </ul>
+                      <div className={cn("grid w-full items-center gap-8", isVertical || !slide.graphic ? "grid-cols-1" : "grid-cols-12")}>
+                        <div className={isVertical || !slide.graphic ? "" : "col-span-6"}>
+                          {exportPointList(slide.content, slide.content.length > 3 ? 'numbered' : 'bullets')}
+                        </div>
+                        {slide.graphic && <div className={isVertical ? "" : "col-span-6"}>{exportGraphicPanel()}</div>}
+                      </div>
                     )}
                   </div>
                   <div className="w-full flex justify-between border-t border-black/5 dark:border-white/5 pt-4 text-sm font-semibold opacity-50">
