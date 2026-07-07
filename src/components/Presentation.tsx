@@ -1241,11 +1241,13 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
             )}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-              <div>
+              <div className="min-w-0">
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Presentation controls</div>
-                <div className="text-sm font-black text-slate-950 truncate">{data.title}</div>
+                <div className="truncate text-sm font-black text-slate-950" title={data.title}>
+                  {data.title}
+                </div>
               </div>
-              <button onClick={() => setShowSecondaryMenu(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-500" title="Close menu">
+              <button onClick={() => setShowSecondaryMenu(false)} className="shrink-0 p-2 rounded-full hover:bg-slate-100 text-slate-500" title="Close menu">
                 <X className="w-4 h-4" />
               </button>
             </div>
