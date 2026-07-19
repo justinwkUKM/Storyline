@@ -50,7 +50,7 @@ export default function App() {
 
   const [draftPresentation, setDraftPresentation] = useState<PresentationData | null>(null);
   const [presentation, setPresentation] = useState<PresentationData | null>(null);
-  const [theme, setTheme] = useState<ThemeName>('limefrost');
+  const [theme, setTheme] = useState<ThemeName>('executiveInfographic');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings | undefined>();
   const [sourceContext, setSourceContext] = useState<SourceContext | undefined>();
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export default function App() {
   const [generationProgressIndex, setGenerationProgressIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [sharedPresentation, setSharedPresentation] = useState<PresentationData | null>(null);
-  const [sharedTheme, setSharedTheme] = useState<ThemeName>('limefrost');
+  const [sharedTheme, setSharedTheme] = useState<ThemeName>('executiveInfographic');
   const [sharedCustomSettings, setSharedCustomSettings] = useState<CustomizationSettings | undefined>();
   const [shareLoading, setShareLoading] = useState(Boolean(shareToken));
   const [shareError, setShareError] = useState<string | null>(null);
@@ -211,13 +211,13 @@ export default function App() {
     source: GenerationSource,
     selectedTheme: ThemeName,
     settings?: CustomizationSettings,
-    graphicStyle: string = 'modern_infographic',
+    graphicStyle: string = 'executive_infographic',
     tone: string = 'executive',
     slideCount: string = 'auto',
     orientation: string = 'horizontal',
     presentationType: string = 'business_brief',
-    audience: string = 'general',
-    narrativeStyle: string = 'balanced',
+    audience: string = 'executives',
+    narrativeStyle: string = 'problem_solution',
     focusPrompt: string = ''
   ) => {
     setIsLoading(true);
