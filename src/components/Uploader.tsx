@@ -68,15 +68,15 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sourceText, setSourceText] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [theme, setTheme] = useState<ThemeName>('limefrost');
+  const [theme, setTheme] = useState<ThemeName>('executiveInfographic');
   const [customSettings, setCustomSettings] = useState<CustomizationSettings>(DEFAULT_CUSTOM_SETTINGS);
-  const [graphicStyle, setGraphicStyle] = useState('modern_infographic');
+  const [graphicStyle, setGraphicStyle] = useState('executive_infographic');
   const [tone, setTone] = useState('executive');
   const [slideCount, setSlideCount] = useState('auto');
   const [orientation, setOrientation] = useState('horizontal');
   const [presentationType, setPresentationType] = useState('business_brief');
-  const [audience, setAudience] = useState('general');
-  const [narrativeStyle, setNarrativeStyle] = useState('balanced');
+  const [audience, setAudience] = useState('executives');
+  const [narrativeStyle, setNarrativeStyle] = useState('problem_solution');
 
   const handleGraphicStyleChange = (value: string) => {
     setGraphicStyle(value);
@@ -192,7 +192,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
         </div>
         <h1 className="text-4xl font-black tracking-tight text-lime-950 sm:text-6xl">What do you want to present?</h1>
         <p className="mx-auto mt-4 max-w-2xl text-base font-semibold text-lime-900/65 sm:text-lg">
-          Start with a prompt, then attach a PDF, link, or pasted text.
+          Generate a polished professional deck from a prompt, then attach a PDF, link, or pasted text for source-grounded detail.
         </p>
       </header>
 
@@ -216,7 +216,7 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
             onChange={(event) => setPresentationRequest(event.target.value)}
             disabled={isOutOfCredits}
             rows={4}
-            placeholder="Describe the presentation you need — audience, goal, tone, and any key points to emphasize."
+            placeholder="Describe the professional deck you need — executive audience, goal, decision, and key points to emphasize."
             className="min-h-36 w-full resize-y rounded-[1.5rem] border-0 bg-lime-50/35 p-5 text-base font-semibold leading-relaxed text-lime-950 outline-none placeholder:text-lime-900/35 disabled:opacity-60 sm:text-lg"
           />
 

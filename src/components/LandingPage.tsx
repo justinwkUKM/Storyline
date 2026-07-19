@@ -29,8 +29,8 @@ const workflowSteps = [
   },
   {
     icon: Wand2,
-    title: 'Get a clean first draft',
-    body: 'Storyline turns the material into a structured deck you can work with immediately.',
+    title: 'Get a polished professional draft',
+    body: 'Storyline turns the material into an executive-ready deck with a decisive storyline and polished visuals.',
   },
   {
     icon: Edit3,
@@ -45,8 +45,8 @@ const workflowSteps = [
 ];
 
 const highlights = [
-  ['Write faster', 'Clean bullets, better structure, and fewer rewrites before the deck is ready.'],
-  ['Make visuals clearer', 'Use the right chart, diagram, or layout without building it by hand.'],
+  ['Write faster', 'Executive-ready bullets, sharper structure, and fewer rewrites before the deck is ready.'],
+  ['Make visuals clearer', 'Use polished charts, diagrams, and layouts without building them by hand.'],
   ['Keep work saved', 'Return to decks later, update them, duplicate them, or delete them when you are done.'],
   ['Match your brand', 'Switch between Limefrost, Modern, Cosmic, Minimal, or a custom look.'],
   ['Present smoothly', 'Use fullscreen, speaker notes, quiz steps, links, and video in one flow.'],
@@ -184,13 +184,13 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         >
           <motion.div variants={enterUp} className="inline-flex items-center gap-2 rounded-full bg-white/70 border border-lime-200 px-4 py-2 text-sm font-bold text-lime-800 shadow-sm mb-8">
             <Sparkles className="w-4 h-4" />
-            Built for people turning dense documents into usable decks
+            Built for teams turning dense material into board-ready decks
           </motion.div>
           <motion.h1 variants={enterUp} className="text-6xl sm:text-7xl lg:text-8xl font-black leading-[0.88] max-w-4xl">
-            Turn sources into bold visual stories.
+            Turn sources into polished professional decks.
           </motion.h1>
           <motion.p variants={enterUp} className="mt-8 text-xl sm:text-2xl text-lime-900/75 leading-relaxed max-w-2xl font-medium">
-            Start from a PDF, pasted text, or a public webpage. Get a clean first draft, refine the parts that matter, and present or export without rebuilding the deck from scratch.
+            Start from a PDF, pasted text, or a public webpage. Get a polished professional draft, refine the parts that matter, and present or export without rebuilding the deck from scratch.
           </motion.p>
           <motion.div variants={enterUp} className="mt-10 flex flex-col sm:flex-row gap-4">
             <button
