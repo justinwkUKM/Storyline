@@ -284,11 +284,14 @@ export async function decrementUserCredits(userId: string) {
 }
 
 export async function listDecksForUser(userId: string) {
-  const snapshot = await decks.where('userId', '==', userId).orderBy('updatedAt', 'desc').get();
+  // Keep the query single-field so newly generated decks show up without requiring
+  // a Firestore composite index on userId + updatedAt. Sort in memory instead.
+  const snapshot = await decks.where('userId', '==', userId).get();
   const shareDocs = await Promise.all(snapshot.docs.map((doc) => deckShares.doc(doc.id).get()));
   return snapshot.docs
     .map((doc, index) => deckFromDoc(doc, deckShareFromDoc(shareDocs[index])))
-    .filter((deck): deck is DeckRecord => Boolean(deck));
+    .filter((deck): deck is DeckRecord => Boolean(deck))
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
 export async function createDeckForUser(userId: string, payload: Pick<DeckRecord, 'title' | 'presentationData' | 'theme' | 'customSettings'> & { sourceContext?: string | null }) {

@@ -14,6 +14,9 @@ includes('server.ts', 'no logos, no text, no watermark');
 includes('server.ts', '/api/assets/executive-illustration');
 includes('src/lib/executiveAssetMap.ts', "'shield-lock'");
 includes('src/lib/export.ts', 'waitForImages');
+includes('src/server/db.ts', "decks.where('userId', '==', userId).get()");
+includes('src/server/db.ts', '.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())');
+includes('src/server/routes/decks.ts', "'executiveInfographic'");
 
 const fixture = JSON.parse(read('tests/fixtures/executive-visual-assets.json'));
 assert(fixture.threeCardStory.cards.filter((card) => card.visualAsset?.url).length === 3, 'three-card story should include three generated visual URLs');
