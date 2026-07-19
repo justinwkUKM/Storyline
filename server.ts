@@ -520,6 +520,74 @@ function normalizeExecutiveCard(card: any, index: number) {
   };
 }
 
+function planExecutiveVisual(slide: any, index: number) {
+  const title = sanitizeRichTextHtml(String(slide?.title || `Key Point ${index + 1}`)).slice(0, 90);
+  const content = Array.isArray(slide?.content) ? slide.content.slice(0, 4).map((point: any) => sanitizeRichTextHtml(String(point)).slice(0, 140)) : [];
+  const cardSource = content.length > 0 ? content : [title];
+  const cards = cardSource.slice(0, 4).map((point, cardIndex) => ({
+    number: String(cardIndex + 1).padStart(2, '0'),
+    heading: point.split(/[.:;—-]/)[0].slice(0, 70) || `Priority ${cardIndex + 1}`,
+    points: [point],
+    takeaway: cardIndex === 0 ? 'Focus leadership attention here.' : undefined,
+    accent: cardIndex % 2 === 0 ? 'blue' : 'green',
+    icon: cardIndex % 2 === 0 ? 'Target' : 'Shield',
+    visualAsset: normalizeExecutiveVisualAsset({
+      key: cardIndex % 2 === 0 ? 'target' : 'network-nodes',
+      prompt: buildExecutiveIllustrationPrompt({
+        key: cardIndex % 2 === 0 ? 'target' : 'network-nodes',
+        slideTitle: title,
+        cardHeading: point.split(/[.:;—-]/)[0].slice(0, 70),
+        palette: 'neutral'
+      })
+    })
+  }));
+  const nodes = cards.map((card, nodeIndex) => ({
+    id: `node-${nodeIndex + 1}`,
+    label: card.heading,
+    description: card.points[0],
+    accent: card.accent
+  }));
+  return {
+    executiveMode: index % 3 === 0 ? 'bold-infographic' : 'executive-report',
+    layoutArchetype: cards.length >= 3 ? 'three-card-story' : 'formal-landscape',
+    framingStatement: title,
+    cards,
+    bottomLine: {
+      label: 'Bottom line',
+      text: content[0] || title,
+      icon: 'Target'
+    },
+    structuredVisual: {
+      type: cards.length >= 3 ? 'process-flow' : 'comparison',
+      orientation: cards.length >= 3 ? 'horizontal' : 'grid',
+      stylePreset: 'boardroom-structured',
+      nodes
+    },
+    visualAlternatives: [
+      { type: 'metric-dashboard', orientation: 'grid', stylePreset: 'boardroom-metrics', nodes },
+      { type: 'hierarchy', orientation: 'vertical', stylePreset: 'boardroom-hierarchy', nodes }
+    ],
+    visualAssets: cards.map(card => card.visualAsset).filter(Boolean),
+    dominantColor: index % 3 === 0 ? 'green' : 'white'
+  };
+}
+
+function normalizeExecutiveVisualContract(slide: any, index: number) {
+  const planned = planExecutiveVisual(slide, index);
+  return normalizeSlideContent({
+    ...slide,
+    executiveMode: slide.executiveMode || planned.executiveMode,
+    layoutArchetype: slide.layoutArchetype || planned.layoutArchetype,
+    framingStatement: slide.framingStatement || planned.framingStatement,
+    cards: Array.isArray(slide.cards) && slide.cards.length > 0 ? slide.cards : planned.cards,
+    bottomLine: slide.bottomLine || planned.bottomLine,
+    structuredVisual: slide.structuredVisual || planned.structuredVisual,
+    visualAlternatives: Array.isArray(slide.visualAlternatives) && slide.visualAlternatives.length > 0 ? slide.visualAlternatives : planned.visualAlternatives,
+    visualAssets: Array.isArray(slide.visualAssets) && slide.visualAssets.length > 0 ? slide.visualAssets : planned.visualAssets,
+    dominantColor: slide.dominantColor || planned.dominantColor
+  }, slide.id || `slide-${index + 1}`, slide.title || `Key Point ${index + 1}`);
+}
+
 function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: string) {
   const cards = Array.isArray(slide?.cards)
     ? slide.cards.slice(0, 6).map((card: any, index: number) => normalizeExecutiveCard(card, index))
@@ -579,21 +647,22 @@ function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: st
   };
 }
 
-function executiveSlideSchemaProperties() {
+function executiveSlideSchemaProperties(isExecutiveGeneration = false) {
+  const requirementPrefix = isExecutiveGeneration ? 'Required for executive_infographic generation. ' : 'Optional for non-executive styles. ';
   return {
     executiveMode: {
       type: Type.STRING,
-      description: 'Optional executive layout mode: executive-report or bold-infographic.'
+      description: `${requirementPrefix}Executive layout mode: executive-report or bold-infographic.`
     },
     layoutArchetype: {
       type: Type.STRING,
-      description: 'Optional layout archetype: three-card-story, two-column-comparison, metric-dashboard, five-stage-model, formal-landscape, title-poster, or summary-dashboard.'
+      description: `${requirementPrefix}Primary executive layout archetype: three-card-story, two-column-comparison, metric-dashboard, five-stage-model, formal-landscape, title-poster, or summary-dashboard.`
     },
     eyebrow: { type: Type.STRING, description: 'Optional short uppercase section label.' },
-    framingStatement: { type: Type.STRING, description: 'Optional concise framing statement, maximum two short sentences.' },
+    framingStatement: { type: Type.STRING, description: `${requirementPrefix}Concise boardroom framing statement, maximum two short sentences.` },
     cards: {
       type: Type.ARRAY,
-      description: 'Optional structured executive cards. Keep each card concise with no more than four points.',
+      description: `${requirementPrefix}Primary structured executive cards. Keep each card concise with no more than four points.`,
       items: {
         type: Type.OBJECT,
         properties: {
@@ -612,7 +681,7 @@ function executiveSlideSchemaProperties() {
     },
     bottomLine: {
       type: Type.OBJECT,
-      description: 'Optional bottom-line banner with one concise conclusion.',
+      description: `${requirementPrefix}Bottom-line banner with one concise conclusion.`,
       properties: {
         label: { type: Type.STRING },
         text: { type: Type.STRING },
@@ -622,17 +691,51 @@ function executiveSlideSchemaProperties() {
       required: ['text']
     },
     heroVisualAsset: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, alt: { type: Type.STRING }, status: { type: Type.STRING }, provider: { type: Type.STRING }, createdAt: { type: Type.STRING } }, required: ['key', 'prompt'] },
-    structuredVisual: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, orientation: { type: Type.STRING }, stylePreset: { type: Type.STRING }, nodes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING }, description: { type: Type.STRING }, value: { type: Type.STRING }, accent: { type: Type.STRING } } } }, edges: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING } } } }, steps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, description: { type: Type.STRING }, index: { type: Type.INTEGER }, date: { type: Type.STRING } } } }, metrics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.STRING }, description: { type: Type.STRING }, trend: { type: Type.STRING }, status: { type: Type.STRING } } } }, cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, body: { type: Type.STRING }, accent: { type: Type.STRING }, value: { type: Type.STRING } } } } }, required: ['type', 'orientation'] },
+    structuredVisual: { type: Type.OBJECT, description: `${requirementPrefix}Primary editable executive visual contract; use instead of legacy graphic for executive_infographic decks.`, properties: { type: { type: Type.STRING }, orientation: { type: Type.STRING }, stylePreset: { type: Type.STRING }, nodes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING }, description: { type: Type.STRING }, value: { type: Type.STRING }, accent: { type: Type.STRING } } } }, edges: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING } } } }, steps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, description: { type: Type.STRING }, index: { type: Type.INTEGER }, date: { type: Type.STRING } } } }, metrics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.STRING }, description: { type: Type.STRING }, trend: { type: Type.STRING }, status: { type: Type.STRING } } } }, cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, body: { type: Type.STRING }, accent: { type: Type.STRING }, value: { type: Type.STRING } } } } }, required: ['type', 'orientation'] },
     visualAlternatives: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, orientation: { type: Type.STRING }, stylePreset: { type: Type.STRING }, nodes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING }, description: { type: Type.STRING }, value: { type: Type.STRING }, accent: { type: Type.STRING } } } }, edges: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING } } } }, steps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, description: { type: Type.STRING }, index: { type: Type.INTEGER }, date: { type: Type.STRING } } } }, metrics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.STRING }, description: { type: Type.STRING }, trend: { type: Type.STRING }, status: { type: Type.STRING } } } }, cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, body: { type: Type.STRING }, accent: { type: Type.STRING }, value: { type: Type.STRING } } } } }, required: ['type', 'orientation'] } },
     visualAssets: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, alt: { type: Type.STRING }, status: { type: Type.STRING }, provider: { type: Type.STRING }, createdAt: { type: Type.STRING } }, required: ['key', 'prompt'] } },
     dominantColor: {
       type: Type.STRING,
-      description: 'Optional dominant slide color: blue, deep-blue, green, dark-green, white, or light.'
+      description: `${requirementPrefix}Dominant slide color: blue, deep-blue, green, dark-green, white, or light.`
     }
   };
 }
 
-function buildSlideResponseSchema() {
+function legacyGraphicSchema(description = 'Graphical block to visualize concepts or stats for the slide.') {
+  return {
+    type: Type.OBJECT,
+    description,
+    properties: {
+      type: { type: Type.STRING, description: 'The visual template category: process, comparison, metrics, hierarchy, or pie.' },
+      style: { type: Type.STRING, description: 'The specific visual variation template name chosen from the 50 templates listed in the prompt instructions.' },
+      title: { type: Type.STRING, description: 'Optional graphic title' },
+      elements: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            label: { type: Type.STRING, description: 'The title/label of this visual item' },
+            value: { type: Type.STRING, description: 'Primary metric value or stat if applicable (e.g., "$5M", "Stage 1", "75%")' },
+            secondaryText: { type: Type.STRING, description: 'Description or secondary detail of this item' },
+            percentage: { type: Type.INTEGER, description: 'Optional percentage value from 0 to 100 for visual bars, progress, or pie charts' },
+            icon: { type: Type.STRING, description: 'A Lucide React icon name that represents this concept (e.g., "TrendingUp", "Award", "Cpu", "Server", "Database", "Users", "Layers", "Activity", "Target", "Shield", "Zap", "Globe", "Briefcase")' },
+            visualAsset: { type: Type.OBJECT, properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } }
+          },
+          required: ['label']
+        }
+      }
+    },
+    required: ['type', 'elements']
+  };
+}
+
+function executiveSlideRequiredFields(isExecutiveGeneration: boolean) {
+  return isExecutiveGeneration
+    ? ['id', 'title', 'content', 'speakerNotes', 'layoutArchetype', 'framingStatement', 'cards', 'bottomLine', 'structuredVisual']
+    : ['id', 'title', 'content', 'speakerNotes', 'graphic'];
+}
+
+function buildSlideResponseSchema(isExecutiveGeneration = false) {
   return {
     type: Type.OBJECT,
     properties: {
@@ -652,31 +755,10 @@ function buildSlideResponseSchema() {
             items: { type: Type.STRING }
           },
           speakerNotes: { type: Type.STRING },
-          ...executiveSlideSchemaProperties(),
-          graphic: {
-            type: Type.OBJECT,
-            properties: {
-              type: { type: Type.STRING, description: 'process, comparison, metrics, hierarchy, or pie' },
-              style: { type: Type.STRING },
-              title: { type: Type.STRING },
-              elements: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    label: { type: Type.STRING },
-                    value: { type: Type.STRING },
-                    secondaryText: { type: Type.STRING },
-                    percentage: { type: Type.INTEGER },
-                    icon: { type: Type.STRING },
-        visualAsset: { type: Type.OBJECT, properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } }
-                  },
-                  required: ['label']
-                }
-              }
-            },
-            required: ['type', 'elements']
-          },
+          ...executiveSlideSchemaProperties(isExecutiveGeneration),
+          graphic: legacyGraphicSchema(isExecutiveGeneration
+            ? 'Legacy fallback graphic for backward compatibility only; executive_infographic slides should primarily use layoutArchetype, framingStatement, cards, bottomLine, and structuredVisual.'
+            : 'Required legacy graphical block to visualize concepts or stats for this non-executive slide.'),
           quiz: {
             type: Type.OBJECT,
             properties: {
@@ -699,15 +781,15 @@ function buildSlideResponseSchema() {
           },
           videoUrl: { type: Type.STRING }
         },
-        required: ['id', 'title', 'content', 'speakerNotes']
+        required: executiveSlideRequiredFields(isExecutiveGeneration)
       }
     },
     required: ['summary', 'updatedSlide']
   };
 }
 
-function buildCreateSlideResponseSchema() {
-  const schema = buildSlideResponseSchema();
+function buildCreateSlideResponseSchema(isExecutiveGeneration = false) {
+  const schema = buildSlideResponseSchema(isExecutiveGeneration);
   return {
     ...schema,
     properties: {
@@ -1165,6 +1247,19 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
         }
       }
 
+      const visualContractGuidance = graphicStyle === 'executive_infographic'
+        ? `Executive Infographic visual contract:
+For each slide, you MUST define one coherent executive visual contract. Use layoutArchetype, framingStatement, cards, bottomLine, and structuredVisual as the primary visual contract. Do NOT require the legacy 'graphic' field; include it only when needed for backward compatibility with older renderers.
+- layoutArchetype is required and must be one of: three-card-story, two-column-comparison, metric-dashboard, five-stage-model, formal-landscape, title-poster, summary-dashboard.
+- framingStatement is required and must state the slide's boardroom conclusion in one or two concise sentences.
+- cards are required; provide concise structured cards with short headings, no more than four points each, and visualAsset prompts for major cards when useful.
+- bottomLine is required; make it a one-sentence, boardroom-ready takeaway.
+- structuredVisual is required; choose one type from process-flow, dependency-map, risk-matrix, metric-dashboard, timeline, hierarchy, ecosystem-map, or comparison, and provide editable nodes/steps/metrics/cards as appropriate.
+- Return two visualAlternatives and semantic visualAssets when useful. Each visualAsset prompt must say brand-neutral, no logos, no text, no watermark, soft 3D clay or isometric style, transparent background. Do not include final URLs.
+- Never request or generate a full-slide image. Keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.`
+        : `Legacy graphic visual contract:
+For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).`;
+
       // Call Gemini to structure the presentation
       const prompt = `Please create a professional presentation slide deck based on the following source text.
 First, identify and extract the most critical points and concepts. Use these to create a focused and professional summary that will serve as the primary content for the slides.
@@ -1183,9 +1278,7 @@ Layout and Content Tone Expectations:
 - ${focusGuidance}
 - Slide Count Requirement: ${slideCountGuidance}
 
-For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
-
-If the selected style is Executive Infographic, do not generate or request a full-slide image. Generate editable structured visual instructions and semantic asset prompts only. Return structuredVisual with one of process-flow, dependency-map, risk-matrix, metric-dashboard, timeline, hierarchy, ecosystem-map, or comparison; return two visualAlternatives. Also keep Gemini responsible for choosing the semantic visual concept: add visualAsset to each major card and optional bottomLine/heroVisualAsset using keys such as shield-lock, server-hsm, network-nodes, roadmap-calendar, certificate, collaboration, target, bank-building, clipboard-magnifier, puzzle-interoperability. Each visualAsset must include key and a bitmap-generation prompt that says brand-neutral, no logos, no text, no watermark, soft 3D clay or isometric style, transparent background. The image-generation route will create the actual bitmap later; do not include final URLs. Also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
+${visualContractGuidance}
 
 Additionally, add interactive elements to the slides where appropriate to make the presentation engaging:
 1. Include relevant external links for further reading or reference (can be real or placeholder links based on context).
@@ -1224,37 +1317,10 @@ ${textToAnalyze}
                         description: 'Summarized bullet points or main text content for the slide'
                       },
                       speakerNotes: { type: Type.STRING, description: 'Speaker notes for the slide' },
-                      ...executiveSlideSchemaProperties(),
-                      graphic: {
-                        type: Type.OBJECT,
-                        description: 'Graphical block to visualize concepts or stats for the slide.',
-                        properties: {
-                          type: { 
-                            type: Type.STRING, 
-                            description: 'The visual template category: process, comparison, metrics, hierarchy, or pie.' 
-                          },
-                          style: {
-                            type: Type.STRING,
-                            description: 'The specific visual variation template name chosen from the 50 templates listed in the prompt instructions.'
-                          },
-                          title: { type: Type.STRING, description: 'Optional graphic title' },
-                          elements: {
-                            type: Type.ARRAY,
-                            items: {
-                              type: Type.OBJECT,
-                              properties: {
-                                label: { type: Type.STRING, description: 'The title/label of this visual item' },
-                                value: { type: Type.STRING, description: 'Primary metric value or stat if applicable (e.g., "$5M", "Stage 1", "75%")' },
-                                secondaryText: { type: Type.STRING, description: 'Description or secondary detail of this item' },
-                                percentage: { type: Type.INTEGER, description: 'Optional percentage value from 0 to 100 for visual bars, progress, or pie charts' },
-                                icon: { type: Type.STRING, description: 'A Lucide React icon name that represents this concept (e.g., "TrendingUp", "Award", "Cpu", "Server", "Database", "Users", "Layers", "Activity", "Target", "Shield", "Zap", "Globe", "Briefcase")' }
-                              },
-                              required: ['label']
-                            }
-                          }
-                        },
-                        required: ['type', 'elements']
-                      },
+                      ...executiveSlideSchemaProperties(graphicStyle === 'executive_infographic'),
+                      graphic: legacyGraphicSchema(graphicStyle === 'executive_infographic'
+                        ? 'Legacy fallback graphic for backward compatibility only; executive_infographic slides should primarily use layoutArchetype, framingStatement, cards, bottomLine, and structuredVisual.'
+                        : 'Required legacy graphical block to visualize concepts or stats for this non-executive slide.'),
                       quiz: {
                         type: Type.OBJECT,
                         description: 'Optional multiple-choice question for audience interaction',
@@ -1279,7 +1345,7 @@ ${textToAnalyze}
                       },
                       videoUrl: { type: Type.STRING, description: 'Optional embedded video URL (e.g. YouTube embed)' }
                     },
-                    required: ['id', 'title', 'content', 'speakerNotes']
+                    required: executiveSlideRequiredFields(graphicStyle === 'executive_infographic')
                   }
                 }
               },
@@ -1320,6 +1386,9 @@ ${textToAnalyze}
       }
 
       presentationData.slides = presentationData.slides.map((slide: any, index: number) => {
+        if (graphicStyle === 'executive_infographic') {
+          return normalizeExecutiveVisualContract(slide, index);
+        }
         return normalizeSlideContent(slide, slide.id || `slide-${index + 1}`, slide.title || `Key Point ${index + 1}`);
       });
 
