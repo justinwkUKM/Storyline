@@ -1,10 +1,8 @@
 {
-  "threeCardStory": { "id": "s1", "title": "Trust Architecture", "content": ["A"], "speakerNotes": "", "executiveMode": "bold-infographic", "layoutArchetype": "three-card-story", "cards": [
-    { "heading": "Protect", "points": ["Reduce exposure"], "visualAsset": { "key": "shield-lock", "prompt": "soft 3D shield, no text", "url": "/generated/a.svg", "status": "ready" } },
-    { "heading": "Operate", "points": ["Secure infrastructure"], "visualAsset": { "key": "server-hsm", "prompt": "soft 3D server, no text", "url": "/generated/b.svg", "status": "ready" } },
-    { "heading": "Connect", "points": ["Align nodes"], "visualAsset": { "key": "network-nodes", "prompt": "soft 3D network, no text", "url": "/generated/c.svg", "status": "ready" } }
-  ] },
-  "formalLandscape": { "id": "s2", "title": "Formal Evidence", "content": ["A"], "speakerNotes": "", "executiveMode": "executive-report", "layoutArchetype": "formal-landscape", "cards": [ { "heading": "Evidence", "points": ["Readable"] } ] },
-  "bottomLineBanner": { "id": "s3", "title": "Strategy", "content": ["A"], "speakerNotes": "", "bottomLine": { "text": "Focus execution", "visualAsset": { "key": "target", "prompt": "soft 3D target, no text", "status": "pending" } } },
-  "missingImageFallback": { "id": "s4", "title": "Fallback", "content": ["A"], "speakerNotes": "", "cards": [ { "heading": "Fallback", "points": ["Use icon"], "icon": "Shield", "visualAsset": { "key": "unknown", "prompt": "missing", "status": "failed" } } ] }
+  "generatedUrl": { "cards": [{ "heading": "Security", "points": ["Ready"], "visualAsset": { "key": "shield-lock", "prompt": "Clay shield, no text, no logos", "url": "/generated/executive-assets/u/d/s/shield-lock.png", "status": "ready" } }] },
+  "curatedFallback": { "cards": [{ "heading": "Roadmap", "points": ["Next phase"], "visualAsset": { "key": "roadmap-calendar", "prompt": "Calendar object, no text", "status": "pending" } }] },
+  "missingIconFallback": { "cards": [{ "heading": "Unknown", "points": ["Fallback"], "visualAsset": { "key": "missing-asset", "prompt": "Unknown object", "status": "failed" } }] },
+  "processFlow": { "structuredVisual": { "type": "process-flow", "orientation": "horizontal", "nodes": [{ "id": "n1", "label": "Assess" }, { "id": "n2", "label": "Act" }] } },
+  "visualAlternatives": { "visualAlternatives": [{ "type": "timeline", "orientation": "horizontal" }, { "type": "risk-matrix", "orientation": "grid" }] },
+  "forbiddenBrand": { "visualAssets": [{ "key": "brand-logo", "prompt": "Add Acme logo watermark", "status": "pending" }] }
 }

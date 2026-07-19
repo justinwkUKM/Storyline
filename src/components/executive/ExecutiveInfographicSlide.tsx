@@ -4,6 +4,7 @@ import { ExecutiveSlideCard, ExecutiveVisualAsset, PresentationData, SlideConten
 import { getExecutiveAssetUrl } from '../../lib/executiveAssetMap';
 import { sanitizeRichTextHtml } from '../../lib/richText';
 import { cn } from '../../lib/utils';
+import { ExecutiveStructuredVisualRenderer } from './visuals';
 
 interface ExecutiveInfographicSlideProps {
   slide: SlideContent;
@@ -49,7 +50,11 @@ function getIcon(name?: string) {
 
 
 function getVisualAssetUrl(asset?: ExecutiveVisualAsset) {
-  return asset?.url || getExecutiveAssetUrl(asset?.key);
+  return asset?.status === 'ready' && asset.url ? asset.url : getExecutiveAssetUrl(asset?.key);
+}
+
+function getSlideAsset(slide: SlideContent, key?: string) {
+  return slide.visualAssets?.find((asset) => asset.key === key || asset.id === key);
 }
 
 function VisualAnchor({ asset, iconName, accent, className }: { asset?: ExecutiveVisualAsset; iconName?: string; accent: string; className?: string }) {
@@ -93,12 +98,9 @@ function ExecutiveMotif({ light }: { light: boolean }) {
 
 function FramingCard({ slide, accent }: { slide: SlideContent; accent: string }) {
   if (!slide.framingStatement) return null;
-  const Icon = getIcon(slide.bottomLine?.icon || slide.cards?.[0]?.icon);
   return (
     <div className="relative z-10 flex items-center gap-5 rounded-[26px] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
-      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg" style={{ backgroundColor: accent }}>
-        <Icon className="h-8 w-8" />
-      </div>
+      <VisualAnchor asset={slide.heroVisualAsset || slide.visualAssets?.[0]} iconName={slide.bottomLine?.icon || slide.cards?.[0]?.icon} accent={accent} className="h-16 w-16" />
       <div className="text-2xl font-black leading-tight text-slate-950" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />
     </div>
   );
@@ -156,7 +158,7 @@ function FormalLandscape({ slide, deckTitle, slideIndex, totalSlides }: Executiv
         {slide.framingStatement && <p className="mt-5 max-w-4xl border-l-4 border-emerald-400 pl-5 text-xl font-bold leading-snug text-slate-700">{slide.framingStatement}</p>}
       </div>
       <div className="relative z-10 mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden">
-        {cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
+        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
       </div>
       <div className="relative z-10 mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-bold uppercase tracking-widest text-slate-400">
         <span>{deckTitle}</span><span>{slideIndex + 1} / {totalSlides}</span>
@@ -189,8 +191,9 @@ export function ExecutiveInfographicSlide(props: ExecutiveInfographicSlideProps)
         <FramingCard slide={slide} accent={color.accent} />
       </div>
 
-      <div className={cn('relative z-10 mt-6 grid flex-1 gap-5 overflow-hidden', cards.length === 2 ? 'grid-cols-2' : cards.length >= 5 ? 'grid-cols-5' : 'grid-cols-3')}>
-        {cards.map((card, index) => <StoryCard key={index} card={card} />)}
+      <div className={cn('relative z-10 mt-6 grid flex-1 gap-5 overflow-hidden', slide.structuredVisual ? 'grid-cols-5' : cards.length === 2 ? 'grid-cols-2' : cards.length >= 5 ? 'grid-cols-5' : 'grid-cols-3')}>
+        {slide.structuredVisual && <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-3 min-h-0" />}
+        {cards.map((card, index) => <StoryCard key={index} card={card} compact={Boolean(slide.structuredVisual)} />)}
       </div>
 
       <div className="relative z-10 mt-5">

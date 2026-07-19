@@ -24,6 +24,8 @@ const EXECUTIVE_LAYOUTS = ['three-card-story', 'two-column-comparison', 'metric-
 const EXECUTIVE_ACCENTS = ['blue', 'green', 'teal', 'orange', 'yellow', 'magenta', 'red', 'neutral'];
 const EXECUTIVE_COLORS = ['blue', 'deep-blue', 'green', 'dark-green', 'white', 'light'];
 const EXECUTIVE_ASSET_STATUSES = ['pending', 'ready', 'failed'];
+const EXECUTIVE_STRUCTURED_VISUAL_TYPES = ['process-flow', 'dependency-map', 'risk-matrix', 'metric-dashboard', 'timeline', 'hierarchy', 'ecosystem-map', 'comparison'];
+const EXECUTIVE_STRUCTURED_VISUAL_ORIENTATIONS = ['horizontal', 'vertical', 'grid'];
 const MAX_TEXT_LENGTH = 120000;
 const MIN_SOURCE_TEXT_LENGTH = 40;
 const URL_FETCH_TIMEOUT_MS = 12000;
@@ -362,12 +364,41 @@ function normalizeExecutiveVisualAsset(asset: any) {
   const url = typeof asset.url === 'string' && /^(data:image\/(png|webp|svg\+xml);base64,|\/|https?:\/\/)/i.test(asset.url)
     ? asset.url.slice(0, 2000)
     : undefined;
+  const safePrompt = sanitizeRichTextHtml(prompt).replace(/\b(add|include|use|show|with)\s+[^.,;]{0,60}?(logo|watermark|brand mark)s?\b/gi, 'brand-neutral object');
   return {
+    id: asset.id ? String(asset.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) : undefined,
     key,
-    prompt: sanitizeRichTextHtml(prompt),
+    prompt: `${safePrompt}. No text, no logos, no watermarks, no brand marks.`,
     ...(url ? { url } : {}),
     status: EXECUTIVE_ASSET_STATUSES.includes(asset.status) ? asset.status : (url ? 'ready' : 'pending'),
     alt: asset.alt ? sanitizeRichTextHtml(String(asset.alt)).slice(0, 180) : undefined,
+    provider: asset.provider ? String(asset.provider).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) : undefined,
+    createdAt: asset.createdAt ? String(asset.createdAt).slice(0, 40) : new Date().toISOString(),
+  };
+}
+
+
+function normalizeExecutiveStructuredVisual(visual: any) {
+  if (!visual || typeof visual !== 'object') return undefined;
+  const type = EXECUTIVE_STRUCTURED_VISUAL_TYPES.includes(visual.type) ? visual.type : undefined;
+  if (!type) return undefined;
+  const cleanItem = (item: any, index: number) => ({
+    id: item?.id ? String(item.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) : `item-${index + 1}`,
+    label: sanitizeRichTextHtml(String(item?.label || item?.title || `Item ${index + 1}`)).slice(0, 90),
+    description: item?.description || item?.body ? sanitizeRichTextHtml(String(item.description || item.body)).slice(0, 180) : undefined,
+    value: item?.value ? sanitizeRichTextHtml(String(item.value)).slice(0, 40) : undefined,
+    accent: item?.accent ? String(item.accent).slice(0, 20) : undefined
+  });
+  const nodes = Array.isArray(visual.nodes) ? visual.nodes.slice(0, 8).map(cleanItem) : undefined;
+  return {
+    type,
+    orientation: EXECUTIVE_STRUCTURED_VISUAL_ORIENTATIONS.includes(visual.orientation) ? visual.orientation : 'horizontal',
+    stylePreset: visual.stylePreset ? String(visual.stylePreset).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) : undefined,
+    nodes,
+    edges: Array.isArray(visual.edges) ? visual.edges.slice(0, 10).map((edge: any) => ({ from: String(edge?.from || '').slice(0, 60), to: String(edge?.to || '').slice(0, 60), label: edge?.label ? sanitizeRichTextHtml(String(edge.label)).slice(0, 60) : undefined })).filter((edge: any) => edge.from && edge.to) : undefined,
+    steps: Array.isArray(visual.steps) ? visual.steps.slice(0, 8).map((step: any, index: number) => ({ label: sanitizeRichTextHtml(String(step?.label || `Step ${index + 1}`)).slice(0, 90), description: step?.description ? sanitizeRichTextHtml(String(step.description)).slice(0, 180) : undefined, index: typeof step?.index === 'number' ? step.index : index + 1, date: step?.date ? String(step.date).slice(0, 40) : undefined })) : undefined,
+    metrics: Array.isArray(visual.metrics) ? visual.metrics.slice(0, 6).map((metric: any) => ({ label: sanitizeRichTextHtml(String(metric?.label || 'Metric')).slice(0, 80), value: sanitizeRichTextHtml(String(metric?.value || '—')).slice(0, 40), description: metric?.description ? sanitizeRichTextHtml(String(metric.description)).slice(0, 160) : undefined, trend: metric?.trend ? String(metric.trend).slice(0, 30) : undefined, status: metric?.status ? String(metric.status).slice(0, 30) : undefined })) : undefined,
+    cards: Array.isArray(visual.cards) ? visual.cards.slice(0, 6).map((card: any) => ({ title: sanitizeRichTextHtml(String(card?.title || 'Card')).slice(0, 90), body: card?.body ? sanitizeRichTextHtml(String(card.body)).slice(0, 180) : undefined, accent: card?.accent ? String(card.accent).slice(0, 20) : undefined, value: card?.value ? sanitizeRichTextHtml(String(card.value)).slice(0, 40) : undefined })) : undefined,
   };
 }
 
@@ -439,6 +470,9 @@ function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: st
       }
       : undefined,
     heroVisualAsset: normalizeExecutiveVisualAsset(slide?.heroVisualAsset),
+    structuredVisual: normalizeExecutiveStructuredVisual(slide?.structuredVisual),
+    visualAlternatives: Array.isArray(slide?.visualAlternatives) ? slide.visualAlternatives.slice(0, 3).map(normalizeExecutiveStructuredVisual).filter(Boolean) : undefined,
+    visualAssets: Array.isArray(slide?.visualAssets) ? slide.visualAssets.slice(0, 8).map(normalizeExecutiveVisualAsset).filter(Boolean) : undefined,
     dominantColor: EXECUTIVE_COLORS.includes(slide?.dominantColor) ? slide.dominantColor : undefined
   };
 }
@@ -485,7 +519,10 @@ function executiveSlideSchemaProperties() {
       },
       required: ['text']
     },
-    heroVisualAsset: { type: Type.OBJECT, description: 'Optional slide-level hero visual asset reference.', properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } },
+    heroVisualAsset: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, alt: { type: Type.STRING }, status: { type: Type.STRING }, provider: { type: Type.STRING }, createdAt: { type: Type.STRING } }, required: ['key', 'prompt'] },
+    structuredVisual: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, orientation: { type: Type.STRING }, stylePreset: { type: Type.STRING }, nodes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING }, description: { type: Type.STRING }, value: { type: Type.STRING }, accent: { type: Type.STRING } } } }, edges: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING } } } }, steps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, description: { type: Type.STRING }, index: { type: Type.INTEGER }, date: { type: Type.STRING } } } }, metrics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.STRING }, description: { type: Type.STRING }, trend: { type: Type.STRING }, status: { type: Type.STRING } } } }, cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, body: { type: Type.STRING }, accent: { type: Type.STRING }, value: { type: Type.STRING } } } } }, required: ['type', 'orientation'] },
+    visualAlternatives: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, orientation: { type: Type.STRING }, stylePreset: { type: Type.STRING }, nodes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, label: { type: Type.STRING }, description: { type: Type.STRING }, value: { type: Type.STRING }, accent: { type: Type.STRING } } } }, edges: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING } } } }, steps: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, description: { type: Type.STRING }, index: { type: Type.INTEGER }, date: { type: Type.STRING } } } }, metrics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { label: { type: Type.STRING }, value: { type: Type.STRING }, description: { type: Type.STRING }, trend: { type: Type.STRING }, status: { type: Type.STRING } } } }, cards: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, body: { type: Type.STRING }, accent: { type: Type.STRING }, value: { type: Type.STRING } } } } }, required: ['type', 'orientation'] } },
+    visualAssets: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, alt: { type: Type.STRING }, status: { type: Type.STRING }, provider: { type: Type.STRING }, createdAt: { type: Type.STRING } }, required: ['key', 'prompt'] } },
     dominantColor: {
       type: Type.STRING,
       description: 'Optional dominant slide color: blue, deep-blue, green, dark-green, white, or light.'
@@ -610,6 +647,40 @@ export async function createApp(options: CreateAppOptions = {}) {
 
 
   app.use('/generated', express.static(path.join(process.cwd(), 'public', 'generated')));
+
+
+  app.post('/api/executive-assets/generate', requireAuth, async (req, res) => {
+    try {
+      const deckId = typeof req.body.deckId === 'string' ? req.body.deckId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) : 'deck';
+      const slideId = typeof req.body.slideId === 'string' ? req.body.slideId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) : 'slide';
+      const assetKey = typeof req.body.assetKey === 'string' ? req.body.assetKey.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 48) : '';
+      const prompt = typeof req.body.prompt === 'string' ? req.body.prompt.trim().slice(0, 900) : '';
+      if (!assetKey || !prompt) return res.status(400).json({ error: 'assetKey and prompt are required.' });
+      const dominantColor = EXECUTIVE_COLORS.includes(req.body.dominantColor) ? req.body.dominantColor : 'green';
+      const stylePreset = typeof req.body.stylePreset === 'string' ? req.body.stylePreset.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) : 'boardroom-clay';
+      const normalized = normalizeExecutiveVisualAsset({ key: assetKey, prompt, alt: req.body.alt, provider: 'local-dev' });
+      if (!normalized) return res.status(400).json({ error: 'Asset prompt was not safe or complete.' });
+      const userId = req.user?.id || 'dev-user';
+      const hash = crypto.createHash('sha256').update(`${normalized.prompt}|${stylePreset}|${dominantColor}`).digest('hex').slice(0, 16);
+      const relDir = path.join('generated', 'executive-assets', userId, deckId, slideId);
+      const fileName = `${assetKey}-${hash}.svg`;
+      const outDir = path.join(process.cwd(), 'public', relDir);
+      const outPath = path.join(outDir, fileName);
+      await fs.mkdir(outDir, { recursive: true });
+      try { await fs.access(outPath); } catch {
+        const colors: Record<string, [string, string, string]> = {
+          blue: ['#20AEEA', '#0455C9', '#DFF4FF'], green: ['#00CE68', '#014F36', '#E6FFF3'], 'dark-green': ['#014F36', '#00CE68', '#E6FFF3'], 'deep-blue': ['#0455C9', '#20AEEA', '#E8F3FF'], white: ['#64748B', '#20AEEA', '#F8FAFC'], light: ['#20AEEA', '#00CE68', '#F8FAFC']
+        };
+        const [primary, secondary, pale] = colors[dominantColor];
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 384"><rect width="512" height="384" fill="none"/><ellipse cx="256" cy="322" rx="132" ry="22" fill="#0f172a" opacity=".12"/><path d="M154 112c0-30 24-54 54-54h96c30 0 54 24 54 54v118c0 30-24 54-54 54h-96c-30 0-54-24-54-54z" fill="${pale}"/><circle cx="256" cy="158" r="68" fill="${primary}"/><path d="M216 214h80M226 184h60M238 132h36" stroke="${secondary}" stroke-width="24" stroke-linecap="round"/><circle cx="332" cy="238" r="44" fill="${secondary}" opacity=".94"/></svg>`;
+        await fs.writeFile(outPath, svg, 'utf8');
+      }
+      res.json({ assetKey, key: assetKey, url: `/${relDir}/${fileName}`.replace(/\\/g, '/'), alt: normalized.alt || `${assetKey.replace(/-/g, ' ')} executive visual asset`, status: 'ready', provider: 'local-dev', createdAt: new Date().toISOString(), storagePath: `executive-assets/${userId}/${deckId}/${slideId}/${assetKey}.png`, promptHash: hash });
+    } catch (error: any) {
+      console.error('Executive asset generation failed:', error);
+      res.status(500).json({ error: error.message || 'Failed to generate executive asset.' });
+    }
+  });
 
   app.post('/api/assets/executive-illustration', requireAuth, async (req, res) => {
     try {
@@ -937,7 +1008,7 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
       } else if (graphicStyle === 'workshop_canvas') {
         styleGuidance = 'The visual elements MUST follow a "Workshop Canvas" style. Use decision matrices, process boards, action-plan templates, priority stacks, and facilitation-friendly prompts that help an audience discuss and act.';
       } else if (graphicStyle === 'executive_infographic') {
-        styleGuidance = `The visual system MUST follow a brand-neutral "Executive Infographic" style. Do not mention or imitate any external company, logo, or brand. Build each slide around one conclusion. Alternate between clean executive-report slides for evidence, regulation, timelines, policy, and formal comparisons, and bold infographic slides for key messages, risks, principles, challenges, strategy, and calls to action. For every slide, provide executiveMode, layoutArchetype, framingStatement, concise structured cards, dominantColor, and a bottomLine. Use saturated blue or green backgrounds for bold infographic slides and white/light backgrounds for formal report slides. Cards must have short headings, no more than four concise points, and a takeaway where useful. Bottom lines must be one sentence and boardroom-ready.`;
+        styleGuidance = `The visual system MUST follow a brand-neutral "Executive Infographic" style. Do not mention or imitate any external company, logo, or brand. Build each slide around one conclusion. Alternate between clean executive-report slides for evidence, regulation, timelines, policy, and formal comparisons, and bold infographic slides for key messages, risks, principles, challenges, strategy, and calls to action. For every slide, provide executiveMode, layoutArchetype, framingStatement, concise structured cards, dominantColor, bottomLine, structuredVisual, visualAlternatives, and visualAssets. Use saturated blue or green backgrounds for bold infographic slides and white/light backgrounds for formal report slides. Cards must have short headings, no more than four concise points, and a takeaway where useful. Bottom lines must be one sentence and boardroom-ready.`;
       }
 
       let toneGuidance = '';
@@ -1015,7 +1086,7 @@ Layout and Content Tone Expectations:
 
 For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
 
-If the selected style is Executive Infographic, keep Gemini responsible for choosing the semantic visual concept: add visualAsset to each major card and optional bottomLine/heroVisualAsset using keys such as shield-lock, server-hsm, network-nodes, roadmap-calendar, certificate, collaboration, target, bank-building, clipboard-magnifier, puzzle-interoperability. Each visualAsset must include key and a bitmap-generation prompt that says brand-neutral, no logos, no text, no watermark, soft 3D clay or isometric style, transparent background. The image-generation route will create the actual bitmap later; do not include final URLs. Also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
+If the selected style is Executive Infographic, do not generate or request a full-slide image. Generate editable structured visual instructions and semantic asset prompts only. Return structuredVisual with one of process-flow, dependency-map, risk-matrix, metric-dashboard, timeline, hierarchy, ecosystem-map, or comparison; return two visualAlternatives. Also keep Gemini responsible for choosing the semantic visual concept: add visualAsset to each major card and optional bottomLine/heroVisualAsset using keys such as shield-lock, server-hsm, network-nodes, roadmap-calendar, certificate, collaboration, target, bank-building, clipboard-magnifier, puzzle-interoperability. Each visualAsset must include key and a bitmap-generation prompt that says brand-neutral, no logos, no text, no watermark, soft 3D clay or isometric style, transparent background. The image-generation route will create the actual bitmap later; do not include final URLs. Also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
 
 Additionally, add interactive elements to the slides where appropriate to make the presentation engaging:
 1. Include relevant external links for further reading or reference (can be real or placeholder links based on context).
