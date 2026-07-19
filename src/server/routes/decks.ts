@@ -19,7 +19,7 @@ export const decksRouter = Router();
 
 decksRouter.use(requireAuth);
 
-const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'sunset', 'ocean', 'lavender', 'rose', 'custom']);
+const VALID_THEMES = new Set(['modern', 'limefrost', 'cosmic', 'minimal', 'sunset', 'ocean', 'lavender', 'rose', 'executiveInfographic', 'custom']);
 const VALID_SOURCE_TYPES = new Set(['pdf', 'text', 'url']);
 const MAX_SOURCE_CONTEXT_LENGTH = 120000;
 
