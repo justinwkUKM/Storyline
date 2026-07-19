@@ -53,6 +53,12 @@ function getVisualAssetUrl(asset?: ExecutiveVisualAsset) {
   return asset?.status === 'ready' && asset.url ? asset.url : getExecutiveAssetUrl(asset?.key);
 }
 
+function getVisualPlaceholderLabel(asset?: ExecutiveVisualAsset) {
+  if (asset?.status === 'failed') return 'Visual unavailable';
+  if (asset?.status === 'pending') return 'Visual queued';
+  return asset?.key ? asset.key.replace(/-/g, ' ') : 'Executive visual';
+}
+
 function getSlideAsset(slide: SlideContent, key?: string) {
   return slide.visualAssets?.find((asset) => asset.key === key || asset.id === key);
 }
@@ -68,8 +74,16 @@ function VisualAnchor({ asset, iconName, accent, className }: { asset?: Executiv
     );
   }
   return (
-    <div className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-slate-100', className || 'h-12 w-12')} style={{ color: accent }} data-executive-lucide-fallback="true">
-      <Icon className="h-1/2 w-1/2" />
+    <div
+      className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/40 bg-gradient-to-br from-slate-50 via-white to-slate-100 shadow-inner', className || 'h-12 w-12')}
+      style={{ color: accent }}
+      data-executive-visual-placeholder={asset?.status || 'missing'}
+      data-executive-lucide-fallback="true"
+      aria-label={getVisualPlaceholderLabel(asset)}
+    >
+      <div className="absolute -right-3 -top-3 h-2/3 w-2/3 rounded-full opacity-15 blur-sm" style={{ backgroundColor: accent }} />
+      <Icon className="relative h-1/2 w-1/2 drop-shadow-sm" />
+      {asset?.status === 'failed' && <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white" />}
     </div>
   );
 }
