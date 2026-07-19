@@ -5,6 +5,7 @@ import { getExecutiveAssetUrl } from '../../lib/executiveAssetMap';
 import { sanitizeRichTextHtml } from '../../lib/richText';
 import { cn } from '../../lib/utils';
 import { ExecutiveStructuredVisualRenderer } from './visuals';
+import { ExecutiveDesignTokens, getExecutiveAccentColor, selectExecutiveTheme } from '../../lib/executiveTheme';
 
 interface ExecutiveInfographicSlideProps {
   slide: SlideContent;
@@ -16,25 +17,6 @@ interface ExecutiveInfographicSlideProps {
   isVertical?: boolean;
 }
 
-const COLOR_MAP = {
-  blue: { bg: '#20AEEA', deep: '#0455C9', dark: '#06233F', accent: '#20AEEA' },
-  'deep-blue': { bg: '#0455C9', deep: '#034BC5', dark: '#06233F', accent: '#20AEEA' },
-  green: { bg: '#00CE68', deep: '#014F36', dark: '#014F36', accent: '#00CE68' },
-  'dark-green': { bg: '#014F36', deep: '#006B3D', dark: '#062E23', accent: '#00CE68' },
-  white: { bg: '#FFFFFF', deep: '#014F36', dark: '#06233F', accent: '#00CE68' },
-  light: { bg: '#F7FAFC', deep: '#0455C9', dark: '#06233F', accent: '#00CE68' },
-};
-
-const ACCENT_MAP: Record<string, string> = {
-  blue: '#20AEEA',
-  green: '#00CE68',
-  teal: '#14B8A6',
-  orange: '#F97316',
-  yellow: '#EAB308',
-  magenta: '#D946EF',
-  red: '#EF4444',
-  neutral: '#64748B',
-};
 
 function getIcon(name?: string) {
   const key = (name || '').toLowerCase();
@@ -57,18 +39,18 @@ function getSlideAsset(slide: SlideContent, key?: string) {
   return slide.visualAssets?.find((asset) => asset.key === key || asset.id === key);
 }
 
-function VisualAnchor({ asset, iconName, accent, className }: { asset?: ExecutiveVisualAsset; iconName?: string; accent: string; className?: string }) {
+function VisualAnchor({ asset, iconName, accent, className, surface = '#F8FAFC' }: { asset?: ExecutiveVisualAsset; iconName?: string; accent: string; className?: string; surface?: string }) {
   const src = getVisualAssetUrl(asset);
   const Icon = getIcon(iconName || asset?.key);
   if (src) {
     return (
-      <div className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-50', className || 'h-20 w-20')} data-executive-visual-asset={asset?.key || 'curated'}>
+      <div className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-2xl', className || 'h-20 w-20')} style={{ backgroundColor: surface }} data-executive-visual-asset={asset?.key || 'curated'}>
         <img src={src} alt={asset?.alt || `${asset?.key || 'Executive'} visual asset`} className="h-full w-full object-contain p-1" loading="eager" decoding="async" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
       </div>
     );
   }
   return (
-    <div className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-slate-100', className || 'h-12 w-12')} style={{ color: accent }} data-executive-lucide-fallback="true">
+    <div className={cn('flex shrink-0 items-center justify-center rounded-2xl', className || 'h-12 w-12')} style={{ color: accent, backgroundColor: surface }} data-executive-lucide-fallback="true">
       <Icon className="h-1/2 w-1/2" />
     </div>
   );
@@ -85,42 +67,42 @@ function getFallbackCards(slide: SlideContent): ExecutiveSlideCard[] {
   }));
 }
 
-function ExecutiveMotif({ light }: { light: boolean }) {
+function ExecutiveMotif({ theme }: { theme: ExecutiveDesignTokens }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        className={cn('absolute -bottom-10 -left-10 h-52 w-72 rotate-[-18deg] rounded-[42px] border-[18px]', light ? 'border-slate-100' : 'border-white/24')}
+        className="absolute -bottom-10 -left-10 h-52 w-72 rotate-[-18deg] rounded-[42px] border-[18px]" style={{ borderColor: theme.motif.ring }}
       />
-      <div className={cn('absolute bottom-5 left-0 h-px w-full', light ? 'bg-slate-200' : 'bg-white/70')} />
+      <div className="absolute bottom-5 left-0 h-px w-full" style={{ backgroundColor: theme.motif.divider }} />
     </div>
   );
 }
 
-function FramingCard({ slide, accent }: { slide: SlideContent; accent: string }) {
+function FramingCard({ slide, theme }: { slide: SlideContent; theme: ExecutiveDesignTokens }) {
   if (!slide.framingStatement) return null;
   return (
-    <div className="relative z-10 flex items-center gap-5 rounded-[26px] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
-      <VisualAnchor asset={slide.heroVisualAsset || slide.visualAssets?.[0]} iconName={slide.bottomLine?.icon || slide.cards?.[0]?.icon} accent={accent} className="h-16 w-16" />
-      <div className="text-2xl font-black leading-tight text-slate-950" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />
+    <div className="relative z-10 flex items-center gap-5 rounded-[26px] p-5" style={{ backgroundColor: theme.surface, boxShadow: theme.shadow, color: '#0F172A' }}>
+      <VisualAnchor asset={slide.heroVisualAsset || slide.visualAssets?.[0]} iconName={slide.bottomLine?.icon || slide.cards?.[0]?.icon} accent={theme.accent} surface={theme.surfaceAlt} className="h-16 w-16" />
+      <div className="text-2xl font-black leading-tight" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />
     </div>
   );
 }
 
-const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ card, compact = false }) => {
-  const accent = ACCENT_MAP[card.accent || 'green'] || ACCENT_MAP.green;
+const StoryCard: React.FC<{ card: ExecutiveSlideCard; theme: ExecutiveDesignTokens; compact?: boolean }> = ({ card, theme, compact = false }) => {
+  const accent = getExecutiveAccentColor(card.accent, theme);
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_18px_38px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-[24px] ring-1" style={{ backgroundColor: theme.surface, boxShadow: theme.shadow, borderColor: theme.border, color: '#0F172A' }}>
       <div className="h-2" style={{ backgroundColor: accent }} />
       <div className={cn('flex flex-1 flex-col p-5', compact ? 'gap-2' : 'gap-3')}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: accent }}>{card.number}</div>
-            <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">{card.heading}</h3>
-            {card.subheading && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{card.subheading}</p>}
+            <h3 className="mt-1 text-xl font-black leading-tight" style={{ color: '#0F172A' }}>{card.heading}</h3>
+            {card.subheading && <p className="mt-1 text-xs font-bold uppercase tracking-wide" style={{ color: theme.mutedText }}>{card.subheading}</p>}
           </div>
-          <VisualAnchor asset={card.visualAsset} iconName={card.icon || card.illustration || card.heading} accent={accent} className={compact ? 'h-14 w-14' : 'h-20 w-20'} />
+          <VisualAnchor asset={card.visualAsset} iconName={card.icon || card.illustration || card.heading} accent={accent} surface={theme.surfaceAlt} className={compact ? 'h-14 w-14' : 'h-20 w-20'} />
         </div>
-        <ul className="space-y-2 text-sm font-semibold leading-snug text-slate-700">
+        <ul className="space-y-2 text-sm font-semibold leading-snug" style={{ color: theme.mutedText }}>
           {(card.points || []).slice(0, 4).map((point, index) => (
             <li key={index} className="flex gap-2">
               <CircleDot className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accent }} />
@@ -129,18 +111,18 @@ const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ 
           ))}
         </ul>
       </div>
-      {card.takeaway && <div className="bg-slate-950 px-5 py-3 text-sm font-black text-white">{card.takeaway}</div>}
+      {card.takeaway && <div className="px-5 py-3 text-sm font-black" style={{ backgroundColor: theme.text, color: theme.isLight ? theme.surface : '#0F172A' }}>{card.takeaway}</div>}
     </div>
   );
 };
 
-function BottomLine({ slide, dark }: { slide: SlideContent; dark: string }) {
+function BottomLine({ slide, theme }: { slide: SlideContent; theme: ExecutiveDesignTokens }) {
   if (!slide.bottomLine?.text) return null;
   return (
-    <div className="relative z-10 flex items-center gap-4 rounded-[24px] px-6 py-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]" style={{ backgroundColor: dark }}>
-      <VisualAnchor asset={slide.bottomLine.visualAsset} iconName={slide.bottomLine.icon || 'target'} accent="#ffffff" className="h-14 w-14 bg-white/14" />
+    <div className="relative z-10 flex items-center gap-4 rounded-[24px] px-6 py-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]" style={{ backgroundColor: theme.isLight ? theme.text : '#FFFFFF', color: theme.isLight ? '#FFFFFF' : '#0F172A', boxShadow: theme.shadow }}>
+      <VisualAnchor asset={slide.bottomLine.visualAsset} iconName={slide.bottomLine.icon || 'target'} accent={theme.accent} surface={theme.isLight ? 'rgba(255,255,255,0.14)' : theme.surfaceAlt} className="h-14 w-14" />
       <p className="text-lg font-bold leading-tight">
-        {slide.bottomLine.label && <span className="font-black text-emerald-300">{slide.bottomLine.label}: </span>}
+        {slide.bottomLine.label && <span className="font-black" style={{ color: theme.accent }}>{slide.bottomLine.label}: </span>}
         <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.bottomLine.text) }} />
       </p>
     </div>
@@ -148,19 +130,20 @@ function BottomLine({ slide, dark }: { slide: SlideContent; dark: string }) {
 }
 
 function FormalLandscape({ slide, deckTitle, slideIndex, totalSlides }: ExecutiveInfographicSlideProps) {
+  const theme = selectExecutiveTheme(slide);
   const cards = getFallbackCards(slide).slice(0, 6);
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-white p-12 text-slate-950">
-      <ExecutiveMotif light />
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-12" style={{ background: theme.gradient, color: theme.text }}>
+      <ExecutiveMotif theme={theme} />
       <div className="relative z-10">
-        {slide.eyebrow && <div className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-emerald-600">{slide.eyebrow}</div>}
+        {slide.eyebrow && <div className="mb-3 text-xs font-black uppercase tracking-[0.28em]" style={{ color: theme.mutedText }}>{slide.eyebrow}</div>}
         <h2 className="max-w-5xl text-5xl font-black leading-[1.02]">{slide.title}</h2>
-        {slide.framingStatement && <p className="mt-5 max-w-4xl border-l-4 border-emerald-400 pl-5 text-xl font-bold leading-snug text-slate-700">{slide.framingStatement}</p>}
+        {slide.framingStatement && <p className="mt-5 max-w-4xl border-l-4 pl-5 text-xl font-bold leading-snug" style={{ borderColor: theme.accent, color: theme.mutedText }}>{slide.framingStatement}</p>}
       </div>
       <div className="relative z-10 mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden">
-        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
+        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} theme={theme} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} theme={theme} compact />)}
       </div>
-      <div className="relative z-10 mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+      <div className="relative z-10 mt-5 flex items-center justify-between border-t pt-4 text-xs font-bold uppercase tracking-widest" style={{ borderColor: theme.border, color: theme.mutedText }}>
         <span>{deckTitle}</span><span>{slideIndex + 1} / {totalSlides}</span>
       </div>
     </div>
@@ -172,32 +155,32 @@ export function ExecutiveInfographicSlide(props: ExecutiveInfographicSlideProps)
   const explicitReport = slide.executiveMode === 'executive-report' || slide.layoutArchetype === 'formal-landscape';
   if (explicitReport) return <FormalLandscape {...props} />;
 
-  const color = COLOR_MAP[slide.dominantColor || (slideIndex % 2 === 0 ? 'green' : 'deep-blue')] || COLOR_MAP.green;
+  const theme = selectExecutiveTheme(slide, { isTitleSlide, slideRole: isTitleSlide ? 'title' : slide.layoutArchetype });
   const cards = getFallbackCards(slide).slice(0, slide.layoutArchetype === 'five-stage-model' ? 5 : slide.layoutArchetype === 'two-column-comparison' ? 2 : 3);
   const title = isTitleSlide ? deckTitle : slide.title;
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
-      <ExecutiveMotif light={false} />
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ background: theme.gradient, color: theme.text }}>
+      <ExecutiveMotif theme={theme} />
       <div className="relative z-10 flex items-start justify-between gap-8">
         <div>
-          {slide.eyebrow && <div className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-white/70">{slide.eyebrow}</div>}
+          {slide.eyebrow && <div className="mb-3 text-xs font-black uppercase tracking-[0.28em]" style={{ color: theme.mutedText }}>{slide.eyebrow}</div>}
           <h2 className={cn('max-w-5xl font-black leading-[0.98]', isVertical ? 'text-4xl' : 'text-6xl')}>{title}</h2>
         </div>
-        <div className="rounded-full border border-white/25 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/75">Executive Infographic</div>
+        <div className="rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em]" style={{ borderColor: theme.border, color: theme.mutedText }}>Executive Infographic</div>
       </div>
 
       <div className="relative z-10 mt-6 space-y-5">
-        <FramingCard slide={slide} accent={color.accent} />
+        <FramingCard slide={slide} theme={theme} />
       </div>
 
       <div className={cn('relative z-10 mt-6 grid flex-1 gap-5 overflow-hidden', slide.structuredVisual ? 'grid-cols-5' : cards.length === 2 ? 'grid-cols-2' : cards.length >= 5 ? 'grid-cols-5' : 'grid-cols-3')}>
-        {slide.structuredVisual && <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-3 min-h-0" />}
-        {cards.map((card, index) => <StoryCard key={index} card={card} compact={Boolean(slide.structuredVisual)} />)}
+        {slide.structuredVisual && <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} theme={theme} className="col-span-3 min-h-0" />}
+        {cards.map((card, index) => <StoryCard key={index} card={card} theme={theme} compact={Boolean(slide.structuredVisual)} />)}
       </div>
 
       <div className="relative z-10 mt-5">
-        <BottomLine slide={slide} dark={color.dark} />
+        <BottomLine slide={slide} theme={theme} />
       </div>
     </div>
   );
