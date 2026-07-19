@@ -49,6 +49,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { HtmlBulletEditor } from './HtmlBulletEditor';
 import { InteractiveGraphic } from './InteractiveGraphic';
 import { THEMES } from '../lib/themes';
+import { getExecutiveAssetUrl } from '../lib/executiveAssetMap';
+import { buildExecutiveIllustrationPrompt } from '../lib/executiveIllustrationPrompts';
 
 interface SlideEditorProps {
   initialData: PresentationData;
@@ -992,6 +994,34 @@ export function SlideEditor({
   };
 
   // Graphic element helpers
+
+  const handleUpdateCardVisualAsset = (cardIdx: number, field: 'key' | 'prompt' | 'url' | 'status' | 'alt', value: string) => {
+    if (!activeSlide) return;
+    const cards = [...(activeSlide.cards || [])];
+    const card = cards[cardIdx];
+    if (!card) return;
+    const current = card.visualAsset || { key: card.illustration || card.icon || 'target', prompt: buildExecutiveIllustrationPrompt({ key: card.illustration || card.icon || 'target', slideTitle: activeSlide.title, cardHeading: card.heading, cardTakeaway: card.takeaway }) };
+    cards[cardIdx] = { ...card, visualAsset: { ...current, [field]: value } };
+    updateSlideField(activeSlideIndex, 'cards', cards);
+  };
+
+  const handleRegenerateCardVisualAsset = async (cardIdx: number) => {
+    if (!activeSlide) return;
+    const card = activeSlide.cards?.[cardIdx];
+    if (!card) return;
+    const key = card.visualAsset?.key || card.illustration || card.icon || 'target';
+    const prompt = buildExecutiveIllustrationPrompt({ key, slideTitle: activeSlide.title, cardHeading: card.heading, cardTakeaway: card.takeaway, palette: (activeSlide.dominantColor === 'deep-blue' || activeSlide.dominantColor === 'dark-green' ? activeSlide.dominantColor : activeSlide.dominantColor === 'green' || activeSlide.dominantColor === 'blue' ? activeSlide.dominantColor : 'neutral') });
+    handleUpdateCardVisualAsset(cardIdx, 'status', 'pending');
+    try {
+      const asset = await apiRequest<any>('/api/assets/executive-illustration', { method: 'POST', body: JSON.stringify({ key, prompt, slideTitle: activeSlide.title, cardHeading: card.heading, cardTakeaway: card.takeaway, palette: activeSlide.dominantColor || 'neutral', slideId: activeSlide.id, deckId: savedDeckId || 'unsaved', cardIndex: cardIdx }) });
+      const cards = [...(activeSlide.cards || [])];
+      cards[cardIdx] = { ...card, visualAsset: asset };
+      updateSlideField(activeSlideIndex, 'cards', cards);
+    } catch {
+      handleUpdateCardVisualAsset(cardIdx, 'status', 'failed');
+    }
+  };
+
   const handleUpdateGraphicField = (slideIdx: number, field: keyof SlideGraphic, value: any) => {
     const slide = data.slides[slideIdx];
     if (!slide.graphic) return;
@@ -2594,6 +2624,34 @@ export function SlideEditor({
                           )}
                         </div>
                       </div>
+
+
+                      {activeSlide?.cards && activeSlide.cards.length > 0 && (
+                        <div className="rounded-[18px] border border-slate-200 bg-white p-4 space-y-3">
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-lime-700">Executive visual assets</div>
+                          {activeSlide.cards.map((card, cardIdx) => {
+                            const visual = card.visualAsset;
+                            const previewUrl = visual?.url || getExecutiveAssetUrl(visual?.key);
+                            return (
+                              <div key={cardIdx} className="rounded-2xl border border-slate-100 bg-slate-50 p-3 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-14 w-14 shrink-0 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden">
+                                    {previewUrl ? <img src={previewUrl} alt={visual?.alt || card.heading} className="h-full w-full object-contain p-1" /> : <Sparkles className="h-6 w-6 text-slate-400" />}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate text-xs font-black text-slate-900">{card.heading}</div>
+                                    <div className="text-[10px] font-bold uppercase text-slate-500">Status: {visual?.status || 'fallback icon'}</div>
+                                  </div>
+                                  <button onClick={() => handleRegenerateCardVisualAsset(cardIdx)} className="rounded-full bg-lime-950 px-3 py-2 text-[10px] font-black text-white">Regenerate</button>
+                                </div>
+                                <input value={visual?.key || ''} onChange={(e) => handleUpdateCardVisualAsset(cardIdx, 'key', e.target.value)} placeholder="visual asset key" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs" />
+                                <input value={visual?.url || ''} onChange={(e) => handleUpdateCardVisualAsset(cardIdx, 'url', e.target.value)} placeholder="replace visual URL" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs" />
+                                <input value={card.icon || ''} onChange={(e) => { const cards = [...(activeSlide.cards || [])]; cards[cardIdx] = { ...card, icon: e.target.value }; updateSlideField(activeSlideIndex, 'cards', cards); }} placeholder="fallback icon" className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs" />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {activeSlide?.graphic && (
                         <div className="space-y-3">

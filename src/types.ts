@@ -24,6 +24,16 @@ export interface SlideGraphic {
 
 export type ExecutiveSlideMode = 'executive-report' | 'bold-infographic';
 
+export type ExecutiveVisualPalette = 'blue' | 'green' | 'dark-green' | 'deep-blue' | 'neutral';
+
+export interface ExecutiveVisualAsset {
+  key: string;
+  prompt: string;
+  url?: string;
+  status?: 'pending' | 'ready' | 'failed';
+  alt?: string;
+}
+
 export type ExecutiveLayoutArchetype =
   | 'three-card-story'
   | 'two-column-comparison'
@@ -41,13 +51,16 @@ export interface ExecutiveSlideCard {
   takeaway?: string;
   accent?: 'blue' | 'green' | 'teal' | 'orange' | 'yellow' | 'magenta' | 'red' | 'neutral';
   icon?: string;
-  illustration?: string;
+  illustration?: string; // Backward-compatible legacy visual hint. Prefer visualAsset.
+  visualAsset?: ExecutiveVisualAsset;
 }
+
 
 export interface ExecutiveBottomLine {
   label?: string;
   text: string;
   icon?: string;
+  visualAsset?: ExecutiveVisualAsset;
 }
 
 export interface SlideContent {
@@ -65,6 +78,7 @@ export interface SlideContent {
   framingStatement?: string;
   cards?: ExecutiveSlideCard[];
   bottomLine?: ExecutiveBottomLine;
+  heroVisualAsset?: ExecutiveVisualAsset;
   dominantColor?: 'blue' | 'deep-blue' | 'green' | 'dark-green' | 'white' | 'light';
 }
 
