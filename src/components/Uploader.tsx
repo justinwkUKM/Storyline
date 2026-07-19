@@ -39,6 +39,7 @@ const GRAPHIC_STYLES = [
   { id: 'modern_infographic', name: 'Modern Infographic' },
   { id: 'clean_strategy', name: 'Clean Strategy' },
   { id: 'bold_editorial', name: 'Bold Editorial' },
+  { id: 'executive_infographic', name: 'Executive Infographic' },
 ];
 
 const SLIDE_COUNTS = [

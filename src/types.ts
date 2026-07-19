@@ -22,6 +22,34 @@ export interface SlideGraphic {
   }[];
 }
 
+export type ExecutiveSlideMode = 'executive-report' | 'bold-infographic';
+
+export type ExecutiveLayoutArchetype =
+  | 'three-card-story'
+  | 'two-column-comparison'
+  | 'metric-dashboard'
+  | 'five-stage-model'
+  | 'formal-landscape'
+  | 'title-poster'
+  | 'summary-dashboard';
+
+export interface ExecutiveSlideCard {
+  number?: string;
+  heading: string;
+  subheading?: string;
+  points: string[];
+  takeaway?: string;
+  accent?: 'blue' | 'green' | 'teal' | 'orange' | 'yellow' | 'magenta' | 'red' | 'neutral';
+  icon?: string;
+  illustration?: string;
+}
+
+export interface ExecutiveBottomLine {
+  label?: string;
+  text: string;
+  icon?: string;
+}
+
 export interface SlideContent {
   id: string;
   title: string;
@@ -31,6 +59,13 @@ export interface SlideContent {
   links?: InteractiveLink[];
   videoUrl?: string; // e.g., YouTube embed URL
   graphic?: SlideGraphic;
+  executiveMode?: ExecutiveSlideMode;
+  layoutArchetype?: ExecutiveLayoutArchetype;
+  eyebrow?: string;
+  framingStatement?: string;
+  cards?: ExecutiveSlideCard[];
+  bottomLine?: ExecutiveBottomLine;
+  dominantColor?: 'blue' | 'deep-blue' | 'green' | 'dark-green' | 'white' | 'light';
 }
 
 export interface PresentationData {
@@ -52,7 +87,7 @@ export type GenerationSource =
   | { sourceType: 'text'; sourceText: string }
   | { sourceType: 'url'; sourceUrl: string };
 
-export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'sunset' | 'ocean' | 'lavender' | 'rose' | 'custom';
+export type ThemeName = 'modern' | 'limefrost' | 'cosmic' | 'minimal' | 'sunset' | 'ocean' | 'lavender' | 'rose' | 'executiveInfographic' | 'custom';
 
 export interface CustomizationSettings {
   fontFamily: string;
