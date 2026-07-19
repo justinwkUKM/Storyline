@@ -1,7 +1,7 @@
 import React from 'react';
 import { BarChart3, CheckCircle2, CircleDot, FileText, Layers3, Network, Shield, Sparkles, Target } from 'lucide-react';
 import { ExecutiveSlideCard, ExecutiveVisualAsset, PresentationData, SlideContent } from '../../types';
-import { getExecutiveAssetUrl } from '../../lib/executiveAssetMap';
+import { EXECUTIVE_ASSET_MAP, getExecutiveAssetUrl } from '../../lib/executiveAssetMap';
 import { sanitizeRichTextHtml } from '../../lib/richText';
 import { cn } from '../../lib/utils';
 import { ExecutiveStructuredVisualRenderer } from './visuals';
@@ -54,7 +54,55 @@ function getVisualAssetUrl(asset?: ExecutiveVisualAsset) {
 }
 
 function getSlideAsset(slide: SlideContent, key?: string) {
+  if (!key) return undefined;
   return slide.visualAssets?.find((asset) => asset.key === key || asset.id === key);
+}
+
+const SEMANTIC_ASSET_KEYWORDS: Array<{ key: string; terms: string[] }> = [
+  { key: 'shield-lock', terms: ['shield', 'security', 'secure', 'risk', 'lock', 'trust'] },
+  { key: 'server-hsm', terms: ['server', 'hsm', 'encryption', 'infrastructure', 'platform', 'cloud'] },
+  { key: 'certificate', terms: ['certificate', 'certification', 'policy', 'compliance', 'approval'] },
+  { key: 'network-nodes', terms: ['network', 'ecosystem', 'integration', 'interoperability', 'connected'] },
+  { key: 'roadmap-calendar', terms: ['roadmap', 'timeline', 'milestone', 'calendar', 'phase', 'stage'] },
+  { key: 'collaboration', terms: ['collaboration', 'stakeholder', 'team', 'alignment', 'partner'] },
+  { key: 'target', terms: ['target', 'goal', 'objective', 'focus'] },
+  { key: 'dependency-puzzle', terms: ['dependency', 'puzzle', 'fit', 'constraint'] },
+  { key: 'target-strategy', terms: ['strategy', 'strategic', 'execution', 'priority'] },
+  { key: 'data-dashboard', terms: ['data', 'metric', 'dashboard', 'kpi', 'analytics', 'measure'] },
+  { key: 'regulatory-building', terms: ['regulatory', 'regulator', 'governance', 'institution'] },
+  { key: 'clipboard-assessment', terms: ['assessment', 'audit', 'review', 'checklist', 'readiness'] },
+  { key: 'cloud-infrastructure', terms: ['cloud', 'hosting', 'compute', 'deployment'] },
+  { key: 'collaboration-circle', terms: ['circle', 'working group', 'coalition'] },
+];
+
+function makeCuratedAsset(key?: string, alt = 'Executive visual asset'): ExecutiveVisualAsset | undefined {
+  if (!key || !EXECUTIVE_ASSET_MAP[key]) return undefined;
+  return { key, prompt: '', alt };
+}
+
+function findSemanticAssetKey(...values: Array<string | undefined>) {
+  const text = values.filter(Boolean).join(' ').toLowerCase();
+  return SEMANTIC_ASSET_KEYWORDS.find(({ terms }) => terms.some((term) => text.includes(term)))?.key;
+}
+
+function resolveSlideKeyedAsset(slide: SlideContent, key?: string) {
+  const slideAsset = getSlideAsset(slide, key);
+  return slideAsset || makeCuratedAsset(key);
+}
+
+function resolveCardAsset(slide: SlideContent, card: ExecutiveSlideCard) {
+  const semanticKey = card.visualAsset?.key || card.illustration || findSemanticAssetKey(card.icon, card.heading, card.subheading, card.takeaway, ...(card.points || []));
+  return card.visualAsset || resolveSlideKeyedAsset(slide, semanticKey);
+}
+
+function resolveHeroAsset(slide: SlideContent) {
+  const semanticKey = slide.heroVisualAsset?.key || findSemanticAssetKey(slide.title, slide.framingStatement, slide.bottomLine?.text, slide.cards?.[0]?.heading);
+  return slide.heroVisualAsset || resolveSlideKeyedAsset(slide, semanticKey || slide.cards?.[0]?.visualAsset?.key);
+}
+
+function resolveBottomLineAsset(slide: SlideContent) {
+  const semanticKey = slide.bottomLine?.visualAsset?.key || findSemanticAssetKey(slide.bottomLine?.icon, slide.bottomLine?.label, slide.bottomLine?.text) || 'target';
+  return slide.bottomLine?.visualAsset || resolveSlideKeyedAsset(slide, semanticKey);
 }
 
 function VisualAnchor({ asset, iconName, accent, className }: { asset?: ExecutiveVisualAsset; iconName?: string; accent: string; className?: string }) {
@@ -98,16 +146,18 @@ function ExecutiveMotif({ light }: { light: boolean }) {
 
 function FramingCard({ slide, accent }: { slide: SlideContent; accent: string }) {
   if (!slide.framingStatement) return null;
+  const asset = resolveHeroAsset(slide);
   return (
     <div className="relative z-10 flex items-center gap-5 rounded-[26px] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
-      <VisualAnchor asset={slide.heroVisualAsset || slide.visualAssets?.[0]} iconName={slide.bottomLine?.icon || slide.cards?.[0]?.icon} accent={accent} className="h-16 w-16" />
+      <VisualAnchor asset={asset} iconName={slide.bottomLine?.icon || slide.cards?.[0]?.icon || asset?.key} accent={accent} className="h-16 w-16" />
       <div className="text-2xl font-black leading-tight text-slate-950" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />
     </div>
   );
 }
 
-const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ card, compact = false }) => {
+const StoryCard: React.FC<{ slide: SlideContent; card: ExecutiveSlideCard; compact?: boolean }> = ({ slide, card, compact = false }) => {
   const accent = ACCENT_MAP[card.accent || 'green'] || ACCENT_MAP.green;
+  const asset = resolveCardAsset(slide, card);
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_18px_38px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
       <div className="h-2" style={{ backgroundColor: accent }} />
@@ -118,7 +168,7 @@ const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ 
             <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">{card.heading}</h3>
             {card.subheading && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{card.subheading}</p>}
           </div>
-          <VisualAnchor asset={card.visualAsset} iconName={card.icon || card.illustration || card.heading} accent={accent} className={compact ? 'h-14 w-14' : 'h-20 w-20'} />
+          <VisualAnchor asset={asset} iconName={card.icon || card.illustration || card.heading} accent={accent} className={compact ? 'h-14 w-14' : 'h-20 w-20'} />
         </div>
         <ul className="space-y-2 text-sm font-semibold leading-snug text-slate-700">
           {(card.points || []).slice(0, 4).map((point, index) => (
@@ -136,9 +186,10 @@ const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ 
 
 function BottomLine({ slide, dark }: { slide: SlideContent; dark: string }) {
   if (!slide.bottomLine?.text) return null;
+  const asset = resolveBottomLineAsset(slide);
   return (
     <div className="relative z-10 flex items-center gap-4 rounded-[24px] px-6 py-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]" style={{ backgroundColor: dark }}>
-      <VisualAnchor asset={slide.bottomLine.visualAsset} iconName={slide.bottomLine.icon || 'target'} accent="#ffffff" className="h-14 w-14 bg-white/14" />
+      <VisualAnchor asset={asset} iconName={slide.bottomLine.icon || asset?.key || 'target'} accent="#ffffff" className="h-14 w-14 bg-white/14" />
       <p className="text-lg font-bold leading-tight">
         {slide.bottomLine.label && <span className="font-black text-emerald-300">{slide.bottomLine.label}: </span>}
         <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.bottomLine.text) }} />
@@ -158,7 +209,7 @@ function FormalLandscape({ slide, deckTitle, slideIndex, totalSlides }: Executiv
         {slide.framingStatement && <p className="mt-5 max-w-4xl border-l-4 border-emerald-400 pl-5 text-xl font-bold leading-snug text-slate-700">{slide.framingStatement}</p>}
       </div>
       <div className="relative z-10 mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden">
-        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
+        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} slide={slide} card={card} compact />)}
       </div>
       <div className="relative z-10 mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-bold uppercase tracking-widest text-slate-400">
         <span>{deckTitle}</span><span>{slideIndex + 1} / {totalSlides}</span>
@@ -193,7 +244,7 @@ export function ExecutiveInfographicSlide(props: ExecutiveInfographicSlideProps)
 
       <div className={cn('relative z-10 mt-6 grid flex-1 gap-5 overflow-hidden', slide.structuredVisual ? 'grid-cols-5' : cards.length === 2 ? 'grid-cols-2' : cards.length >= 5 ? 'grid-cols-5' : 'grid-cols-3')}>
         {slide.structuredVisual && <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-3 min-h-0" />}
-        {cards.map((card, index) => <StoryCard key={index} card={card} compact={Boolean(slide.structuredVisual)} />)}
+        {cards.map((card, index) => <StoryCard key={index} slide={slide} card={card} compact={Boolean(slide.structuredVisual)} />)}
       </div>
 
       <div className="relative z-10 mt-5">
