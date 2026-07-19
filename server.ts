@@ -997,18 +997,22 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
       let styleGuidance = '';
       if (graphicStyle === 'modern_infographic') {
         styleGuidance = 'The visual elements MUST follow a "Modern Infographic" style. Choose graphic types like "process" (for timelines), "comparison" (for meters/bars), and "pie" (for proportional breakdowns). Keep visual item labels bold and stats crisp.';
+      } else if (graphicStyle === 'clean_strategy') {
+        styleGuidance = 'The visual elements MUST follow a "Clean Strategy" style for sparse consulting-style decks. Use a clear headline on every slide, separate insight from action, prefer 2–3 message cards per slide, apply a restrained palette, and keep charts low-noise with minimal labels, gridlines, and other chart junk.';
       } else if (graphicStyle === 'bento_minimal') {
         styleGuidance = 'The visual elements MUST follow a "Modern Bento Grid" style. Choose graphic types like "metrics" (to create beautiful side-by-side bento metrics boards), "comparison", or modular data cards with clear numerical stats.';
       } else if (graphicStyle === 'executive_mono') {
         styleGuidance = 'The visual elements MUST follow a "High-Impact Technical / Corporate Executive" style. Choose graphic types like "hierarchy" (for structured layers/tiers) or "metrics" and "process". Use serious, data-driven labels and structured content mapping.';
-      } else if (graphicStyle === 'editorial_story') {
-        styleGuidance = 'The visual elements MUST follow an "Editorial Storyboard" style. Use magazine-like pacing, chapter-style section breaks, pull-quote moments, and visually strong title/transition slides with process, hierarchy, and comparison graphics.';
+      } else if (graphicStyle === 'editorial_story' || graphicStyle === 'bold_editorial') {
+        styleGuidance = 'The visual elements MUST follow a "Bold Editorial" / "Editorial Storyboard" style. Use magazine-like pacing, chapter-style section breaks, pull-quote moments, assertive headlines, and visually strong title/transition slides with process, hierarchy, and comparison graphics.';
       } else if (graphicStyle === 'data_report') {
         styleGuidance = 'The visual elements MUST follow a "Data-Heavy Report" style. Prefer metrics dashboards, benchmark panels, comparison bars, percentage grids, trend indicators, and evidence-led labels. Every slide should make the data or proof easy to scan.';
       } else if (graphicStyle === 'workshop_canvas') {
         styleGuidance = 'The visual elements MUST follow a "Workshop Canvas" style. Use decision matrices, process boards, action-plan templates, priority stacks, and facilitation-friendly prompts that help an audience discuss and act.';
       } else if (graphicStyle === 'executive_infographic') {
         styleGuidance = `The visual system MUST follow a brand-neutral "Executive Infographic" style. Do not mention or imitate any external company, logo, or brand. Build each slide around one conclusion. Alternate between clean executive-report slides for evidence, regulation, timelines, policy, and formal comparisons, and bold infographic slides for key messages, risks, principles, challenges, strategy, and calls to action. For every slide, provide executiveMode, layoutArchetype, framingStatement, concise structured cards, dominantColor, bottomLine, structuredVisual, visualAlternatives, and visualAssets. Use saturated blue or green backgrounds for bold infographic slides and white/light backgrounds for formal report slides. Cards must have short headings, no more than four concise points, and a takeaway where useful. Bottom lines must be one sentence and boardroom-ready.`;
+      } else {
+        styleGuidance = 'The visual elements MUST follow a polished professional deck style. Use clear hierarchy, concise headlines, balanced whitespace, credible business visuals, consistent typography, restrained color, and purposeful charts or diagrams that make each slide easy to understand and present.';
       }
 
       let toneGuidance = '';
