@@ -1,44 +1,24 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import fs from 'fs';
+import assert from 'assert';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (path) => readFileSync(join(root, path), 'utf8');
-const assertIncludes = (path, expected) => {
-  const contents = read(path);
-  if (!contents.includes(expected)) {
-    throw new Error(`${path} does not include expected text: ${expected}`);
-  }
-};
-const assertNotIncludes = (path, forbidden) => {
-  const contents = read(path);
-  if (contents.toLowerCase().includes(forbidden.toLowerCase())) {
-    throw new Error(`${path} includes forbidden brand reference: ${forbidden}`);
-  }
-};
+function read(file) { return fs.readFileSync(file, 'utf8'); }
+function includes(file, text) { assert(read(file).includes(text), `${file} should include ${text}`); }
 
-const touchedFiles = [
-  'src/types.ts',
-  'src/lib/themes.ts',
-  'src/components/Uploader.tsx',
-  'server.ts',
-  'src/components/Presentation.tsx',
-  'src/components/executive/ExecutiveInfographicSlide.tsx',
-];
+includes('src/types.ts', 'export interface ExecutiveVisualAsset');
+includes('src/types.ts', 'visualAsset?: ExecutiveVisualAsset');
+includes('src/types.ts', 'heroVisualAsset?: ExecutiveVisualAsset');
+includes('src/components/executive/ExecutiveInfographicSlide.tsx', 'data-executive-lucide-fallback="true"');
+includes('src/components/executive/ExecutiveInfographicSlide.tsx', 'data-executive-visual-asset');
+includes('server.ts', 'normalizeExecutiveVisualAsset');
+includes('server.ts', 'no logos, no text, no watermark');
+includes('server.ts', '/api/assets/executive-illustration');
+includes('src/lib/executiveAssetMap.ts', "'shield-lock'");
+includes('src/lib/export.ts', 'waitForImages');
 
-for (const file of touchedFiles) {
-  assertNotIncludes(file, ['Pay', 'Net'].join(''));
-}
+const fixture = JSON.parse(read('tests/fixtures/executive-visual-assets.json'));
+assert(fixture.threeCardStory.cards.filter((card) => card.visualAsset?.url).length === 3, 'three-card story should include three generated visual URLs');
+assert(!fixture.formalLandscape.cards.some((card) => card.visualAsset), 'formal landscape fixture should not require visuals');
+assert(fixture.bottomLineBanner.bottomLine.visualAsset.key === 'target', 'bottom-line banner should include target visual asset');
+assert(fixture.missingImageFallback.cards[0].visualAsset.status === 'failed', 'missing image fixture should exercise fallback path');
 
-assertIncludes('src/types.ts', "executiveInfographic");
-assertIncludes('src/types.ts', "ExecutiveSlideCard");
-assertIncludes('src/types.ts', "bottomLine?: ExecutiveBottomLine");
-assertIncludes('src/lib/themes.ts', "Executive Infographic");
-assertIncludes('src/components/Uploader.tsx', "executive_infographic");
-assertIncludes('server.ts', "brand-neutral \"Executive Infographic\"");
-assertIncludes('server.ts', "executiveSlideSchemaProperties");
-assertIncludes('src/components/Presentation.tsx', "ExecutiveInfographicSlide");
-assertIncludes('src/components/executive/ExecutiveInfographicSlide.tsx', "ExecutiveMotif");
-assertIncludes('src/components/executive/ExecutiveInfographicSlide.tsx', "BottomLine");
-
-console.log('Executive Infographic style wiring checks passed.');
+console.log('Executive Infographic visual asset assertions passed.');

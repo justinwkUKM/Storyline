@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs/promises';
+import crypto from 'crypto';
 import multer from 'multer';
 import cookieParser from 'cookie-parser';
 import { lookup } from 'dns/promises';
@@ -14,12 +16,14 @@ import { authRouter } from './src/server/routes/auth';
 import { decksRouter } from './src/server/routes/decks';
 import { shareRouter } from './src/server/routes/share';
 import { sanitizeRichTextHtml } from './src/lib/richText';
+import { buildExecutiveIllustrationPrompt, EXECUTIVE_VISUAL_ASSET_KEYS, EXECUTIVE_VISUAL_PALETTES } from './src/lib/executiveIllustrationPrompts';
 
 const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
 const EXECUTIVE_MODES = ['executive-report', 'bold-infographic'];
 const EXECUTIVE_LAYOUTS = ['three-card-story', 'two-column-comparison', 'metric-dashboard', 'five-stage-model', 'formal-landscape', 'title-poster', 'summary-dashboard'];
 const EXECUTIVE_ACCENTS = ['blue', 'green', 'teal', 'orange', 'yellow', 'magenta', 'red', 'neutral'];
 const EXECUTIVE_COLORS = ['blue', 'deep-blue', 'green', 'dark-green', 'white', 'light'];
+const EXECUTIVE_ASSET_STATUSES = ['pending', 'ready', 'failed'];
 const MAX_TEXT_LENGTH = 120000;
 const MIN_SOURCE_TEXT_LENGTH = 40;
 const URL_FETCH_TIMEOUT_MS = 12000;
@@ -349,6 +353,24 @@ async function normalizeGenerationSource(req: express.Request): Promise<Normaliz
   throw new SourceInputError('Unsupported source type. Choose PDF, text, or webpage URL.');
 }
 
+
+function normalizeExecutiveVisualAsset(asset: any) {
+  if (!asset || typeof asset !== 'object') return undefined;
+  const key = typeof asset.key === 'string' ? asset.key.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 48) : '';
+  const prompt = typeof asset.prompt === 'string' ? asset.prompt.trim().slice(0, 900) : '';
+  if (!key || !prompt) return undefined;
+  const url = typeof asset.url === 'string' && /^(data:image\/(png|webp|svg\+xml);base64,|\/|https?:\/\/)/i.test(asset.url)
+    ? asset.url.slice(0, 2000)
+    : undefined;
+  return {
+    key,
+    prompt: sanitizeRichTextHtml(prompt),
+    ...(url ? { url } : {}),
+    status: EXECUTIVE_ASSET_STATUSES.includes(asset.status) ? asset.status : (url ? 'ready' : 'pending'),
+    alt: asset.alt ? sanitizeRichTextHtml(String(asset.alt)).slice(0, 180) : undefined,
+  };
+}
+
 function normalizeExecutiveCard(card: any, index: number) {
   return {
     number: card?.number ? String(card.number).slice(0, 8) : String(index + 1).padStart(2, '0'),
@@ -360,7 +382,8 @@ function normalizeExecutiveCard(card: any, index: number) {
     takeaway: card?.takeaway ? sanitizeRichTextHtml(String(card.takeaway)).slice(0, 140) : undefined,
     accent: EXECUTIVE_ACCENTS.includes(card?.accent) ? card.accent : undefined,
     icon: card?.icon ? String(card.icon).slice(0, 40) : undefined,
-    illustration: card?.illustration ? String(card.illustration).slice(0, 40) : undefined
+    illustration: card?.illustration ? String(card.illustration).slice(0, 40) : undefined,
+    visualAsset: normalizeExecutiveVisualAsset(card?.visualAsset)
   };
 }
 
@@ -411,9 +434,11 @@ function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: st
       ? {
         label: slide.bottomLine.label ? sanitizeRichTextHtml(String(slide.bottomLine.label)).slice(0, 48) : undefined,
         text: sanitizeRichTextHtml(String(slide.bottomLine.text)).slice(0, 220),
-        icon: slide.bottomLine.icon ? String(slide.bottomLine.icon).slice(0, 40) : undefined
+        icon: slide.bottomLine.icon ? String(slide.bottomLine.icon).slice(0, 40) : undefined,
+        visualAsset: normalizeExecutiveVisualAsset(slide.bottomLine.visualAsset)
       }
       : undefined,
+    heroVisualAsset: normalizeExecutiveVisualAsset(slide?.heroVisualAsset),
     dominantColor: EXECUTIVE_COLORS.includes(slide?.dominantColor) ? slide.dominantColor : undefined
   };
 }
@@ -443,7 +468,8 @@ function executiveSlideSchemaProperties() {
           takeaway: { type: Type.STRING },
           accent: { type: Type.STRING },
           icon: { type: Type.STRING },
-          illustration: { type: Type.STRING }
+          illustration: { type: Type.STRING },
+          visualAsset: { type: Type.OBJECT, properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } }, required: ['key', 'prompt'] }
         },
         required: ['heading', 'points']
       }
@@ -454,10 +480,12 @@ function executiveSlideSchemaProperties() {
       properties: {
         label: { type: Type.STRING },
         text: { type: Type.STRING },
-        icon: { type: Type.STRING }
+        icon: { type: Type.STRING },
+        visualAsset: { type: Type.OBJECT, properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } }
       },
       required: ['text']
     },
+    heroVisualAsset: { type: Type.OBJECT, description: 'Optional slide-level hero visual asset reference.', properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } },
     dominantColor: {
       type: Type.STRING,
       description: 'Optional dominant slide color: blue, deep-blue, green, dark-green, white, or light.'
@@ -501,7 +529,8 @@ function buildSlideResponseSchema() {
                     value: { type: Type.STRING },
                     secondaryText: { type: Type.STRING },
                     percentage: { type: Type.INTEGER },
-                    icon: { type: Type.STRING }
+                    icon: { type: Type.STRING },
+        visualAsset: { type: Type.OBJECT, properties: { key: { type: Type.STRING }, prompt: { type: Type.STRING }, url: { type: Type.STRING }, status: { type: Type.STRING }, alt: { type: Type.STRING } } }
                   },
                   required: ['label']
                 }
@@ -578,6 +607,47 @@ export async function createApp(options: CreateAppOptions = {}) {
   app.use('/api/auth', authRouter);
   app.use('/api/decks', decksRouter);
   app.use('/api/share', shareRouter);
+
+
+  app.use('/generated', express.static(path.join(process.cwd(), 'public', 'generated')));
+
+  app.post('/api/assets/executive-illustration', requireAuth, async (req, res) => {
+    try {
+      const key = typeof req.body.key === 'string' ? req.body.key.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 48) : '';
+      if (!key) return res.status(400).json({ error: 'A semantic asset key is required.' });
+      const palette = EXECUTIVE_VISUAL_PALETTES.includes(req.body.palette) ? req.body.palette : 'neutral';
+      const prompt = buildExecutiveIllustrationPrompt({
+        key,
+        palette,
+        slideTitle: typeof req.body.slideTitle === 'string' ? req.body.slideTitle.slice(0, 140) : undefined,
+        cardHeading: typeof req.body.cardHeading === 'string' ? req.body.cardHeading.slice(0, 140) : undefined,
+        cardTakeaway: typeof req.body.cardTakeaway === 'string' ? req.body.cardTakeaway.slice(0, 180) : undefined,
+      });
+      const userId = req.user?.id || 'dev-user';
+      const deckId = typeof req.body.deckId === 'string' ? req.body.deckId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) : 'deck';
+      const slideId = typeof req.body.slideId === 'string' ? req.body.slideId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) : 'slide';
+      const cardIndex = Number.isInteger(req.body.cardIndex) ? req.body.cardIndex : 0;
+      const hash = crypto.createHash('sha256').update(prompt).digest('hex').slice(0, 16);
+      const relDir = path.join('generated', 'executive-assets', userId, deckId, slideId);
+      const fileName = `${cardIndex}-${key}-${hash}.svg`;
+      const outDir = path.join(process.cwd(), 'public', relDir);
+      const outPath = path.join(outDir, fileName);
+      await fs.mkdir(outDir, { recursive: true });
+      try { await fs.access(outPath); } catch {
+        const colors: Record<string, [string, string, string]> = {
+          blue: ['#20AEEA', '#0455C9', '#DFF4FF'], green: ['#00CE68', '#014F36', '#E6FFF3'], 'dark-green': ['#014F36', '#00CE68', '#E6FFF3'], 'deep-blue': ['#0455C9', '#20AEEA', '#E8F3FF'], neutral: ['#64748B', '#20AEEA', '#F1F5F9']
+        };
+        const [primary, secondary, pale] = colors[palette];
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 384"><rect width="512" height="384" fill="none"/><ellipse cx="256" cy="318" rx="128" ry="22" fill="#0f172a" opacity=".12"/><rect x="156" y="80" width="200" height="180" rx="42" fill="${pale}"/><circle cx="256" cy="170" r="70" fill="${primary}"/><path d="M210 190c45-95 112-95 92 0" fill="none" stroke="${secondary}" stroke-width="28" stroke-linecap="round"/><rect x="206" y="172" width="100" height="82" rx="22" fill="${secondary}"/><circle cx="256" cy="214" r="12" fill="#fff"/></svg>`;
+        await fs.writeFile(outPath, svg, 'utf8');
+      }
+      const alt = `${key.replace(/-/g, ' ')} executive illustration for ${req.body.cardHeading || req.body.slideTitle || 'slide'}`.slice(0, 180);
+      res.json({ key, prompt, url: `/${relDir}/${fileName}`.replace(/\\/g, '/'), alt, status: 'ready', storagePath: `executive-assets/${userId}/${deckId}/${slideId}/${cardIndex}-${key}.png`, promptHash: hash });
+    } catch (error: any) {
+      console.error('Executive asset generation failed:', error);
+      res.status(500).json({ error: error.message || 'Failed to generate executive asset.' });
+    }
+  });
 
   // Add health endpoint
   app.get('/api/health', (req, res) => {
@@ -945,7 +1015,7 @@ Layout and Content Tone Expectations:
 
 For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
 
-If the selected style is Executive Infographic, also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
+If the selected style is Executive Infographic, keep Gemini responsible for choosing the semantic visual concept: add visualAsset to each major card and optional bottomLine/heroVisualAsset using keys such as shield-lock, server-hsm, network-nodes, roadmap-calendar, certificate, collaboration, target, bank-building, clipboard-magnifier, puzzle-interoperability. Each visualAsset must include key and a bitmap-generation prompt that says brand-neutral, no logos, no text, no watermark, soft 3D clay or isometric style, transparent background. The image-generation route will create the actual bitmap later; do not include final URLs. Also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
 
 Additionally, add interactive elements to the slides where appropriate to make the presentation engaging:
 1. Include relevant external links for further reading or reference (can be real or placeholder links based on context).

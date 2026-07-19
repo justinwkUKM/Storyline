@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart3, CheckCircle2, CircleDot, FileText, Layers3, Network, Shield, Sparkles, Target } from 'lucide-react';
-import { ExecutiveSlideCard, PresentationData, SlideContent } from '../../types';
+import { ExecutiveSlideCard, ExecutiveVisualAsset, PresentationData, SlideContent } from '../../types';
+import { getExecutiveAssetUrl } from '../../lib/executiveAssetMap';
 import { sanitizeRichTextHtml } from '../../lib/richText';
 import { cn } from '../../lib/utils';
 
@@ -46,6 +47,28 @@ function getIcon(name?: string) {
   return Sparkles;
 }
 
+
+function getVisualAssetUrl(asset?: ExecutiveVisualAsset) {
+  return asset?.url || getExecutiveAssetUrl(asset?.key);
+}
+
+function VisualAnchor({ asset, iconName, accent, className }: { asset?: ExecutiveVisualAsset; iconName?: string; accent: string; className?: string }) {
+  const src = getVisualAssetUrl(asset);
+  const Icon = getIcon(iconName || asset?.key);
+  if (src) {
+    return (
+      <div className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-50', className || 'h-20 w-20')} data-executive-visual-asset={asset?.key || 'curated'}>
+        <img src={src} alt={asset?.alt || `${asset?.key || 'Executive'} visual asset`} className="h-full w-full object-contain p-1" loading="eager" decoding="async" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+      </div>
+    );
+  }
+  return (
+    <div className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-slate-100', className || 'h-12 w-12')} style={{ color: accent }} data-executive-lucide-fallback="true">
+      <Icon className="h-1/2 w-1/2" />
+    </div>
+  );
+}
+
 function getFallbackCards(slide: SlideContent): ExecutiveSlideCard[] {
   if (slide.cards && slide.cards.length > 0) return slide.cards;
   const points = slide.content.length > 0 ? slide.content : ['Key message'];
@@ -83,7 +106,6 @@ function FramingCard({ slide, accent }: { slide: SlideContent; accent: string })
 
 const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ card, compact = false }) => {
   const accent = ACCENT_MAP[card.accent || 'green'] || ACCENT_MAP.green;
-  const Icon = getIcon(card.icon || card.illustration || card.heading);
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_18px_38px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
       <div className="h-2" style={{ backgroundColor: accent }} />
@@ -94,9 +116,7 @@ const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ 
             <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">{card.heading}</h3>
             {card.subheading && <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{card.subheading}</p>}
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100" style={{ color: accent }}>
-            <Icon className="h-6 w-6" />
-          </div>
+          <VisualAnchor asset={card.visualAsset} iconName={card.icon || card.illustration || card.heading} accent={accent} className={compact ? 'h-14 w-14' : 'h-20 w-20'} />
         </div>
         <ul className="space-y-2 text-sm font-semibold leading-snug text-slate-700">
           {(card.points || []).slice(0, 4).map((point, index) => (
@@ -114,12 +134,9 @@ const StoryCard: React.FC<{ card: ExecutiveSlideCard; compact?: boolean }> = ({ 
 
 function BottomLine({ slide, dark }: { slide: SlideContent; dark: string }) {
   if (!slide.bottomLine?.text) return null;
-  const Icon = getIcon(slide.bottomLine.icon || 'target');
   return (
     <div className="relative z-10 flex items-center gap-4 rounded-[24px] px-6 py-4 text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]" style={{ backgroundColor: dark }}>
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/14">
-        <Icon className="h-6 w-6" />
-      </div>
+      <VisualAnchor asset={slide.bottomLine.visualAsset} iconName={slide.bottomLine.icon || 'target'} accent="#ffffff" className="h-14 w-14 bg-white/14" />
       <p className="text-lg font-bold leading-tight">
         {slide.bottomLine.label && <span className="font-black text-emerald-300">{slide.bottomLine.label}: </span>}
         <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.bottomLine.text) }} />

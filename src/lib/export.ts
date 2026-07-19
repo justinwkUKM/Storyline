@@ -181,6 +181,29 @@ export async function withComputedStyleConverter<T>(fn: () => Promise<T>): Promi
   }
 }
 
+
+export async function waitForImages(element?: Element): Promise<void> {
+  if (!element) return;
+  const images = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
+  await Promise.all(images.map(async (img) => {
+    if (img.complete && img.naturalWidth > 0) return;
+    try {
+      if ('decode' in img) {
+        await img.decode();
+        return;
+      }
+    } catch {
+      // Fall through to load/error listeners so export can gracefully continue.
+    }
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      setTimeout(done, 2500);
+    });
+  }));
+}
+
 export async function waitForLayout(element?: Element, frames = 2): Promise<void> {
   if (typeof window === 'undefined') return;
 
@@ -199,6 +222,7 @@ export async function waitForLayout(element?: Element, frames = 2): Promise<void
   }
 
   if (element) {
+    await waitForImages(element);
     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
   }
 }
@@ -227,6 +251,8 @@ export async function captureSlideCanvas(
         styleEl.innerHTML = replaceOklchAndOklab(styleEl.innerHTML);
       }
     }
+
+    await waitForImages(element);
 
     return await withComputedStyleConverter(() =>
       html2canvas(element, {
