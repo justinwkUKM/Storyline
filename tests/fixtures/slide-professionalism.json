@@ -1,0 +1,42 @@
+[
+  {
+    "name": "executive-brief",
+    "title": "Executive Brief: Operating Model Readiness",
+    "orientation": "horizontal",
+    "slides": [
+      {"id":"exec-title","title":"Executive Brief: Operating Model Readiness","content":["A concise decision narrative for senior stakeholders."],"speakerNotes":"","executiveMode":"bold-infographic","eyebrow":"Board Brief","framingStatement":"Prioritize the three moves that remove delivery friction.","cards":[{"number":"01","heading":"Decision","points":["Approve accountable ownership for cross-functional intake."],"accent":"green","icon":"target"},{"number":"02","heading":"Impact","points":["Reduce duplicated review cycles and unresolved escalations."],"accent":"blue","icon":"chart"},{"number":"03","heading":"Timing","points":["Launch the operating cadence in the next planning window."],"accent":"teal","icon":"roadmap"}],"bottomLine":{"label":"Ask","text":"Confirm sponsorship and sequencing before the next executive forum.","icon":"check"},"dominantColor":"deep-blue"}
+    ]
+  },
+  {
+    "name": "research-report",
+    "title": "Research Report: Market Signals and Customer Evidence",
+    "orientation": "horizontal",
+    "slides": [
+      {"id":"research-1","title":"Customer evidence points to pragmatic automation, not wholesale replacement","content":["Interviewed teams consistently valued automation when it shortened handoffs without reducing human accountability.","Adoption concerns clustered around auditability, exception handling, and visibility into model-driven recommendations.","The strongest buying signals came from departments with measurable queues and repeatable review patterns."],"speakerNotes":"","graphic":{"type":"metrics","title":"Signal strength","elements":[{"label":"Teams interviewed","value":"42"},{"label":"Queue reduction target","value":"30%"},{"label":"Auditability need","value":"High"}]}}
+    ]
+  },
+  {
+    "name": "investor-update",
+    "title": "Investor Update: Commercial Traction and Capital Allocation",
+    "orientation": "horizontal",
+    "slides": [
+      {"id":"investor-1","title":"Q3 momentum converts pipeline quality into predictable expansion capacity","content":["Enterprise pipeline increased with larger multi-year opportunities concentrated in regulated industries.","Gross retention remains stable while expansion conversations shift from pilot budgets to operating-line funding.","Capital allocation remains focused on sales capacity, implementation quality, and platform reliability."],"speakerNotes":"","executiveMode":"executive-report","layoutArchetype":"formal-landscape","eyebrow":"Investor Update","framingStatement":"Growth quality is improving as customers fund repeatable operational use cases.","structuredVisual":{"type":"metric-dashboard","orientation":"grid","metrics":[{"label":"Pipeline","value":"+38%","description":"Qualified enterprise value"},{"label":"Retention","value":"96%","description":"Gross revenue retention"},{"label":"Runway","value":"24 mo","description":"Disciplined burn plan"}]},"bottomLine":{"label":"Focus","text":"Protect implementation quality while increasing sales coverage."}}
+    ]
+  },
+  {
+    "name": "technical-architecture",
+    "title":"Technical Architecture: Secure Content Generation Path",
+    "orientation":"horizontal",
+    "slides":[
+      {"id":"arch-1","title":"Reference architecture separates ingestion, generation, review, and controlled publishing","content":["Source documents enter an isolated parsing tier before structured slide data is produced.","Generation services attach visual intent and safety metadata without exposing credentials to client surfaces.","Review and export layers operate from normalized presentation data so release checks can inspect the final DOM."],"speakerNotes":"","graphic":{"type":"process","title":"Generation path","elements":[{"label":"Ingest","secondaryText":"Parse sources"},{"label":"Plan","secondaryText":"Structure content"},{"label":"Render","secondaryText":"Create slides"},{"label":"Review","secondaryText":"QA gates"}]}}
+    ]
+  },
+  {
+    "name":"dense-source-content",
+    "title":"Dense Source Content: Extremely Long Findings Title Designed To Validate Professional Slide Density Handling Across Narrow Portrait Exports And Wider Executive Presentation Reviews",
+    "orientation":"vertical",
+    "slides":[
+      {"id":"dense-1","title":"Extremely Long Findings Title Designed To Validate Professional Density Handling Without Hiding The Footer Or Bottom Line In Vertical Review","content":["This fixture intentionally includes a long opening point with multiple clauses, stakeholder qualifications, implementation constraints, and operational caveats so the rendering check can detect excessive overflow rather than approving a slide that only looks acceptable with short demo copy.","A second long point describes dependencies across product, legal, revenue operations, customer success, analytics, security review, release management, and executive communications because dense source material is common immediately before a release.","The final point verifies that the lower content remains visible and that the slide can preserve a professional hierarchy when every card carries more text than normal."],"speakerNotes":"","executiveMode":"bold-infographic","eyebrow":"Density Stress Test","framingStatement":"Long-form source summaries must remain readable and visibly complete.","cards":[{"number":"01","heading":"Long card heading for source density validation","points":["Detailed card text with sustained length to exercise wrapping, overflow containment, and visual hierarchy inside the first card without relying on short placeholder copy.","Additional explanation that should remain visible enough for QA snapshots."],"accent":"green","icon":"file"},{"number":"02","heading":"Risk and review implications across many teams","points":["Long card text describing compliance review, customer-facing messaging, implementation readiness, support preparedness, and launch governance expectations in one dense narrative.","Secondary detail checks whether list spacing collapses cleanly."],"accent":"orange","icon":"risk"},{"number":"03","heading":"Bottom-line visibility under pressure","points":["Long card text that forces the lower region to compete for room so the automated check can detect clipped or hidden bottom-line content before release.","Final detail validates footer-adjacent spacing."],"accent":"blue","icon":"target"}],"bottomLine":{"label":"Bottom line","text":"Even dense executive slides must keep the decisive takeaway visible and unclipped at the bottom of the canvas.","icon":"target"},"dominantColor":"dark-green"}
+    ]
+  }
+]
