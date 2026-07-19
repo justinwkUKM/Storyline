@@ -16,6 +16,10 @@ import { shareRouter } from './src/server/routes/share';
 import { sanitizeRichTextHtml } from './src/lib/richText';
 
 const GRAPHIC_TYPES = ['process', 'comparison', 'metrics', 'hierarchy', 'pie'];
+const EXECUTIVE_MODES = ['executive-report', 'bold-infographic'];
+const EXECUTIVE_LAYOUTS = ['three-card-story', 'two-column-comparison', 'metric-dashboard', 'five-stage-model', 'formal-landscape', 'title-poster', 'summary-dashboard'];
+const EXECUTIVE_ACCENTS = ['blue', 'green', 'teal', 'orange', 'yellow', 'magenta', 'red', 'neutral'];
+const EXECUTIVE_COLORS = ['blue', 'deep-blue', 'green', 'dark-green', 'white', 'light'];
 const MAX_TEXT_LENGTH = 120000;
 const MIN_SOURCE_TEXT_LENGTH = 40;
 const URL_FETCH_TIMEOUT_MS = 12000;
@@ -345,7 +349,26 @@ async function normalizeGenerationSource(req: express.Request): Promise<Normaliz
   throw new SourceInputError('Unsupported source type. Choose PDF, text, or webpage URL.');
 }
 
+function normalizeExecutiveCard(card: any, index: number) {
+  return {
+    number: card?.number ? String(card.number).slice(0, 8) : String(index + 1).padStart(2, '0'),
+    heading: card?.heading ? sanitizeRichTextHtml(String(card.heading)).slice(0, 90) : `Point ${index + 1}`,
+    subheading: card?.subheading ? sanitizeRichTextHtml(String(card.subheading)).slice(0, 120) : undefined,
+    points: Array.isArray(card?.points)
+      ? card.points.slice(0, 4).map((point: any) => sanitizeRichTextHtml(String(point)).slice(0, 160))
+      : [],
+    takeaway: card?.takeaway ? sanitizeRichTextHtml(String(card.takeaway)).slice(0, 140) : undefined,
+    accent: EXECUTIVE_ACCENTS.includes(card?.accent) ? card.accent : undefined,
+    icon: card?.icon ? String(card.icon).slice(0, 40) : undefined,
+    illustration: card?.illustration ? String(card.illustration).slice(0, 40) : undefined
+  };
+}
+
 function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: string) {
+  const cards = Array.isArray(slide?.cards)
+    ? slide.cards.slice(0, 6).map((card: any, index: number) => normalizeExecutiveCard(card, index))
+    : undefined;
+
   return {
     id: fallbackId,
     title: typeof slide?.title === 'string' && slide.title.trim() ? slide.title.trim() : fallbackTitle,
@@ -378,7 +401,67 @@ function normalizeSlideContent(slide: any, fallbackId: string, fallbackTitle: st
       title: String(link.title),
       url: String(link.url)
     })) : undefined,
-    videoUrl: slide?.videoUrl ? String(slide.videoUrl) : undefined
+    videoUrl: slide?.videoUrl ? String(slide.videoUrl) : undefined,
+    executiveMode: EXECUTIVE_MODES.includes(slide?.executiveMode) ? slide.executiveMode : undefined,
+    layoutArchetype: EXECUTIVE_LAYOUTS.includes(slide?.layoutArchetype) ? slide.layoutArchetype : undefined,
+    eyebrow: slide?.eyebrow ? sanitizeRichTextHtml(String(slide.eyebrow)).slice(0, 80) : undefined,
+    framingStatement: slide?.framingStatement ? sanitizeRichTextHtml(String(slide.framingStatement)).slice(0, 260) : undefined,
+    cards,
+    bottomLine: slide?.bottomLine && typeof slide.bottomLine === 'object' && slide.bottomLine.text
+      ? {
+        label: slide.bottomLine.label ? sanitizeRichTextHtml(String(slide.bottomLine.label)).slice(0, 48) : undefined,
+        text: sanitizeRichTextHtml(String(slide.bottomLine.text)).slice(0, 220),
+        icon: slide.bottomLine.icon ? String(slide.bottomLine.icon).slice(0, 40) : undefined
+      }
+      : undefined,
+    dominantColor: EXECUTIVE_COLORS.includes(slide?.dominantColor) ? slide.dominantColor : undefined
+  };
+}
+
+function executiveSlideSchemaProperties() {
+  return {
+    executiveMode: {
+      type: Type.STRING,
+      description: 'Optional executive layout mode: executive-report or bold-infographic.'
+    },
+    layoutArchetype: {
+      type: Type.STRING,
+      description: 'Optional layout archetype: three-card-story, two-column-comparison, metric-dashboard, five-stage-model, formal-landscape, title-poster, or summary-dashboard.'
+    },
+    eyebrow: { type: Type.STRING, description: 'Optional short uppercase section label.' },
+    framingStatement: { type: Type.STRING, description: 'Optional concise framing statement, maximum two short sentences.' },
+    cards: {
+      type: Type.ARRAY,
+      description: 'Optional structured executive cards. Keep each card concise with no more than four points.',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          number: { type: Type.STRING },
+          heading: { type: Type.STRING },
+          subheading: { type: Type.STRING },
+          points: { type: Type.ARRAY, items: { type: Type.STRING } },
+          takeaway: { type: Type.STRING },
+          accent: { type: Type.STRING },
+          icon: { type: Type.STRING },
+          illustration: { type: Type.STRING }
+        },
+        required: ['heading', 'points']
+      }
+    },
+    bottomLine: {
+      type: Type.OBJECT,
+      description: 'Optional bottom-line banner with one concise conclusion.',
+      properties: {
+        label: { type: Type.STRING },
+        text: { type: Type.STRING },
+        icon: { type: Type.STRING }
+      },
+      required: ['text']
+    },
+    dominantColor: {
+      type: Type.STRING,
+      description: 'Optional dominant slide color: blue, deep-blue, green, dark-green, white, or light.'
+    }
   };
 }
 
@@ -402,6 +485,7 @@ function buildSlideResponseSchema() {
             items: { type: Type.STRING }
           },
           speakerNotes: { type: Type.STRING },
+          ...executiveSlideSchemaProperties(),
           graphic: {
             type: Type.OBJECT,
             properties: {
@@ -782,6 +866,8 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
         styleGuidance = 'The visual elements MUST follow a "Data-Heavy Report" style. Prefer metrics dashboards, benchmark panels, comparison bars, percentage grids, trend indicators, and evidence-led labels. Every slide should make the data or proof easy to scan.';
       } else if (graphicStyle === 'workshop_canvas') {
         styleGuidance = 'The visual elements MUST follow a "Workshop Canvas" style. Use decision matrices, process boards, action-plan templates, priority stacks, and facilitation-friendly prompts that help an audience discuss and act.';
+      } else if (graphicStyle === 'executive_infographic') {
+        styleGuidance = `The visual system MUST follow a brand-neutral "Executive Infographic" style. Do not mention or imitate any external company, logo, or brand. Build each slide around one conclusion. Alternate between clean executive-report slides for evidence, regulation, timelines, policy, and formal comparisons, and bold infographic slides for key messages, risks, principles, challenges, strategy, and calls to action. For every slide, provide executiveMode, layoutArchetype, framingStatement, concise structured cards, dominantColor, and a bottomLine. Use saturated blue or green backgrounds for bold infographic slides and white/light backgrounds for formal report slides. Cards must have short headings, no more than four concise points, and a takeaway where useful. Bottom lines must be one sentence and boardroom-ready.`;
       }
 
       let toneGuidance = '';
@@ -859,6 +945,8 @@ Layout and Content Tone Expectations:
 
 For each slide, you MUST define a highly graphical visual element in the 'graphic' property to turn the slide into a visually rich, template-driven layout instead of a text-only slide. Select the most appropriate graphic 'type' (e.g., 'process' for progressive steps, 'comparison' for bar/percentage metrics comparisons, 'metrics' for a bento-style grid of stats, 'hierarchy' for tree structures/layered information, or 'pie' for proportional breakdowns). You MUST also select a specific 'style' variation to match one of our 50 high-quality presentation graphic templates (Choose from: process: 'timeline', 'step-by-step', 'chevron-flow', 'zigzag', 'circular-process', 'numbered-vertical', 'arrow-flow', 'milestones', 'pipeline', 'workflow'; comparison: 'bar-chart', 'vs-card', 'split-progress', 'feature-table', 'side-by-side', 'pro-con', 'gauge-compare', 'parallel-meters', 'bullet-chart', 'percentage-bars'; metrics: 'bento-grid', 'stat-cards', 'kpi-dashboard', 'scoreboard', 'numbers-cloud', 'highlight-stat', 'counter-grid', 'bento-list', 'radial-progress', 'trend-indicators'; hierarchy: 'pyramid', 'org-tree', 'layered-stack', 'hub-and-spoke', 'nested-boxes', 'funnel-down', 'tree-map', 'concentric-rings', 'priority-stack', 'architecture-layers'; pie: 'donut-chart', 'semi-circle', 'radial-bars', 'segment-cards', 'concentric-arcs', 'pie-exploded', 'percentage-grid', 'legend-highlight', 'stacked-donut', 'proportional-bubbles'). Provide distinct labels, values, percentages, and relevant Lucide icon names (such as Cpu, TrendingUp, Users, Target, Shield, Globe, Zap, etc.).
 
+If the selected style is Executive Infographic, also populate these optional slide fields: executiveMode, layoutArchetype, eyebrow, framingStatement, cards, bottomLine, and dominantColor. Choose one layout archetype per slide and keep the structure sparse, high-contrast, brand-neutral, and executive-readable. Never add external logos or brand references unless the source itself requires them.
+
 Additionally, add interactive elements to the slides where appropriate to make the presentation engaging:
 1. Include relevant external links for further reading or reference (can be real or placeholder links based on context).
 2. For at least one slide, generate a relevant YouTube video embed URL (e.g., https://www.youtube.com/embed/dQw4w9WgXcQ) if applicable.
@@ -896,6 +984,7 @@ ${textToAnalyze}
                         description: 'Summarized bullet points or main text content for the slide'
                       },
                       speakerNotes: { type: Type.STRING, description: 'Speaker notes for the slide' },
+                      ...executiveSlideSchemaProperties(),
                       graphic: {
                         type: Type.OBJECT,
                         description: 'Graphical block to visualize concepts or stats for the slide.',
@@ -991,36 +1080,7 @@ ${textToAnalyze}
       }
 
       presentationData.slides = presentationData.slides.map((slide: any, index: number) => {
-        return {
-          id: slide.id || `slide-${index + 1}`,
-          title: slide.title || `Key Point ${index + 1}`,
-          content: Array.isArray(slide.content) ? slide.content.map((c: any) => String(c)) : ['Key detailed point'],
-          speakerNotes: slide.speakerNotes || '',
-          graphic: slide.graphic && typeof slide.graphic === 'object' && Array.isArray(slide.graphic.elements) ? {
-            type: ['process', 'comparison', 'metrics', 'hierarchy', 'pie'].includes(slide.graphic.type) 
-              ? slide.graphic.type 
-              : 'metrics',
-            title: slide.graphic.title || '',
-            style: slide.graphic.style ? String(slide.graphic.style) : undefined,
-            elements: slide.graphic.elements.map((el: any) => ({
-              label: el.label ? String(el.label) : 'Detail',
-              value: el.value ? String(el.value) : undefined,
-              secondaryText: el.secondaryText ? String(el.secondaryText) : undefined,
-              percentage: typeof el.percentage === 'number' ? Math.min(100, Math.max(0, el.percentage)) : undefined,
-              icon: el.icon ? String(el.icon) : undefined
-            }))
-          } : undefined,
-          quiz: slide.quiz && typeof slide.quiz === 'object' && slide.quiz.question && Array.isArray(slide.quiz.options) ? {
-            question: String(slide.quiz.question),
-            options: slide.quiz.options.map((o: any) => String(o)),
-            correctAnswerIndex: typeof slide.quiz.correctAnswerIndex === 'number' ? slide.quiz.correctAnswerIndex : 0
-          } : undefined,
-          links: Array.isArray(slide.links) ? slide.links.filter((l: any) => l && l.title && l.url).map((l: any) => ({
-            title: String(l.title),
-            url: String(l.url)
-          })) : undefined,
-          videoUrl: slide.videoUrl ? String(slide.videoUrl) : undefined
-        };
+        return normalizeSlideContent(slide, slide.id || `slide-${index + 1}`, slide.title || `Key Point ${index + 1}`);
       });
 
       // Deduct 1 credit from user on successful generation

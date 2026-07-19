@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { InteractiveGraphic } from './InteractiveGraphic';
+import { ExecutiveInfographicSlide } from './executive/ExecutiveInfographicSlide';
 import { jsPDF } from 'jspdf';
 import pptxgen from 'pptxgenjs';
 import { sanitizeRichTextHtml, stripRichTextHtml } from '../lib/richText';
@@ -384,6 +385,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
   };
 
   const currentSlide = data.slides[currentIndex];
+  const usesExecutiveInfographic = displayTheme === 'executiveInfographic' || Boolean(currentSlide.executiveMode || currentSlide.layoutArchetype || currentSlide.cards || currentSlide.bottomLine);
   const isTitleSlide = currentIndex === 0;
   const isVertical = data.orientation === 'vertical';
   const isMobile = viewportSize.width < 768;
@@ -1161,7 +1163,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
             className={cn(
               "w-full rounded-[22px] shadow-sm border overflow-hidden flex flex-col relative bg-white",
               isVertical ? "aspect-[3/4]" : "aspect-video",
-              densityClasses.slidePadding,
+              !usesExecutiveInfographic && densityClasses.slidePadding,
               !isCustom && style.bg, 
               isTitleSlide ? "justify-center items-center text-center" : getAlignmentClass()
             )}
@@ -1172,6 +1174,16 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
             }}
           >
             {isTitleSlide ? (
+              usesExecutiveInfographic ? (
+                <ExecutiveInfographicSlide
+                  slide={currentSlide}
+                  deckTitle={data.title}
+                  slideIndex={currentIndex}
+                  totalSlides={data.slides.length}
+                  isTitleSlide
+                  isVertical={isVertical}
+                />
+              ) :
               // ---------------- TITLE SLIDE VIEW ----------------
               <>
                 <motion.div 
@@ -1201,6 +1213,15 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                 </motion.p>
               </>
             ) : (
+              usesExecutiveInfographic ? (
+                <ExecutiveInfographicSlide
+                  slide={currentSlide}
+                  deckTitle={data.title}
+                  slideIndex={currentIndex}
+                  totalSlides={data.slides.length}
+                  isVertical={isVertical}
+                />
+              ) :
               // ---------------- STANDARD SLIDE VIEW ----------------
               <>
                 {/* Header Compartment: Title + Sub-Tabs */}
@@ -1678,6 +1699,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
           }
         `}</style>
         {data.slides.map((slide, sIdx) => {
+          const exportUsesExecutiveInfographic = displayTheme === 'executiveInfographic' || Boolean(slide.executiveMode || slide.layoutArchetype || slide.cards || slide.bottomLine);
           const contentKey = `content-${sIdx}`;
           const contentBump = exportDensityBumps[contentKey] ?? 0;
           const exportDensity = getDensityByIndex(getDensityIndex(getSlideDensity(slide, sIdx === 0, isVertical, 'content')) + contentBump);
@@ -1761,7 +1783,7 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
               id={`pdf-slide-content-${sIdx}`}
               className={cn(
                 "flex flex-col justify-between relative bg-white animate-none",
-                exportPadding,
+                !exportUsesExecutiveInfographic && exportPadding,
                 isVertical ? "w-[720px] h-[960px]" : "w-[1280px] h-[720px]",
                 !isCustom && themeStyles[displayTheme].bg,
                 isCustom && activeCustomSettings.fontFamily
@@ -1771,7 +1793,17 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
                 fontFamily: isCustom ? activeCustomSettings.fontFamily : undefined,
               }}
             >
-              {sIdx === 0 ? (
+              {exportUsesExecutiveInfographic ? (
+                <ExecutiveInfographicSlide
+                  slide={slide}
+                  deckTitle={data.title}
+                  slideIndex={sIdx}
+                  totalSlides={data.slides.length}
+                  isTitleSlide={sIdx === 0}
+                  isVertical={isVertical}
+                  exportMode
+                />
+              ) : sIdx === 0 ? (
                 <div className="flex-1 w-full flex flex-col items-center justify-center text-center min-h-0">
                   <div className={cn("w-16 h-1.5 mb-6 rounded-full", !isCustom && themeStyles[displayTheme].accent)} style={accentStyleObj} />
                   <h2

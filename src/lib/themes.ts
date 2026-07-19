@@ -23,6 +23,7 @@ export const THEMES: ThemeOption[] = [
   { id: 'ocean', name: 'Ocean Strategy', desc: 'Cool cyan, teal, and deep navy focus', colors: 'bg-gradient-to-br from-cyan-300 via-teal-500 to-blue-950 text-white' },
   { id: 'lavender', name: 'Lavender Premium', desc: 'Soft violet surfaces with indigo accents', colors: 'bg-gradient-to-br from-violet-100 via-purple-300 to-indigo-500 text-indigo-950' },
   { id: 'rose', name: 'Rose Editorial', desc: 'Pink, cream, and burgundy presentation tones', colors: 'bg-gradient-to-br from-rose-100 via-pink-300 to-rose-700 text-rose-950' },
+  { id: 'executiveInfographic', name: 'Executive Infographic', desc: 'Boardroom-ready cards, bold color fields, and report-style structure', colors: 'bg-gradient-to-br from-[#00CE68] to-[#0455C9] text-white' },
   { id: 'custom', name: 'Custom Theme Builder', desc: 'Tailor colors, spacing, and layouts', colors: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white' }
 ];
 
@@ -35,5 +36,6 @@ export const themeStyles: Record<ThemeName, ThemeStyle> = {
   ocean: { bg: 'bg-cyan-50', text: 'text-slate-700', accent: 'bg-teal-500', title: 'text-slate-950' },
   lavender: { bg: 'bg-violet-50', text: 'text-violet-900', accent: 'bg-violet-500', title: 'text-indigo-950' },
   rose: { bg: 'bg-rose-50', text: 'text-rose-900', accent: 'bg-rose-600', title: 'text-rose-950' },
+  executiveInfographic: { bg: 'bg-slate-50', text: 'text-slate-700', accent: 'bg-emerald-500', title: 'text-slate-950' },
   custom: { bg: '', text: '', accent: '', title: '' }
 };
