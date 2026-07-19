@@ -51,6 +51,7 @@ import { InteractiveGraphic } from './InteractiveGraphic';
 import { THEMES } from '../lib/themes';
 import { getExecutiveAssetUrl } from '../lib/executiveAssetMap';
 import { buildExecutiveIllustrationPrompt } from '../lib/executiveIllustrationPrompts';
+import { planExecutiveVisual } from '../lib/executiveVisualPlanner';
 
 interface SlideEditorProps {
   initialData: PresentationData;
@@ -1019,6 +1020,31 @@ export function SlideEditor({
       updateSlideField(activeSlideIndex, 'cards', cards);
     } catch {
       handleUpdateCardVisualAsset(cardIdx, 'status', 'failed');
+    }
+  };
+
+  const handleApplyStructuredVisual = (visual: any) => {
+    updateSlideField(activeSlideIndex, 'structuredVisual', visual);
+  };
+
+  const handleRegenerateVisualAlternatives = () => {
+    if (!activeSlide) return;
+    const plan = planExecutiveVisual(activeSlide);
+    updateSlideField(activeSlideIndex, 'structuredVisual', plan.recommended);
+    updateSlideField(activeSlideIndex, 'visualAlternatives', plan.alternatives);
+  };
+
+  const handleGenerateSlideAsset = async (assetKey?: string) => {
+    if (!activeSlide) return;
+    const key = assetKey || activeSlide.heroVisualAsset?.key || activeSlide.visualAssets?.[0]?.key || activeSlide.cards?.[0]?.visualAsset?.key || 'target-strategy';
+    const prompt = activeSlide.heroVisualAsset?.prompt || activeSlide.visualAssets?.[0]?.prompt || buildExecutiveIllustrationPrompt({ key, slideTitle: activeSlide.title, palette: activeSlide.dominantColor || 'green' });
+    const pending = { key, prompt, status: 'pending' as const, alt: `${key.replace(/-/g, ' ')} visual` };
+    updateSlideField(activeSlideIndex, 'visualAssets', [pending, ...(activeSlide.visualAssets || []).filter((asset) => asset.key !== key)]);
+    try {
+      const asset = await apiRequest<any>('/api/executive-assets/generate', { method: 'POST', body: JSON.stringify({ deckId: savedDeckId || 'unsaved', slideId: activeSlide.id, assetKey: key, prompt, stylePreset: activeSlide.structuredVisual?.stylePreset, dominantColor: activeSlide.dominantColor || 'green' }) });
+      updateSlideField(activeSlideIndex, 'visualAssets', [asset, ...(activeSlide.visualAssets || []).filter((item) => item.key !== key)]);
+    } catch {
+      updateSlideField(activeSlideIndex, 'visualAssets', [{ ...pending, status: 'failed' as const }, ...(activeSlide.visualAssets || []).filter((asset) => asset.key !== key)]);
     }
   };
 
@@ -2624,6 +2650,37 @@ export function SlideEditor({
                           )}
                         </div>
                       </div>
+
+
+                      {(activeSlide?.structuredVisual || activeSlide?.visualAlternatives?.length) && (
+                        <div className="rounded-[18px] border border-sky-200 bg-sky-50/50 p-4 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700">Visual alternatives</div>
+                              <div className="text-sm font-black text-slate-950">Napkin-style editable layouts</div>
+                            </div>
+                            <button onClick={handleRegenerateVisualAlternatives} className="rounded-full border border-sky-200 bg-white px-3 py-2 text-[10px] font-black text-sky-900">Regenerate alternatives</button>
+                          </div>
+                          {[activeSlide.structuredVisual, ...(activeSlide.visualAlternatives || [])].filter(Boolean).map((visual, idx) => (
+                            <div key={`${visual?.type}-${idx}`} className="rounded-2xl border border-sky-100 bg-white p-3">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <div>
+                                  <div className="text-xs font-black capitalize text-slate-950">{idx === 0 ? 'Recommended' : `Alternative ${idx}`}: {visual?.type?.replace(/-/g, ' ')}</div>
+                                  <div className="text-[10px] font-bold uppercase text-slate-400">{visual?.orientation} · {visual?.stylePreset || 'boardroom'}</div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button onClick={() => visual && handleApplyStructuredVisual(visual)} className="rounded-full bg-sky-950 px-3 py-2 text-[10px] font-black text-white">Apply this visual</button>
+                                  <button onClick={() => handleGenerateSlideAsset()} className="rounded-full border border-sky-200 px-3 py-2 text-[10px] font-black text-sky-900">Generate asset</button>
+                                  <button onClick={() => handleGenerateSlideAsset(activeSlide.visualAssets?.[0]?.key)} className="rounded-full border border-slate-200 px-3 py-2 text-[10px] font-black text-slate-700">Regenerate asset</button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-4 gap-1 overflow-hidden rounded-xl bg-slate-50 p-2" data-executive-visual-alternative={visual?.type}>
+                                {(visual?.nodes || visual?.steps || visual?.cards || []).slice(0, 4).map((item: any, nodeIdx: number) => <div key={nodeIdx} className="h-8 rounded-lg bg-sky-200/70" title={item.label || item.title} />)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
 
                       {activeSlide?.cards && activeSlide.cards.length > 0 && (

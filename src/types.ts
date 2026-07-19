@@ -27,11 +27,25 @@ export type ExecutiveSlideMode = 'executive-report' | 'bold-infographic';
 export type ExecutiveVisualPalette = 'blue' | 'green' | 'dark-green' | 'deep-blue' | 'neutral';
 
 export interface ExecutiveVisualAsset {
+  id?: string;
   key: string;
   prompt: string;
   url?: string;
-  status?: 'pending' | 'ready' | 'failed';
   alt?: string;
+  status?: 'pending' | 'ready' | 'failed';
+  provider?: string;
+  createdAt?: string;
+}
+
+export interface ExecutiveStructuredVisual {
+  type: 'process-flow' | 'dependency-map' | 'risk-matrix' | 'metric-dashboard' | 'timeline' | 'hierarchy' | 'ecosystem-map' | 'comparison';
+  orientation: 'horizontal' | 'vertical' | 'grid';
+  stylePreset?: string;
+  nodes?: Array<{ id: string; label: string; description?: string; value?: string; accent?: string }>;
+  edges?: Array<{ from: string; to: string; label?: string }>;
+  steps?: Array<{ label: string; description?: string; index?: number; date?: string }>;
+  metrics?: Array<{ label: string; value: string; description?: string; trend?: string; status?: string }>;
+  cards?: Array<{ title: string; body?: string; accent?: string; value?: string }>;
 }
 
 export type ExecutiveLayoutArchetype =
@@ -79,6 +93,9 @@ export interface SlideContent {
   cards?: ExecutiveSlideCard[];
   bottomLine?: ExecutiveBottomLine;
   heroVisualAsset?: ExecutiveVisualAsset;
+  structuredVisual?: ExecutiveStructuredVisual;
+  visualAlternatives?: ExecutiveStructuredVisual[];
+  visualAssets?: ExecutiveVisualAsset[];
   dominantColor?: 'blue' | 'deep-blue' | 'green' | 'dark-green' | 'white' | 'light';
 }
 

@@ -518,12 +518,34 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     });
   };
 
+
+  const preloadExecutiveAssetsForExport = async () => {
+    const imageUrls = data.slides.flatMap((slide) => [
+      slide.heroVisualAsset?.url,
+      ...(slide.visualAssets || []).map((asset) => asset.url),
+      ...(slide.cards || []).map((card) => card.visualAsset?.url),
+      slide.bottomLine?.visualAsset?.url,
+    ]).filter((url): url is string => Boolean(url));
+    await Promise.all(imageUrls.map((url) => new Promise<void>((resolve) => {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = async () => {
+        try { await image.decode?.(); } catch {}
+        resolve();
+      };
+      image.onerror = () => resolve();
+      image.src = url;
+    })));
+  };
+
   // High-fidelity PDF Download
   const exportToPDF = async () => {
     setIsDownloading(true);
     setDownloadProgress('Preparing high-res PDF...');
 
     try {
+      setDownloadProgress('Loading executive visual assets...');
+      await preloadExecutiveAssetsForExport();
       const pdfWidth = isVertical ? 720 : 1280;
       const pdfHeight = isVertical ? 960 : 720;
       const pdfOrientation = isVertical ? 'portrait' : 'landscape';
@@ -589,6 +611,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     setIsDownloading(true);
     setDownloadProgress('Creating PPTX presentation...');
     try {
+      setDownloadProgress('Loading executive visual assets...');
+      await preloadExecutiveAssetsForExport();
       const pptx = new pptxgen();
       pptx.title = data.title;
       if (isVertical) {
@@ -704,6 +728,8 @@ export function Presentation({ data, theme, customSettings, onClose, onEdit, onT
     setDownloadProgress('Preparing high-res slides for video...');
 
     try {
+      setDownloadProgress('Loading executive visual assets...');
+      await preloadExecutiveAssetsForExport();
       const canvasWidth = isVertical ? 720 : 1280;
       const canvasHeight = isVertical ? 960 : 720;
       const backgroundColor = isCustom

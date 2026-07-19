@@ -78,6 +78,16 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
   const [audience, setAudience] = useState('general');
   const [narrativeStyle, setNarrativeStyle] = useState('balanced');
 
+  const handleGraphicStyleChange = (value: string) => {
+    setGraphicStyle(value);
+    if (value === 'executive_infographic') {
+      setTone('executive');
+      setAudience('executives');
+      setNarrativeStyle((current) => current === 'balanced' ? 'problem_solution' : current);
+      setTheme('executiveInfographic');
+    }
+  };
+
   const isOutOfCredits = user.credits < 1;
   const hasSource = Boolean(file) || sourceText.trim().length > 0 || sourceUrl.trim().length > 0 || presentationRequest.trim().length > 0;
   const canGenerate = !isOutOfCredits && !isLoading && hasSource;
@@ -282,9 +292,10 @@ export function Uploader({ onGenerate, isLoading, user }: UploaderProps) {
             <div className="space-y-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-lime-950">Format</h3>
               <label className="block text-[10px] font-black uppercase tracking-wider text-lime-900/50">Graphic style</label>
-              <select value={graphicStyle} onChange={(event) => setGraphicStyle(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
+              <select value={graphicStyle} onChange={(event) => handleGraphicStyleChange(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
                 {GRAPHIC_STYLES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
               </select>
+              {graphicStyle === 'executive_infographic' && <p className="rounded-xl bg-lime-50 p-3 text-xs font-semibold text-lime-900">Best for board-ready decks, strategy updates, technical explainers, risk summaries, and operating models.</p>}
               <label className="block text-[10px] font-black uppercase tracking-wider text-lime-900/50">Slide count</label>
               <select value={slideCount} onChange={(event) => setSlideCount(event.target.value)} className="w-full rounded-xl border border-lime-200 p-2 text-xs font-bold">
                 {SLIDE_COUNTS.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
