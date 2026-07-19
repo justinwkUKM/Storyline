@@ -147,6 +147,49 @@ function BottomLine({ slide, dark }: { slide: SlideContent; dark: string }) {
   );
 }
 
+function SlideFooter({ deckTitle, slideIndex, totalSlides, light = false }: { deckTitle: PresentationData['title']; slideIndex: number; totalSlides: number; light?: boolean }) {
+  return (
+    <div className={cn('relative z-10 mt-5 flex items-center justify-between border-t pt-4 text-xs font-bold uppercase tracking-widest', light ? 'border-slate-200 text-slate-400' : 'border-white/25 text-white/65')}>
+      <span>{deckTitle}</span>
+      <span>{slideIndex + 1} / {totalSlides}</span>
+    </div>
+  );
+}
+
+function SlideHeader({ slide, title, badge, light = false, isVertical = false }: { slide: SlideContent; title: string; badge: string; light?: boolean; isVertical?: boolean }) {
+  return (
+    <div className="relative z-10 flex items-start justify-between gap-8">
+      <div>
+        {slide.eyebrow && <div className={cn('mb-3 text-xs font-black uppercase tracking-[0.28em]', light ? 'text-emerald-600' : 'text-white/70')}>{slide.eyebrow}</div>}
+        <h2 className={cn('max-w-5xl font-black leading-[0.98]', isVertical ? 'text-4xl' : light ? 'text-5xl' : 'text-6xl')}>{title}</h2>
+      </div>
+      <div className={cn('shrink-0 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em]', light ? 'border-slate-200 text-slate-500' : 'border-white/25 text-white/75')}>{badge}</div>
+    </div>
+  );
+}
+
+function TitlePoster(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || 'deep-blue'] || COLOR_MAP['deep-blue'];
+  const title = props.isTitleSlide ? deckTitle : slide.title;
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-12 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <div className="relative z-10 grid flex-1 grid-cols-[1.25fr_.75fr] items-center gap-10">
+        <div>
+          {slide.eyebrow && <div className="mb-5 text-sm font-black uppercase tracking-[0.32em] text-white/70">{slide.eyebrow}</div>}
+          <h1 className={cn('font-black leading-[0.9] tracking-[-0.05em]', isVertical ? 'text-6xl' : 'text-8xl')}>{title}</h1>
+          {slide.framingStatement && <p className="mt-8 max-w-3xl text-2xl font-bold leading-tight text-white/86" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />}
+        </div>
+        <div className="flex items-center justify-center">
+          <VisualAnchor asset={slide.heroVisualAsset || slide.visualAssets?.[0]} iconName={slide.bottomLine?.icon || slide.title} accent="#ffffff" className="h-72 w-72 rounded-[44px] bg-white/14 ring-1 ring-white/20" />
+        </div>
+      </div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
+    </div>
+  );
+}
+
 function FormalLandscape({ slide, deckTitle, slideIndex, totalSlides }: ExecutiveInfographicSlideProps) {
   const cards = getFallbackCards(slide).slice(0, 6);
   return (
@@ -160,45 +203,127 @@ function FormalLandscape({ slide, deckTitle, slideIndex, totalSlides }: Executiv
       <div className="relative z-10 mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden">
         {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
       </div>
-      <div className="relative z-10 mt-5 flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-bold uppercase tracking-widest text-slate-400">
-        <span>{deckTitle}</span><span>{slideIndex + 1} / {totalSlides}</span>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} light />
+    </div>
+  );
+}
+
+function ThreeCardStory(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isTitleSlide, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || (slideIndex % 2 === 0 ? 'green' : 'deep-blue')] || COLOR_MAP.green;
+  const cards = getFallbackCards(slide).slice(0, 3);
+  const title = isTitleSlide ? deckTitle : slide.title;
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <SlideHeader slide={slide} title={title} badge="Executive Infographic" isVertical={isVertical} />
+      <div className="relative z-10 mt-6 space-y-5"><FramingCard slide={slide} accent={color.accent} /></div>
+      <div className="relative z-10 mt-6 grid flex-1 grid-cols-3 gap-5 overflow-hidden">
+        {cards.map((card, index) => <StoryCard key={index} card={card} compact={Boolean(slide.structuredVisual)} />)}
       </div>
+      <div className="relative z-10 mt-5"><BottomLine slide={slide} dark={color.dark} /></div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
+    </div>
+  );
+}
+
+function TwoColumnComparison(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isTitleSlide, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || 'deep-blue'] || COLOR_MAP['deep-blue'];
+  const cards = getFallbackCards(slide).slice(0, 2);
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <SlideHeader slide={slide} title={isTitleSlide ? deckTitle : slide.title} badge="Comparison" isVertical={isVertical} />
+      <div className="relative z-10 mt-6 space-y-5"><FramingCard slide={slide} accent={color.accent} /></div>
+      <div className="relative z-10 mt-6 grid flex-1 grid-cols-2 gap-6 overflow-hidden">
+        {slide.structuredVisual ? <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-2 min-h-0" /> : cards.map((card, index) => <StoryCard key={index} card={card} />)}
+      </div>
+      <div className="relative z-10 mt-5"><BottomLine slide={slide} dark={color.dark} /></div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
+    </div>
+  );
+}
+
+function MetricDashboard(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || 'dark-green'] || COLOR_MAP['dark-green'];
+  const metrics = slide.structuredVisual?.metrics || [];
+  const fallbackCards = getFallbackCards(slide).slice(0, 4);
+  const kpis = metrics.length ? metrics.slice(0, 6) : fallbackCards.map((card) => ({ label: card.heading, value: card.number || 'KPI', description: card.points[0] }));
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <SlideHeader slide={slide} title={slide.title} badge="Metric Dashboard" isVertical={isVertical} />
+      {slide.framingStatement && <p className="relative z-10 mt-5 max-w-4xl text-xl font-bold leading-snug text-white/82" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement) }} />}
+      <div className="relative z-10 mt-6 grid flex-1 grid-cols-3 gap-5 overflow-hidden">
+        {kpis.map((metric, index) => (
+          <div key={index} className="rounded-[26px] bg-white p-6 text-slate-950 shadow-[0_18px_38px_rgba(15,23,42,0.14)] ring-1 ring-black/5">
+            <div className="text-5xl font-black leading-none" style={{ color: ACCENT_MAP[index % 2 ? 'blue' : 'green'] }}>{metric.value}</div>
+            <div className="mt-3 text-lg font-black">{metric.label}</div>
+            {metric.description && <div className="mt-2 text-sm font-semibold leading-snug text-slate-600">{metric.description}</div>}
+            {metric.trend && <div className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-600">{metric.trend}</div>}
+          </div>
+        ))}
+      </div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
+    </div>
+  );
+}
+
+function FiveStageModel(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || 'green'] || COLOR_MAP.green;
+  const cards = getFallbackCards(slide).slice(0, 5);
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <SlideHeader slide={slide} title={slide.title} badge="Five-stage Model" isVertical={isVertical} />
+      <div className="relative z-10 mt-6 grid flex-1 grid-cols-5 items-stretch gap-4 overflow-hidden">
+        {cards.map((card, index) => <StoryCard key={index} card={{ ...card, number: card.number || `0${index + 1}` }} compact />)}
+      </div>
+      <div className="relative z-10 mt-5"><BottomLine slide={slide} dark={color.dark} /></div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
+    </div>
+  );
+}
+
+function SummaryDashboard(props: ExecutiveInfographicSlideProps) {
+  const { slide, deckTitle, slideIndex, totalSlides, isVertical } = props;
+  const color = COLOR_MAP[slide.dominantColor || 'deep-blue'] || COLOR_MAP['deep-blue'];
+  const cards = getFallbackCards(slide).slice(0, 4);
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
+      <ExecutiveMotif light={false} />
+      <SlideHeader slide={slide} title={slide.title} badge="Executive Summary" isVertical={isVertical} />
+      <div className="relative z-10 mt-6 rounded-[28px] bg-white p-6 text-2xl font-black leading-tight text-slate-950 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
+        <span dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(slide.framingStatement || slide.content[0] || slide.title) }} />
+      </div>
+      <div className="relative z-10 mt-5 grid flex-1 grid-cols-4 gap-4 overflow-hidden">
+        {cards.map((card, index) => <StoryCard key={index} card={card} compact />)}
+      </div>
+      <div className="relative z-10 mt-5"><BottomLine slide={slide} dark={color.dark} /></div>
+      <SlideFooter deckTitle={deckTitle} slideIndex={slideIndex} totalSlides={totalSlides} />
     </div>
   );
 }
 
 export function ExecutiveInfographicSlide(props: ExecutiveInfographicSlideProps) {
-  const { slide, deckTitle, slideIndex, totalSlides, isTitleSlide, isVertical } = props;
-  const explicitReport = slide.executiveMode === 'executive-report' || slide.layoutArchetype === 'formal-landscape';
-  if (explicitReport) return <FormalLandscape {...props} />;
-
-  const color = COLOR_MAP[slide.dominantColor || (slideIndex % 2 === 0 ? 'green' : 'deep-blue')] || COLOR_MAP.green;
-  const cards = getFallbackCards(slide).slice(0, slide.layoutArchetype === 'five-stage-model' ? 5 : slide.layoutArchetype === 'two-column-comparison' ? 2 : 3);
-  const title = isTitleSlide ? deckTitle : slide.title;
-
-  return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden p-10 text-white" style={{ backgroundColor: color.bg }}>
-      <ExecutiveMotif light={false} />
-      <div className="relative z-10 flex items-start justify-between gap-8">
-        <div>
-          {slide.eyebrow && <div className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-white/70">{slide.eyebrow}</div>}
-          <h2 className={cn('max-w-5xl font-black leading-[0.98]', isVertical ? 'text-4xl' : 'text-6xl')}>{title}</h2>
-        </div>
-        <div className="rounded-full border border-white/25 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white/75">Executive Infographic</div>
-      </div>
-
-      <div className="relative z-10 mt-6 space-y-5">
-        <FramingCard slide={slide} accent={color.accent} />
-      </div>
-
-      <div className={cn('relative z-10 mt-6 grid flex-1 gap-5 overflow-hidden', slide.structuredVisual ? 'grid-cols-5' : cards.length === 2 ? 'grid-cols-2' : cards.length >= 5 ? 'grid-cols-5' : 'grid-cols-3')}>
-        {slide.structuredVisual && <ExecutiveStructuredVisualRenderer visual={slide.structuredVisual} className="col-span-3 min-h-0" />}
-        {cards.map((card, index) => <StoryCard key={index} card={card} compact={Boolean(slide.structuredVisual)} />)}
-      </div>
-
-      <div className="relative z-10 mt-5">
-        <BottomLine slide={slide} dark={color.dark} />
-      </div>
-    </div>
-  );
+  switch (props.slide.layoutArchetype) {
+    case 'title-poster':
+      return <TitlePoster {...props} />;
+    case 'two-column-comparison':
+      return <TwoColumnComparison {...props} />;
+    case 'metric-dashboard':
+      return <MetricDashboard {...props} />;
+    case 'five-stage-model':
+      return <FiveStageModel {...props} />;
+    case 'summary-dashboard':
+      return <SummaryDashboard {...props} />;
+    case 'formal-landscape':
+      return <FormalLandscape {...props} />;
+    case 'three-card-story':
+    default:
+      return props.slide.executiveMode === 'executive-report' ? <FormalLandscape {...props} /> : <ThreeCardStory {...props} />;
+  }
 }
