@@ -32,6 +32,108 @@ const URL_FETCH_TIMEOUT_MS = 12000;
 const URL_MAX_REDIRECTS = 5;
 const URL_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
+const CURATED_EXECUTIVE_ASSET_KEYS = new Set([
+  'shield-lock',
+  'server-hsm',
+  'certificate',
+  'network-nodes',
+  'roadmap-calendar',
+  'collaboration',
+  'collaboration-circle',
+  'target',
+  'target-strategy',
+  'dependency-puzzle',
+  'data-dashboard',
+  'regulatory-building',
+  'clipboard-assessment',
+  'cloud-infrastructure',
+]);
+
+interface PendingExecutiveVisualAssetRef {
+  asset: any;
+  slide: any;
+  slideIndex: number;
+  location: string;
+  cardIndex?: number;
+}
+
+function isPendingExecutiveVisualAsset(asset: any) {
+  return asset && typeof asset === 'object' && asset.key && asset.prompt && asset.status !== 'ready' && !asset.url;
+}
+
+function collectPendingExecutiveVisualAssets(slides: any[]): PendingExecutiveVisualAssetRef[] {
+  const pending: PendingExecutiveVisualAssetRef[] = [];
+  slides.forEach((slide, slideIndex) => {
+    if (isPendingExecutiveVisualAsset(slide.heroVisualAsset)) {
+      pending.push({ asset: slide.heroVisualAsset, slide, slideIndex, location: 'heroVisualAsset' });
+    }
+    slide.visualAssets?.forEach((asset: any, index: number) => {
+      if (isPendingExecutiveVisualAsset(asset)) pending.push({ asset, slide, slideIndex, location: `visualAssets.${index}` });
+    });
+    slide.cards?.forEach((card: any, cardIndex: number) => {
+      if (isPendingExecutiveVisualAsset(card.visualAsset)) pending.push({ asset: card.visualAsset, slide, slideIndex, location: `cards.${cardIndex}.visualAsset`, cardIndex });
+    });
+    if (isPendingExecutiveVisualAsset(slide.bottomLine?.visualAsset)) {
+      pending.push({ asset: slide.bottomLine.visualAsset, slide, slideIndex, location: 'bottomLine.visualAsset' });
+    }
+  });
+  return pending;
+}
+
+async function generateExecutiveAssetFile(input: {
+  assetKey: string;
+  prompt: string;
+  alt?: string;
+  deckId: string;
+  slideId: string;
+  userId: string;
+  dominantColor: string;
+  stylePreset?: string;
+}) {
+  const normalized = normalizeExecutiveVisualAsset({ key: input.assetKey, prompt: input.prompt, alt: input.alt, provider: 'local-dev' });
+  if (!normalized) throw new Error('Asset prompt was not safe or complete.');
+  const stylePreset = input.stylePreset || 'boardroom-clay';
+  const hash = crypto.createHash('sha256').update(`${normalized.prompt}|${stylePreset}|${input.dominantColor}`).digest('hex').slice(0, 16);
+  const relDir = path.join('generated', 'executive-assets', input.userId, input.deckId, input.slideId);
+  const fileName = `${input.assetKey}-${hash}.svg`;
+  const outDir = path.join(process.cwd(), 'public', relDir);
+  const outPath = path.join(outDir, fileName);
+  await fs.mkdir(outDir, { recursive: true });
+  try { await fs.access(outPath); } catch {
+    const colors: Record<string, [string, string, string]> = {
+      blue: ['#20AEEA', '#0455C9', '#DFF4FF'], green: ['#00CE68', '#014F36', '#E6FFF3'], 'dark-green': ['#014F36', '#00CE68', '#E6FFF3'], 'deep-blue': ['#0455C9', '#20AEEA', '#E8F3FF'], white: ['#64748B', '#20AEEA', '#F8FAFC'], light: ['#20AEEA', '#00CE68', '#F8FAFC'], neutral: ['#64748B', '#20AEEA', '#F1F5F9']
+    };
+    const [primary, secondary, pale] = colors[input.dominantColor] || colors.green;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 384"><rect width="512" height="384" fill="none"/><ellipse cx="256" cy="322" rx="132" ry="22" fill="#0f172a" opacity=".12"/><path d="M154 112c0-30 24-54 54-54h96c30 0 54 24 54 54v118c0 30-24 54-54 54h-96c-30 0-54-24-54-54z" fill="${pale}"/><circle cx="256" cy="158" r="68" fill="${primary}"/><path d="M216 214h80M226 184h60M238 132h36" stroke="${secondary}" stroke-width="24" stroke-linecap="round"/><circle cx="332" cy="238" r="44" fill="${secondary}" opacity=".94"/></svg>`;
+    await fs.writeFile(outPath, svg, 'utf8');
+  }
+  return { assetKey: input.assetKey, key: input.assetKey, url: `/${relDir}/${fileName}`.replace(/\\/g, '/'), alt: normalized.alt || `${input.assetKey.replace(/-/g, ' ')} executive visual asset`, status: 'ready', provider: 'local-dev', createdAt: new Date().toISOString(), storagePath: `executive-assets/${input.userId}/${input.deckId}/${input.slideId}/${input.assetKey}.png`, promptHash: hash };
+}
+
+async function resolvePendingExecutiveVisualAssets(slides: any[], input: { deckId: string; userId: string }) {
+  const pending = collectPendingExecutiveVisualAssets(slides);
+  await Promise.all(pending.map(async (ref) => {
+    if (CURATED_EXECUTIVE_ASSET_KEYS.has(ref.asset.key)) return;
+    try {
+      const generated = await generateExecutiveAssetFile({
+        assetKey: ref.asset.key,
+        prompt: ref.asset.prompt,
+        alt: ref.asset.alt,
+        deckId: input.deckId,
+        slideId: ref.slide.id || `slide-${ref.slideIndex + 1}`,
+        userId: input.userId,
+        dominantColor: ref.slide.dominantColor || 'green',
+        stylePreset: ref.slide.layoutArchetype || 'boardroom-clay',
+      });
+      Object.assign(ref.asset, generated, { status: 'ready' });
+    } catch (error: any) {
+      console.error(`Executive visual asset generation failed for ${ref.location}:`, error);
+      ref.asset.status = 'failed';
+      ref.asset.error = String(error?.message || 'Failed to generate executive visual asset.').slice(0, 180);
+    }
+  }));
+}
+
 interface NormalizedGenerationSource {
   type: 'pdf' | 'text' | 'url';
   text: string;
@@ -658,24 +760,17 @@ export async function createApp(options: CreateAppOptions = {}) {
       if (!assetKey || !prompt) return res.status(400).json({ error: 'assetKey and prompt are required.' });
       const dominantColor = EXECUTIVE_COLORS.includes(req.body.dominantColor) ? req.body.dominantColor : 'green';
       const stylePreset = typeof req.body.stylePreset === 'string' ? req.body.stylePreset.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) : 'boardroom-clay';
-      const normalized = normalizeExecutiveVisualAsset({ key: assetKey, prompt, alt: req.body.alt, provider: 'local-dev' });
-      if (!normalized) return res.status(400).json({ error: 'Asset prompt was not safe or complete.' });
-      const userId = req.user?.id || 'dev-user';
-      const hash = crypto.createHash('sha256').update(`${normalized.prompt}|${stylePreset}|${dominantColor}`).digest('hex').slice(0, 16);
-      const relDir = path.join('generated', 'executive-assets', userId, deckId, slideId);
-      const fileName = `${assetKey}-${hash}.svg`;
-      const outDir = path.join(process.cwd(), 'public', relDir);
-      const outPath = path.join(outDir, fileName);
-      await fs.mkdir(outDir, { recursive: true });
-      try { await fs.access(outPath); } catch {
-        const colors: Record<string, [string, string, string]> = {
-          blue: ['#20AEEA', '#0455C9', '#DFF4FF'], green: ['#00CE68', '#014F36', '#E6FFF3'], 'dark-green': ['#014F36', '#00CE68', '#E6FFF3'], 'deep-blue': ['#0455C9', '#20AEEA', '#E8F3FF'], white: ['#64748B', '#20AEEA', '#F8FAFC'], light: ['#20AEEA', '#00CE68', '#F8FAFC']
-        };
-        const [primary, secondary, pale] = colors[dominantColor];
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 384"><rect width="512" height="384" fill="none"/><ellipse cx="256" cy="322" rx="132" ry="22" fill="#0f172a" opacity=".12"/><path d="M154 112c0-30 24-54 54-54h96c30 0 54 24 54 54v118c0 30-24 54-54 54h-96c-30 0-54-24-54-54z" fill="${pale}"/><circle cx="256" cy="158" r="68" fill="${primary}"/><path d="M216 214h80M226 184h60M238 132h36" stroke="${secondary}" stroke-width="24" stroke-linecap="round"/><circle cx="332" cy="238" r="44" fill="${secondary}" opacity=".94"/></svg>`;
-        await fs.writeFile(outPath, svg, 'utf8');
-      }
-      res.json({ assetKey, key: assetKey, url: `/${relDir}/${fileName}`.replace(/\\/g, '/'), alt: normalized.alt || `${assetKey.replace(/-/g, ' ')} executive visual asset`, status: 'ready', provider: 'local-dev', createdAt: new Date().toISOString(), storagePath: `executive-assets/${userId}/${deckId}/${slideId}/${assetKey}.png`, promptHash: hash });
+      const generated = await generateExecutiveAssetFile({
+        assetKey,
+        prompt,
+        alt: req.body.alt,
+        deckId,
+        slideId,
+        userId: req.user?.id || 'dev-user',
+        dominantColor,
+        stylePreset,
+      });
+      res.json(generated);
     } catch (error: any) {
       console.error('Executive asset generation failed:', error);
       res.status(500).json({ error: error.message || 'Failed to generate executive asset.' });
@@ -997,18 +1092,22 @@ ${rawParsedText || 'No source text is available for this editing session.'}`;
       let styleGuidance = '';
       if (graphicStyle === 'modern_infographic') {
         styleGuidance = 'The visual elements MUST follow a "Modern Infographic" style. Choose graphic types like "process" (for timelines), "comparison" (for meters/bars), and "pie" (for proportional breakdowns). Keep visual item labels bold and stats crisp.';
+      } else if (graphicStyle === 'clean_strategy') {
+        styleGuidance = 'The visual elements MUST follow a "Clean Strategy" style for sparse consulting-style decks. Use a clear headline on every slide, separate insight from action, prefer 2–3 message cards per slide, apply a restrained palette, and keep charts low-noise with minimal labels, gridlines, and other chart junk.';
       } else if (graphicStyle === 'bento_minimal') {
         styleGuidance = 'The visual elements MUST follow a "Modern Bento Grid" style. Choose graphic types like "metrics" (to create beautiful side-by-side bento metrics boards), "comparison", or modular data cards with clear numerical stats.';
       } else if (graphicStyle === 'executive_mono') {
         styleGuidance = 'The visual elements MUST follow a "High-Impact Technical / Corporate Executive" style. Choose graphic types like "hierarchy" (for structured layers/tiers) or "metrics" and "process". Use serious, data-driven labels and structured content mapping.';
-      } else if (graphicStyle === 'editorial_story') {
-        styleGuidance = 'The visual elements MUST follow an "Editorial Storyboard" style. Use magazine-like pacing, chapter-style section breaks, pull-quote moments, and visually strong title/transition slides with process, hierarchy, and comparison graphics.';
+      } else if (graphicStyle === 'editorial_story' || graphicStyle === 'bold_editorial') {
+        styleGuidance = 'The visual elements MUST follow a "Bold Editorial" / "Editorial Storyboard" style. Use magazine-like pacing, chapter-style section breaks, pull-quote moments, assertive headlines, and visually strong title/transition slides with process, hierarchy, and comparison graphics.';
       } else if (graphicStyle === 'data_report') {
         styleGuidance = 'The visual elements MUST follow a "Data-Heavy Report" style. Prefer metrics dashboards, benchmark panels, comparison bars, percentage grids, trend indicators, and evidence-led labels. Every slide should make the data or proof easy to scan.';
       } else if (graphicStyle === 'workshop_canvas') {
         styleGuidance = 'The visual elements MUST follow a "Workshop Canvas" style. Use decision matrices, process boards, action-plan templates, priority stacks, and facilitation-friendly prompts that help an audience discuss and act.';
       } else if (graphicStyle === 'executive_infographic') {
         styleGuidance = `The visual system MUST follow a brand-neutral "Executive Infographic" style. Do not mention or imitate any external company, logo, or brand. Build each slide around one conclusion. Alternate between clean executive-report slides for evidence, regulation, timelines, policy, and formal comparisons, and bold infographic slides for key messages, risks, principles, challenges, strategy, and calls to action. For every slide, provide executiveMode, layoutArchetype, framingStatement, concise structured cards, dominantColor, bottomLine, structuredVisual, visualAlternatives, and visualAssets. Use saturated blue or green backgrounds for bold infographic slides and white/light backgrounds for formal report slides. Cards must have short headings, no more than four concise points, and a takeaway where useful. Bottom lines must be one sentence and boardroom-ready.`;
+      } else {
+        styleGuidance = 'The visual elements MUST follow a polished professional deck style. Use clear hierarchy, concise headlines, balanced whitespace, credible business visuals, consistent typography, restrained color, and purposeful charts or diagrams that make each slide easy to understand and present.';
       }
 
       let toneGuidance = '';
@@ -1222,6 +1321,11 @@ ${textToAnalyze}
 
       presentationData.slides = presentationData.slides.map((slide: any, index: number) => {
         return normalizeSlideContent(slide, slide.id || `slide-${index + 1}`, slide.title || `Key Point ${index + 1}`);
+      });
+
+      await resolvePendingExecutiveVisualAssets(presentationData.slides, {
+        deckId: crypto.createHash('sha256').update(`${req.user!.id}|${presentationData.title}|${Date.now()}`).digest('hex').slice(0, 16),
+        userId: req.user!.id,
       });
 
       // Deduct 1 credit from user on successful generation
